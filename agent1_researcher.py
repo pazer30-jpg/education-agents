@@ -1,9 +1,12 @@
 """
 Agent 1 - Researcher
-מחפש מאמרים אקדמיים מ-3 מקורות:
-  1. Semantic Scholar (ראשי)
-  2. OpenAlex (ללא rate limit, כיסוי רחב)
-  3. CORE (full-text open access)
+מחפש מאמרים אקדמיים מ-6 מקורות:
+  1. Semantic Scholar  — ציטוטים, peer-reviewed
+  2. OpenAlex          — ללא rate limit, open access
+  3. Crossref          — DOI metadata, citation counts
+  4. ERIC              — ספציפי לחינוך
+  5. CORE              — full-text open access
+  6. Unpaywall         — מוצא PDFs לפי DOI
   + Claude Knowledge כ-fallback אחרון
 """
 
@@ -13,6 +16,27 @@ import time
 from pathlib import Path
 from config import SEMANTIC_SCHOLAR_BASE, SEMANTIC_SCHOLAR_API_KEY, PAPERS_DIR
 from claude_cli import ask_claude_json
+
+
+# ─────────────────────────────────────────────
+# Source health tracking
+# ─────────────────────────────────────────────
+
+_source_health: dict[str, dict] = {}
+
+def _track(source: str, results: list, error: str = ""):
+    _source_health[source] = {"count": len(results), "ok": len(results) > 0, "error": error}
+
+def _health_report() -> str:
+    if not _source_health:
+        return ""
+    working = [s for s, h in _source_health.items() if h["ok"]]
+    failed  = [s for s, h in _source_health.items() if not h["ok"]]
+    total   = sum(h["count"] for h in _source_health.values())
+    lines   = [f"  📡 מקורות: {len(working)} עבדו, {len(failed)} נכשלו | {total} תוצאות סה\"כ"]
+    if failed:
+        lines.append(f"  ⚠️  נכשלו: {', '.join(failed)}")
+    return "\n".join(lines)
 
 
 # ─────────────────────────────────────────────
@@ -467,6 +491,7 @@ def _search_all_sources(queries: list[str]) -> tuple[list[dict], dict]:
             time.sleep(5)
         print(f"  [Agent1] 🔍 SS: '{q[:50]}'...")
         results = search_semantic_scholar(q, limit=10)
+        _track("semantic_scholar", results)
         if not results and i == 0:
             print("  [Agent1] ⚠️  SS rate limited")
             break
@@ -476,24 +501,28 @@ def _search_all_sources(queries: list[str]) -> tuple[list[dict], dict]:
     for q in queries:
         print(f"  [Agent1] 🌐 OpenAlex: '{q[:50]}'...")
         results = search_openalex(q, limit=10)
+        _track("openalex", results)
         _add_unique(_clean_openalex_papers(results), "openalex")
 
     # ── Crossref (DOI + citations) ────────────
     for q in queries[:2]:
         print(f"  [Agent1] 🔗 Crossref: '{q[:50]}'...")
         results = search_crossref(q, limit=8)
+        _track("crossref", results)
         _add_unique(_clean_crossref_papers(results), "crossref")
 
     # ── ERIC (education-specific) ─────────────
     for q in queries[:3]:
         print(f"  [Agent1] 🎓 ERIC: '{q[:50]}'...")
         results = search_eric(q, limit=8)
+        _track("eric", results)
         _add_unique(_clean_eric_papers(results), "eric")
 
     # ── CORE (for full-text PDFs) ─────────────
     for q in queries[:2]:
         print(f"  [Agent1] 📄 CORE: '{q[:50]}'...")
         results = search_core(q, limit=8)
+        _track("core", results)
         _add_unique(_clean_core_papers(results), "core")
 
     # ── Unpaywall: find PDFs for papers with DOI ──
@@ -615,6 +644,11 @@ title, authors, year, abstract, url, pdf_url, citation_count, venue, source, rel
             "sources": stats,
             "papers": curated,
         }, f, ensure_ascii=False, indent=2)
+
+    # Health report
+    report = _health_report()
+    if report:
+        print(report)
 
     print(f"\n✅ Agent 1 complete → {filepath} ({len(curated)} papers)\n")
     return filepath

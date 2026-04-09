@@ -87,6 +87,10 @@ def generate_dashboard() -> str:
     for t in researched_topics:
         if t not in coverage_map:
             coverage_map[t] = 1
+    # Coverage counts for legend
+    n_blocked = sum(1 for s in coverage_map.values() if s >= 7)
+    n_caution = sum(1 for s in coverage_map.values() if 4 <= s < 7)
+    n_available = sum(1 for s in coverage_map.values() if s < 4)
     queue = mem.get("topic_queue", [])[:6]
     gaps = mem.get("gaps", [])[:5]
     iterations = mem.get("iterations", 0)
@@ -283,9 +287,9 @@ tr:hover td{{background:var(--hover)}}
   <div class="sec">
     <h2>🗺️ כיסוי נושאים ({len(coverage_map)})</h2>
     <div style="font-size:11px;color:var(--td);margin-bottom:8px">
-      <span class="tag high" style="font-size:10px">מכוסה היטב ({sum(1 for s in coverage_map.values() if s >= max(coverage_map.values(), default=1) * 0.6)})</span>
-      <span class="tag med" style="font-size:10px">בינוני ({sum(1 for s in coverage_map.values() if max(coverage_map.values(), default=1) * 0.3 <= s < max(coverage_map.values(), default=1) * 0.6)})</span>
-      <span class="tag low" style="font-size:10px">חלש ({sum(1 for s in coverage_map.values() if s < max(coverage_map.values(), default=1) * 0.3)})</span>
+      <span class="tag high" style="font-size:10px">🔴 BLOCKED ({n_blocked})</span>
+      <span class="tag med" style="font-size:10px">🟡 CAUTION ({n_caution})</span>
+      <span class="tag low" style="font-size:10px">🟢 AVAILABLE ({n_available})</span>
     </div>
     <div class="cloud" id="coverageMap"></div>
   </div>
@@ -455,10 +459,10 @@ function renderCoverage() {{
   if (!entries.length) {{ el.innerHTML='<div class="empty">אין נתוני כיסוי</div>'; return; }}
   const max = entries[0][1];
   el.innerHTML = entries.map(([topic, score]) => {{
-    const pct = score/max;
-    const cls = pct >= 0.6 ? 'high' : pct >= 0.3 ? 'med' : 'low';
-    const size = 11 + Math.round(pct * 5);
-    return `<span class="tag ${{cls}}" style="font-size:${{size}}px" title="${{topic}}: ${{score}} נקודות">${{topic}}</span>`;
+    const cls = score >= 7 ? 'high' : score >= 4 ? 'med' : 'low';
+    const label = score >= 7 ? 'BLOCKED' : score >= 4 ? 'CAUTION' : 'AVAILABLE';
+    const size = 11 + Math.min(5, Math.round(score));
+    return `<span class="tag ${{cls}}" style="font-size:${{size}}px" title="${{topic}}: ${{score}} pts — ${{label}}">${{topic}}</span>`;
   }}).join('');
 }}
 

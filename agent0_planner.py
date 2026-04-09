@@ -41,9 +41,9 @@ def _build_context() -> dict:
     coverage = mem.get("coverage_map", {})
     max_score = max(coverage.values()) if coverage else 1
     coverage_analysis = {
-        "well_covered": [t for t, s in coverage.items() if s >= max_score * 0.6],
-        "medium_covered": [t for t, s in coverage.items() if max_score * 0.3 <= s < max_score * 0.6],
-        "weak_or_missing": [t for t, s in coverage.items() if s < max_score * 0.3],
+        "BLOCKED_do_not_pick": [t for t, s in coverage.items() if s >= 7],
+        "CAUTION_low_priority": [t for t, s in coverage.items() if 4 <= s < 7],
+        "AVAILABLE_preferred": [t for t, s in coverage.items() if s < 4],
     }
     # Topics that were mentioned in gaps/queue but never researched
     all_researched = set(t.lower() for t in mem.get("researched_topics", []))
@@ -91,16 +91,16 @@ def run_planner(main_field: str, user_hints: list[str] = None) -> dict:
 {json.dumps(ctx['memory_summary'], ensure_ascii=False, indent=2)}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-ניתוח כיסוי — קריטי לבחירת נושאים:
+חוקי כיסוי — חובה לעמוד בהם:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-מכוסים היטב (אל תחזור עליהם!):
-{json.dumps(ctx['coverage_analysis']['well_covered'], ensure_ascii=False)}
+🔴 BLOCKED — אסור לבחור (כיסוי ≥7):
+{json.dumps(ctx['coverage_analysis']['BLOCKED_do_not_pick'], ensure_ascii=False)}
 
-כיסוי בינוני (אפשר להעמיק):
-{json.dumps(ctx['coverage_analysis']['medium_covered'], ensure_ascii=False)}
+🟡 CAUTION — רק אם אין אלטרנטיבה (כיסוי 4-6):
+{json.dumps(ctx['coverage_analysis']['CAUTION_low_priority'], ensure_ascii=False)}
 
-כיסוי חלש (עדיפות גבוהה!):
-{json.dumps(ctx['coverage_analysis']['weak_or_missing'], ensure_ascii=False)}
+🟢 AVAILABLE — עדיפות מלאה (כיסוי <4):
+{json.dumps(ctx['coverage_analysis']['AVAILABLE_preferred'], ensure_ascii=False)}
 
 נושאים שטרם נחקרו (עדיפות גבוהה מאד!):
 {json.dumps(ctx['unexplored_topics'], ensure_ascii=False)}
@@ -117,11 +117,13 @@ def run_planner(main_field: str, user_hints: list[str] = None) -> dict:
   - נושא 2: ממצאים אמפיריים / מחקר שטח
   - נושא 3: יישום / השלכות מעשיות
 
-עקרונות:
-1. עדיפות ראשונה: נושאים מ"כיסוי חלש" או "טרם נחקרו"
-2. אל תחזור על נושאים מ"מכוסים היטב" — אלא אם יש זווית חדשה לגמרי
-3. כל נושא צריך להיות ספציפי מספיק לחיפוש אקדמי
-4. combined_title צריך לשקף את הסינתזה בין 3 הנושאים (עברית, עד 80 תווים)
+לוגיקת בחירה:
+1. בחר 3 נושאים — כולם מ-AVAILABLE (ירוק)
+2. אם אין מספיק AVAILABLE — מותר אחד מ-CAUTION (צהוב)
+3. לעולם אל תבחר מ-BLOCKED (אדום) — גם לא כנושא משנה
+4. נושאים מ-"טרם נחקרו" = עדיפות מקסימלית
+5. כל נושא ספציפי מספיק לחיפוש אקדמי
+6. combined_title משקף סינתזה בין 3 הנושאים (עברית, עד 80 תווים)
 
 החזר JSON עם:
 - topics: מערך של בדיוק 3 אובייקטים, כל אחד עם:
