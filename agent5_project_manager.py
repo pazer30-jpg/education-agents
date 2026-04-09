@@ -717,6 +717,91 @@ def run_project_manager(request: str, auto_approve: bool = False) -> dict:
 
 
 # ─────────────────────────────────────────────
+# Session memory — persists between --chat sessions
+# ─────────────────────────────────────────────
+
+SESSION_FILE = OUTPUT_DIR / "session_memory.json"
+
+def _load_session() -> dict:
+    if SESSION_FILE.exists():
+        try:
+            return json.loads(SESSION_FILE.read_text(encoding="utf-8"))
+        except Exception:
+            pass
+    return {"topic": "חינוך בלתי פורמלי", "preferences": {}, "last_requests": []}
+
+def _save_session(mem: dict):
+    SESSION_FILE.write_text(json.dumps(mem, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+# ─────────────────────────────────────────────
+# Last run explainer
+# ─────────────────────────────────────────────
+
+def _explain_last_run() -> str:
+    f = OUTPUT_DIR / "analytics.json"
+    if not f.exists():
+        return "אין ריצות קודמות."
+    runs = json.loads(f.read_text(encoding="utf-8")).get("runs", [])
+    if not runs:
+        return "אין ריצות קודמות."
+    r = runs[-1]
+    lines = [
+        f"ריצה אחרונה — {r.get('started_at','')[:16].replace('T',' ')}",
+        f"  נושא:  {r.get('topic','?')}",
+        f"  סטטוס: {'✅' if r.get('success') else '❌'}",
+        f"  זמן:   {r.get('duration_s',0)/60:.1f} דקות",
+    ]
+    if r.get("avg_qa"):
+        lines.append(f"  QA:    {r['avg_qa']}/100")
+    if r.get("est_cost"):
+        lines.append(f"  עלות:  ${r['est_cost']}")
+    for s in r.get("steps", []):
+        icon = "✅" if s.get("status") == "ok" else "⚠️"
+        qa = f" QA:{s['qa_score']}" if s.get("qa_score") else ""
+        lines.append(f"    {icon} {s['agent']}: {s.get('duration_s',0):.0f}s{qa}")
+    for e in r.get("errors", [])[:3]:
+        lines.append(f"    ❌ {e.get('agent','?')}: {e.get('error','')[:60]}")
+    return "\n".join(lines)
+
+
+# ─────────────────────────────────────────────
+# Priority queue
+# ─────────────────────────────────────────────
+
+QUEUE_FILE = OUTPUT_DIR / "priority_queue.json"
+
+def _load_queue() -> list:
+    if QUEUE_FILE.exists():
+        try:
+            return json.loads(QUEUE_FILE.read_text(encoding="utf-8"))
+        except Exception:
+            pass
+    return []
+
+def _save_queue(q: list):
+    QUEUE_FILE.write_text(json.dumps(q, ensure_ascii=False, indent=2), encoding="utf-8")
+
+def queue_add(request: str, priority: int = 5) -> str:
+    q = _load_queue()
+    q.append({"request": request, "priority": priority,
+              "added_at": datetime.now().isoformat(), "status": "waiting"})
+    q.sort(key=lambda x: x["priority"])
+    _save_queue(q)
+    return f"נוסף לתור (עדיפות {priority}): {request[:60]}"
+
+def queue_status() -> str:
+    q = _load_queue()
+    if not q:
+        return "התור ריק."
+    icons = {"waiting": "⏳", "running": "▶️", "done": "✅"}
+    lines = [f"תור עדיפויות ({len(q)} פריטים):"]
+    for item in q[-10:]:
+        lines.append(f"  {icons.get(item['status'],'?')} [{item['priority']}] {item['request'][:55]}")
+    return "\n".join(lines)
+
+
+# ─────────────────────────────────────────────
 # Chat: intent classification (via claude_cli)
 # ─────────────────────────────────────────────
 
@@ -758,6 +843,15 @@ def _chat_process(user_input: str, session: dict, auto: bool) -> str:
     if low in ("עצור", "יציאה", "exit", "quit", "q"):
         return "__EXIT__"
 
+    if any(w in low for w in ["מה קרה", "ריצה אחרונה", "last run"]):
+        return _explain_last_run()
+
+    if low in ("תור", "queue"):
+        return queue_status()
+
+    if low.startswith("תור "):
+        return queue_add(user_input[4:].strip())
+
     if low in ("עזרה", "help", "?"):
         return """פקודות:
   הרץ הכל [--parallel] [--bilingual]  — pipeline מלא
@@ -772,6 +866,8 @@ def _chat_process(user_input: str, session: dict, auto: bool) -> str:
   checkpoints                           — סטטוס checkpoints
   חפש [מילה] / היסטוריה                — חפש בתוכן שנוצר
   קונטקסט / context                    — הצג/עדכן קונטקסט אישי
+  מה קרה / ריצה אחרונה                — פירוט ריצה אחרונה
+  תור / תור [בקשה]                    — תור עדיפויות
   הוסף מאמר [URL]                      — הוסף מקור ידני
   עצור                                  — יציאה"""
 
@@ -948,15 +1044,22 @@ def _chat_process(user_input: str, session: dict, auto: bool) -> str:
 # ─────────────────────────────────────────────
 
 def run_chat(auto: bool = False):
-    """מצב --chat אינטראקטיבי."""
-    session = {"history": [], "topic": "חינוך בלתי פורמלי"}
+    """מצב --chat אינטראקטיבי עם session memory."""
+    session_mem = _load_session()
+    session = {
+        "history": [],
+        "topic": session_mem.get("topic", "חינוך בלתי פורמלי"),
+    }
+
+    last = session_mem.get("last_requests", [])
+    last_hint = f"\n  (session קודם: {last[-1]['input'][:40]}...)" if last else ""
 
     print(f"""
 ╔══════════════════════════════════════════════════════════╗
 ║  🤖 מוקי — Project Manager                               ║
-║  הקלד 'עזרה' לרשימת פקודות, 'עצור' לסיום               ║
+║  הקלד '?' לעזרה, 'מה קרה' לריצה אחרונה, 'עצור' לסיום   ║
 ╚══════════════════════════════════════════════════════════╝
-""")
+{last_hint}""")
 
     import random
     greetings = ["מה אפשר לעשות בשבילך?", "במה אני יכול לעזור?", "מה רוצים היום?"]
@@ -967,6 +1070,7 @@ def run_chat(auto: bool = False):
             user_input = input("\n  👤 אתה: ").strip()
         except (EOFError, KeyboardInterrupt):
             print("\n  🤖 מוקי: להתראות!")
+            _save_session(session_mem)
             break
 
         if not user_input:
@@ -976,10 +1080,20 @@ def run_chat(auto: bool = False):
 
         if response == "__EXIT__":
             print("  🤖 מוקי: להתראות!")
+            _save_session(session_mem)
             break
 
         if response:
             print(f"\n  🤖 מוקי: {response}")
+
+        # Track request in session memory
+        session_mem.setdefault("last_requests", []).append({
+            "input": user_input[:80],
+            "time": datetime.now().strftime("%d/%m %H:%M"),
+        })
+        session_mem["last_requests"] = session_mem["last_requests"][-10:]
+        if session.get("topic") != session_mem.get("topic"):
+            session_mem["topic"] = session.get("topic", session_mem["topic"])
 
 
 # ─────────────────────────────────────────────
@@ -993,6 +1107,10 @@ if __name__ == "__main__":
         Checkpoint.print_status()
     elif "--analytics" in sys.argv:
         tracker.print_report()
+    elif "--last-run" in sys.argv:
+        print(_explain_last_run())
+    elif "--queue" in sys.argv:
+        print(queue_status())
     elif len(sys.argv) > 1 and not sys.argv[1].startswith("-"):
         auto = "--auto" in sys.argv
         run_project_manager(sys.argv[1], auto_approve=auto)
@@ -1004,4 +1122,6 @@ Usage:
   python3 agent5_project_manager.py "בקשה" --auto     # one-shot
   python3 agent5_project_manager.py --analytics       # דוח ביצועים
   python3 agent5_project_manager.py --checkpoints     # סטטוס checkpoints
+  python3 agent5_project_manager.py --last-run        # ריצה אחרונה
+  python3 agent5_project_manager.py --queue           # תור עדיפויות
         """)
