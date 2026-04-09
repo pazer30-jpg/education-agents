@@ -1,21 +1,24 @@
 """
 Agent 4 — Graphic Designer
-יוצר תמונה אחת לכל פיס תוכן שנוצר ב-Agent 3:
-  - LinkedIn post  → cover image  (1200×627)
-  - Blog post      → header image (1600×500)
-  - Podcast ep.    → cover art    (3000×3000 square)
+יוצר גרפיקה ויזואלית (לא רק טקסט על רקע) לכל פיס תוכן:
+  - LinkedIn post  → cover graphic  (1200×627)
+  - Blog post      → header graphic (1600×500)
+  - Podcast ep.    → cover art      (3000×3000 square)
 
-מופעל אוטומטית אחרי Agent 3.
+הגרפיקה כוללת: אלמנטים ויזואליים, איקונים, צורות אבסטרקטיות,
+מטאפורות חזותיות — מינימום טקסט (רק שם + תגית קטנה).
+
 פלט: SVG בתיקיית output/designs/ + image_prompts.txt לשימוש ב-DALL-E
 """
 
 import json
+import re
 import sys
 from pathlib import Path
 from datetime import datetime
 
 from config import OUTPUT_DIR
-from claude_cli import ask_claude_json
+from claude_cli import ask_claude
 
 DESIGNS_DIR = OUTPUT_DIR / "designs"
 DESIGNS_DIR.mkdir(parents=True, exist_ok=True)
@@ -30,130 +33,205 @@ BRAND = {
     "secondary": "#16213E",
     "accent":    "#E94560",
     "warm":      "#F5A623",
+    "teal":      "#0F9B8E",
     "light":     "#EAEAEA",
     "white":     "#FFFFFF",
-    "font_he":   "Assistant, Arial, sans-serif",
-    "font_body": "Heebo, Arial, sans-serif",
 }
 
 
 # ─────────────────────────────────────────────
-# SVG generators — one per platform
+# Claude SVG generator
 # ─────────────────────────────────────────────
 
-def _svg_linkedin(headline: str, subline: str, topic_tag: str) -> str:
-    """1200×627 — LinkedIn recommended cover size"""
-    h  = headline[:52] + ("…" if len(headline) > 52 else "")
-    s  = subline[:72]  + ("…" if len(subline)   > 72 else "")
-    tl = topic_tag[:26]
-    tw = min(len(tl) * 15 + 44, 360)
-    return f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 627">
-  <defs>
+def _generate_svg(content: str, platform: str, dimensions: dict) -> tuple[str, str]:
+    """
+    Ask Claude to generate a graphic SVG based on content meaning.
+    Returns: (svg_string, dalle_prompt)
+    """
+    w, h = dimensions["w"], dimensions["h"]
+
+    platform_guide = {
+        "linkedin": f"""LinkedIn cover ({w}×{h}).
+Layout: graphic takes 65% left side, small branding bottom-right.
+Small text allowed: topic tag (2-3 words max) in a pill badge, "פז שלמה" signature.""",
+
+        "blog": f"""Blog header banner ({w}×{h}).
+Layout: wide panoramic graphic, no text except small "פז שלמה" bottom-left.
+Use horizontal flow — elements should guide the eye left to right.""",
+
+        "podcast": f"""Podcast cover art ({w}×{h} square).
+Layout: central focal graphic element, show name "חינוך בלתי פורמלי" small at bottom.
+Bold, iconic, recognizable at small sizes (podcast thumbnail).""",
+    }
+
+    prompt = f"""You are a graphic designer creating an SVG illustration.
+
+CONTENT (understand the theme, don't write the text):
+{content[:2000]}
+
+PLATFORM: {platform_guide.get(platform, '')}
+
+BRAND COLORS:
+  Primary (dark bg): {BRAND['primary']}
+  Secondary: {BRAND['secondary']}
+  Accent (red): {BRAND['accent']}
+  Warm (orange): {BRAND['warm']}
+  Teal: {BRAND['teal']}
+  Light: {BRAND['light']}
+
+DESIGN RULES — CRITICAL:
+1. THIS IS A GRAPHIC, NOT A TEXT SLIDE. The visual elements ARE the design.
+2. Create visual metaphors for the content's theme using:
+   - Abstract geometric shapes (circles, paths, organic curves)
+   - Symbolic icons drawn with SVG paths (people, connections, growth, light, paths)
+   - Flowing lines, networks, constellations
+   - Layered translucent shapes creating depth
+3. MINIMAL TEXT — only:
+   - A small topic tag (2-3 Hebrew words) in a pill/badge shape
+   - "פז שלמה" signature (small, corner)
+   - NO headlines, NO paragraphs, NO sentences
+4. Use gradients, opacity layers, and subtle patterns for richness
+5. At least 15-20 visual SVG elements (shapes, paths, circles, lines)
+6. Create visual hierarchy with size, color, and opacity variation
+
+VISUAL METAPHOR IDEAS (choose what fits the content):
+- Education/growth: ascending circles, sprouting branches, upward paths
+- Connection/belonging: interconnected nodes, overlapping circles, bridges
+- Identity/self: mirror shapes, layered silhouettes, nested forms
+- Resilience: wave patterns, bending-not-breaking lines, anchors
+- Youth/energy: dynamic angles, radiating lines, spark patterns
+- Community: clustered elements, rings, gathering formations
+- Transition/threshold: doorway shapes, gradient transitions, bridges
+
+Return ONLY the SVG code. Start with <svg and end with </svg>.
+No explanation, no markdown, no code blocks.
+
+Also include a comment at the very end: <!-- DALLE: your DALL-E prompt here -->"""
+
+    system = f"""You are an expert SVG graphic designer. You create beautiful,
+modern, abstract graphic illustrations — NOT text slides.
+Your designs use geometric shapes, organic curves, gradients, and visual metaphors.
+Minimal text. Maximum visual impact. Clean, professional, editorial style.
+viewBox must be "0 0 {w} {h}". All coordinates within bounds."""
+
+    raw = ask_claude(prompt, system=system, max_budget=0.8)
+
+    # Extract SVG
+    svg = raw.strip()
+    # Remove markdown wrapping if present
+    if "```" in svg:
+        match = re.search(r'<svg[\s\S]*?</svg>', svg)
+        svg = match.group(0) if match else svg
+
+    # Make sure it starts with <svg
+    if not svg.startswith("<svg"):
+        match = re.search(r'<svg[\s\S]*?</svg>', svg)
+        if match:
+            svg = match.group(0)
+
+    # Extract DALL-E prompt from comment
+    dalle = ""
+    dalle_match = re.search(r'<!--\s*DALLE:\s*(.+?)\s*-->', svg)
+    if dalle_match:
+        dalle = dalle_match.group(1)
+        svg = svg.replace(dalle_match.group(0), "")  # remove from SVG
+
+    if not dalle:
+        dalle = f"Abstract graphic illustration about education, {platform} style, deep blue and red tones, geometric shapes, no text, editorial design"
+
+    return svg.strip(), dalle
+
+
+# ─────────────────────────────────────────────
+# Fallback: template-based graphic (if Claude fails)
+# ─────────────────────────────────────────────
+
+def _fallback_svg(w: int, h: int, topic_tag: str, platform: str) -> str:
+    """Generate a decent graphic SVG without Claude."""
+    import random
+    random.seed(hash(topic_tag))
+
+    elements = []
+
+    # Background
+    elements.append(f'''<defs>
     <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
       <stop offset="0%" stop-color="{BRAND['primary']}"/>
       <stop offset="100%" stop-color="{BRAND['secondary']}"/>
     </linearGradient>
-    <linearGradient id="bar" x1="0%" y1="0%" x2="100%" y2="0%">
-      <stop offset="0%" stop-color="{BRAND['accent']}"/>
-      <stop offset="100%" stop-color="{BRAND['warm']}"/>
-    </linearGradient>
-  </defs>
-  <rect width="1200" height="627" fill="url(#bg)"/>
-  <circle cx="980" cy="110" r="200" fill="{BRAND['accent']}" opacity="0.07"/>
-  <circle cx="1080" cy="520" r="130" fill="{BRAND['warm']}"  opacity="0.06"/>
-  <circle cx="60"   cy="560" r="100" fill="{BRAND['accent']}" opacity="0.05"/>
-  <rect x="80" y="195" width="6" height="230" fill="url(#bar)" rx="3"/>
-  <rect x="80" y="128" width="{tw}" height="44" rx="22" fill="{BRAND['accent']}"/>
-  <text x="102" y="157" font-family="{BRAND['font_he']}" font-size="19"
-        fill="{BRAND['white']}" font-weight="600">{tl}</text>
-  <text x="108" y="268" font-family="{BRAND['font_he']}" font-size="50"
-        fill="{BRAND['white']}" font-weight="800">{h}</text>
-  <text x="108" y="320" font-family="{BRAND['font_body']}" font-size="25"
-        fill="{BRAND['light']}" opacity="0.85">{s}</text>
-  <circle cx="120" cy="536" r="30" fill="{BRAND['accent']}" opacity="0.85"/>
-  <text x="120" y="544" font-family="{BRAND['font_he']}" font-size="22"
-        fill="{BRAND['white']}" font-weight="700" text-anchor="middle">פז</text>
-  <text x="164" y="544" font-family="{BRAND['font_he']}" font-size="19"
-        fill="{BRAND['light']}" opacity="0.9">פז שלמה | חינוך בלתי פורמלי</text>
-</svg>"""
-
-
-def _svg_blog(headline: str, subline: str) -> str:
-    """1600×500 — blog header banner"""
-    h = headline[:55] + ("…" if len(headline) > 55 else "")
-    s = subline[:80]  + ("…" if len(subline)   > 80 else "")
-    return f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 500">
-  <defs>
-    <linearGradient id="bg2" x1="0%" y1="0%" x2="100%" y2="0%">
-      <stop offset="0%"   stop-color="{BRAND['primary']}"/>
-      <stop offset="65%"  stop-color="{BRAND['secondary']}"/>
-      <stop offset="100%" stop-color="#0F3460"/>
-    </linearGradient>
-  </defs>
-  <rect width="1600" height="500" fill="url(#bg2)"/>
-  <polygon points="1250,0 1600,0 1600,500 1400,500"
-           fill="{BRAND['accent']}" opacity="0.07"/>
-  <polygon points="1400,0 1600,0 1600,280"
-           fill="{BRAND['warm']}"  opacity="0.06"/>
-  <rect x="0" y="0" width="1600" height="5" fill="{BRAND['accent']}"/>
-  <text x="800" y="205" font-family="{BRAND['font_he']}" font-size="62"
-        fill="{BRAND['white']}" font-weight="800" text-anchor="middle">{h}</text>
-  <rect x="690" y="228" width="220" height="3"
-        fill="{BRAND['accent']}" rx="2"/>
-  <text x="800" y="285" font-family="{BRAND['font_body']}" font-size="28"
-        fill="{BRAND['light']}" opacity="0.82" text-anchor="middle">{s}</text>
-  <rect x="0" y="455" width="1600" height="45"
-        fill="{BRAND['accent']}" opacity="0.12"/>
-  <text x="50" y="484" font-family="{BRAND['font_body']}" font-size="18"
-        fill="{BRAND['light']}" opacity="0.7">פז שלמה | חינוך בלתי פורמלי ומנהיגות</text>
-</svg>"""
-
-
-def _svg_podcast(show_name: str, episode_title: str, episode_num: int) -> str:
-    """3000×3000 — podcast cover (Spotify/Apple minimum 3000px)"""
-    sn  = show_name[:22]
-    et1 = episode_title[:28]
-    et2 = episode_title[28:56] if len(episode_title) > 28 else ""
-    et2_tag = (
-        f'<text x="1500" y="1610" font-family="{BRAND["font_body"]}" font-size="100"'
-        f' fill="{BRAND["light"]}" text-anchor="middle">{et2}</text>'
-        if et2 else ""
-    )
-    return f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 3000 3000">
-  <defs>
-    <radialGradient id="bg3" cx="50%" cy="40%">
-      <stop offset="0%"   stop-color="#1E3A5F"/>
-      <stop offset="100%" stop-color="{BRAND['primary']}"/>
+    <radialGradient id="glow" cx="30%" cy="40%">
+      <stop offset="0%" stop-color="{BRAND['accent']}" stop-opacity="0.15"/>
+      <stop offset="100%" stop-color="{BRAND['primary']}" stop-opacity="0"/>
     </radialGradient>
   </defs>
-  <rect width="3000" height="3000" fill="url(#bg3)"/>
-  <g opacity="0.13" fill="{BRAND['accent']}">
-    <rect x="180" y="1320" width="45" height="360" rx="22"/>
-    <rect x="265" y="1210" width="45" height="580" rx="22"/>
-    <rect x="350" y="1090" width="45" height="820" rx="22"/>
-    <rect x="435" y="1270" width="45" height="460" rx="22"/>
-    <rect x="520" y="1160" width="45" height="680" rx="22"/>
-    <rect x="2435" y="1320" width="45" height="360" rx="22"/>
-    <rect x="2520" y="1160" width="45" height="680" rx="22"/>
-    <rect x="2605" y="1060" width="45" height="880" rx="22"/>
-    <rect x="2690" y="1210" width="45" height="580" rx="22"/>
-    <rect x="2775" y="1320" width="45" height="360" rx="22"/>
-  </g>
-  <circle cx="1500" cy="720" r="260" fill="{BRAND['accent']}" opacity="0.88"/>
-  <text x="1500" y="810" font-size="260" text-anchor="middle"
-        font-family="Apple Color Emoji,Segoe UI Emoji,sans-serif">&#x1F399;</text>
-  <text x="1500" y="1085" font-family="{BRAND['font_he']}" font-size="82"
-        fill="{BRAND['accent']}" font-weight="300" text-anchor="middle"
-        letter-spacing="6">פרק {episode_num}</text>
-  <text x="1500" y="1290" font-family="{BRAND['font_he']}" font-size="138"
-        fill="{BRAND['white']}" font-weight="800" text-anchor="middle">{sn}</text>
-  <rect x="850" y="1340" width="1300" height="5" fill="{BRAND['accent']}" rx="3"/>
-  <text x="1500" y="1490" font-family="{BRAND['font_body']}" font-size="100"
-        fill="{BRAND['light']}" text-anchor="middle">{et1}</text>
-  {et2_tag}
-  <text x="1500" y="2860" font-family="{BRAND['font_body']}" font-size="72"
-        fill="{BRAND['light']}" opacity="0.45" text-anchor="middle">פז שלמה</text>
-</svg>"""
+  <rect width="{w}" height="{h}" fill="url(#bg)"/>
+  <rect width="{w}" height="{h}" fill="url(#glow)"/>''')
+
+    # Random geometric elements
+    for _ in range(12):
+        x = random.randint(50, w - 100)
+        y = random.randint(50, h - 100)
+        r = random.randint(15, 80)
+        op = round(random.uniform(0.03, 0.12), 2)
+        color = random.choice([BRAND['accent'], BRAND['warm'], BRAND['teal']])
+        elements.append(f'  <circle cx="{x}" cy="{y}" r="{r}" fill="{color}" opacity="{op}"/>')
+
+    # Flowing lines
+    for i in range(5):
+        y_start = random.randint(100, h - 100)
+        y_end = y_start + random.randint(-80, 80)
+        cp1 = random.randint(200, w // 2)
+        cp2 = random.randint(w // 2, w - 100)
+        op = round(random.uniform(0.08, 0.2), 2)
+        color = random.choice([BRAND['accent'], BRAND['warm'], BRAND['teal']])
+        elements.append(
+            f'  <path d="M 0 {y_start} C {cp1} {y_start-60} {cp2} {y_end+60} {w} {y_end}" '
+            f'fill="none" stroke="{color}" stroke-width="2" opacity="{op}"/>'
+        )
+
+    # Constellation dots
+    for _ in range(8):
+        x = random.randint(100, w - 100)
+        y = random.randint(80, h - 80)
+        elements.append(f'  <circle cx="{x}" cy="{y}" r="4" fill="{BRAND["light"]}" opacity="0.25"/>')
+
+    # Accent shape cluster
+    cx, cy = w * 0.35, h * 0.45
+    for i in range(5):
+        angle_offset = i * 72
+        rx = 40 + i * 15
+        ry = 30 + i * 12
+        elements.append(
+            f'  <ellipse cx="{cx + i*20}" cy="{cy + i*10}" rx="{rx}" ry="{ry}" '
+            f'fill="{BRAND["accent"]}" opacity="{0.06 + i*0.02}" '
+            f'transform="rotate({angle_offset} {cx + i*20} {cy + i*10})"/>'
+        )
+
+    # Small topic tag pill
+    tag = topic_tag[:20]
+    tag_w = len(tag) * 12 + 30
+    if platform == "podcast":
+        tx, ty = w // 2 - tag_w // 2, h - 200
+    else:
+        tx, ty = 60, h - 70
+    elements.append(
+        f'  <rect x="{tx}" y="{ty}" width="{tag_w}" height="32" rx="16" '
+        f'fill="{BRAND["accent"]}" opacity="0.85"/>\n'
+        f'  <text x="{tx + tag_w//2}" y="{ty + 22}" font-family="Assistant,Arial,sans-serif" '
+        f'font-size="15" fill="{BRAND["white"]}" text-anchor="middle" font-weight="600">{tag}</text>'
+    )
+
+    # Signature
+    sx = w - 180 if platform != "podcast" else w // 2
+    sy = h - 30 if platform != "podcast" else h - 80
+    anchor = "end" if platform != "podcast" else "middle"
+    elements.append(
+        f'  <text x="{sx}" y="{sy}" font-family="Assistant,Arial,sans-serif" font-size="14" '
+        f'fill="{BRAND["light"]}" opacity="0.5" text-anchor="{anchor}">פז שלמה</text>'
+    )
+
+    body = "\n".join(elements)
+    return f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {w} {h}">\n{body}\n</svg>'
 
 
 # ─────────────────────────────────────────────
@@ -174,83 +252,59 @@ def _save(svg: str, slug: str, dalle_prompt: str, label: str) -> Path:
 
 
 # ─────────────────────────────────────────────
-# Text extractor (Claude)
+# Extract topic from content (lightweight)
 # ─────────────────────────────────────────────
 
-def _extract_design_text(content: str, platform: str) -> dict:
-    """Ask Claude to extract headline/subline/topic_tag/dalle_prompt from content."""
-    platform_hints = {
-        "linkedin": "זהו פוסט LinkedIn. חלץ את המסר המרכזי.",
-        "blog":     "זהו מאמר בלוג. חלץ כותרת + תת-כותרת.",
-        "podcast":  "זהו סקריפט פודקאסט. חלץ שם פרק + תיאור.",
-    }
-    hint = platform_hints.get(platform, "")
+def _extract_topic_tag(content: str) -> str:
+    """Extract a short topic tag from content — first heading or first bold text."""
+    # Try first heading
+    match = re.search(r'^#\s+(.+)', content, re.MULTILINE)
+    if match:
+        title = match.group(1).strip()
+        # Take first 2-3 meaningful words
+        words = [w for w in title.split() if len(w) > 2][:3]
+        return " ".join(words)[:20]
 
-    prompt = f"""{hint}
-
-מהתוכן הבא, חלץ:
-- headline: כותרת ראשית קצרה וחדה (עד 52 תווים, עברית)
-- subline: תת-כותרת מרחיבה (עד 72 תווים, עברית)
-- topic_tag: מילה-שתיים שמתארת את הנושא (עד 26 תווים, עברית, לדוגמה: שייכות / חוסן / מנהיגות)
-- dalle_prompt: תיאור סצנה באנגלית לתמונה ב-DALL-E (ללא טקסט בתמונה, אווירה חינוכית ישראלית, תאורה קולנועית, גוונים כחולים עמוקים)
-
-התוכן:
-{content[:3000]}
-
-החזר JSON בלבד עם ארבעת השדות."""
-
-    return ask_claude_json(prompt, max_budget=0.3)
+    # Try first line
+    first = content.strip().split("\n")[0][:30]
+    words = [w for w in first.split() if len(w) > 2][:3]
+    return " ".join(words)[:20] or "חינוך"
 
 
 # ─────────────────────────────────────────────
 # Per-platform designers
 # ─────────────────────────────────────────────
 
-def _design_linkedin(content_path: Path) -> Path:
-    print("  [Agent4] מעצב תמונת LinkedIn...")
-    content = content_path.read_text(encoding="utf-8", errors="replace")
-    data = _extract_design_text(content, "linkedin")
+DIMENSIONS = {
+    "linkedin": {"w": 1200, "h": 627},
+    "blog":     {"w": 1600, "h": 500},
+    "podcast":  {"w": 3000, "h": 3000},
+}
 
-    headline  = data.get("headline",  "חינוך שמשנה")
-    subline   = data.get("subline",   "מחשבות מהשטח")
-    topic_tag = data.get("topic_tag", "חינוך")
-    dalle     = data.get("dalle_prompt", "Israeli youth educator speaking to a group, cinematic blue tones, no text")
+
+def _design_platform(content_path: Path, platform: str) -> Path:
+    label = {"linkedin": "LinkedIn", "blog": "Blog", "podcast": "Podcast"}.get(platform, platform)
+    print(f"  [Agent4] מעצב גרפיקה ל-{label}...")
+
+    content = content_path.read_text(encoding="utf-8", errors="replace")
+    topic_tag = _extract_topic_tag(content)
+    dims = DIMENSIONS[platform]
+
+    try:
+        svg, dalle = _generate_svg(content, platform, dims)
+
+        # Validate SVG
+        if "<svg" not in svg or "</svg>" not in svg or len(svg) < 200:
+            raise ValueError("Invalid SVG output")
+
+    except Exception as e:
+        print(f"  [Agent4] ⚠️  Claude SVG failed ({e}) — using template")
+        svg = _fallback_svg(dims["w"], dims["h"], topic_tag, platform)
+        dalle = f"Abstract graphic about {topic_tag}, education theme, geometric, deep blue and red, no text"
 
     slug = content_path.stem[:30]
-    svg  = _svg_linkedin(headline, subline, topic_tag)
-    path = _save(svg, slug + "_li", dalle, "LinkedIn")
-    print(f"  [Agent4] LinkedIn → {path.name}")
-    return path
-
-
-def _design_blog(content_path: Path) -> Path:
-    print("  [Agent4] מעצב header לבלוג...")
-    content = content_path.read_text(encoding="utf-8", errors="replace")
-    data = _extract_design_text(content, "blog")
-
-    headline = data.get("headline", "חינוך בלתי פורמלי")
-    subline  = data.get("subline",  "מחשבות מהשטח")
-    dalle    = data.get("dalle_prompt", "Young people learning together outdoors, Israel, deep blue cinematic light, no text")
-
-    slug = content_path.stem[:30]
-    svg  = _svg_blog(headline, subline)
-    path = _save(svg, slug + "_blog", dalle, "Blog")
-    print(f"  [Agent4] Blog → {path.name}")
-    return path
-
-
-def _design_podcast(content_path: Path, show_name: str, episode_num: int) -> Path:
-    print("  [Agent4] מעצב כריכת פודקאסט...")
-    content = content_path.read_text(encoding="utf-8", errors="replace")
-    data = _extract_design_text(content, "podcast")
-
-    episode_title = data.get("headline", "שיחה על חינוך")
-    dalle         = data.get("dalle_prompt", "Microphone in a studio, blue mood, educational context, cinematic, no text")
-
-    slug = content_path.stem[:30]
-    svg  = _svg_podcast(show_name, episode_title, episode_num)
-    path = _save(svg, slug + "_pod", dalle, "Podcast")
-    print(f"  [Agent4] Podcast → {path.name}")
+    path = _save(svg, f"{slug}_{platform}", dalle, label)
+    print(f"  [Agent4] {label} → {path.name}")
     return path
 
 
@@ -259,21 +313,19 @@ def _design_podcast(content_path: Path, show_name: str, episode_num: int) -> Pat
 # ─────────────────────────────────────────────
 
 def run_designer(
-    article_paths: dict[str, Path],
-    post_paths: dict[str, list[Path]],
-    design_types: list[str],
+    article_paths: dict[str, Path] = None,
+    post_paths: dict[str, list] = None,
+    design_types: list[str] = None,
     topic: str = "",
     show_name: str = "חינוך בלתי פורמלי",
     episode_num: int = 1,
 ) -> dict[str, Path]:
-    """
-    article_paths: {"md": Path, ...} — from Agent 2
-    post_paths:    {"linkedin": [Path,...], "blog": [Path,...], "podcast": [Path,...]} — from Agent 3
-    design_types:  ["linkedin_cover", "blog_banner", "podcast_cover", "quote_card"]
-    Returns: {"linkedin": Path(svg), "blog": Path(svg), "podcast": Path(svg)}
-    """
+    article_paths = article_paths or {}
+    post_paths = post_paths or {}
+    design_types = design_types or ["linkedin_cover", "blog_banner"]
+
     print(f"\n{'='*60}")
-    print(f"🎨 Agent 4 — Designer | {', '.join(design_types)}")
+    print(f"🎨 Agent 4 — Designer (graphic) | {', '.join(design_types)}")
     print(f"{'='*60}\n")
 
     saved = {}
@@ -282,29 +334,21 @@ def run_designer(
         valid = [p for p in paths if Path(p).exists()]
         return max(valid, key=lambda p: Path(p).stat().st_mtime) if valid else None
 
-    if "linkedin_cover" in design_types:
-        li_paths = post_paths.get("linkedin", [])
-        li_file  = _latest(li_paths)
-        if li_file:
-            saved["linkedin"] = _design_linkedin(Path(li_file))
-        else:
-            print("  [Agent4] ⚠️  לא נמצא קובץ LinkedIn — מדלג")
+    platform_map = {
+        "linkedin_cover": ("linkedin", post_paths.get("linkedin", [])),
+        "blog_banner":    ("blog",     post_paths.get("blog", [])),
+        "podcast_cover":  ("podcast",  post_paths.get("podcast", [])),
+    }
 
-    if "blog_banner" in design_types:
-        blog_paths = post_paths.get("blog", [])
-        blog_file  = _latest(blog_paths)
-        if blog_file:
-            saved["blog"] = _design_blog(Path(blog_file))
+    for design_type in design_types:
+        if design_type not in platform_map:
+            continue
+        platform, paths = platform_map[design_type]
+        content_file = _latest(paths)
+        if content_file:
+            saved[platform] = _design_platform(Path(content_file), platform)
         else:
-            print("  [Agent4] ⚠️  לא נמצא קובץ בלוג — מדלג")
-
-    if "podcast_cover" in design_types:
-        pod_paths = post_paths.get("podcast", [])
-        pod_file  = _latest(pod_paths)
-        if pod_file:
-            saved["podcast"] = _design_podcast(Path(pod_file), show_name, episode_num)
-        else:
-            print("  [Agent4] ⚠️  לא נמצא קובץ פודקאסט — מדלג")
+            print(f"  [Agent4] ⚠️  לא נמצא קובץ ל-{platform} — מדלג")
 
     print(f"\n✅ Agent 4 complete → {list(saved.keys())}\n")
     return saved
@@ -319,7 +363,6 @@ if __name__ == "__main__":
 
     args = sys.argv[1:]
 
-    # Auto-detect latest posts
     post_paths = {}
     for platform in ("linkedin", "blog", "podcast"):
         if platform == "linkedin":
@@ -336,15 +379,9 @@ if __name__ == "__main__":
         sys.exit(1)
 
     types = args if args else ["linkedin_cover", "blog_banner", "podcast_cover"]
-    valid_types = {"linkedin_cover", "blog_banner", "podcast_cover", "quote_card"}
-    types = [t for t in types if t in valid_types]
-    if not types:
-        types = ["linkedin_cover", "blog_banner", "podcast_cover"]
+    valid_types = {"linkedin_cover", "blog_banner", "podcast_cover"}
+    types = [t for t in types if t in valid_types] or ["linkedin_cover"]
 
-    results = run_designer(
-        article_paths={},
-        post_paths=post_paths,
-        design_types=types,
-    )
+    results = run_designer(post_paths=post_paths, design_types=types)
     for platform, path in results.items():
         print(f"  {platform}: {path}")
