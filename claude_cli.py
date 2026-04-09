@@ -50,6 +50,45 @@ CLAUDE_MODEL = "sonnet"  # "sonnet" | "opus"
 
 
 # ─────────────────────────────────────────────
+# Rate limiter — prevent budget blowup
+# ─────────────────────────────────────────────
+
+import time as _time
+import threading
+
+class _RateLimiter:
+    """Simple rate limiter: max N calls per minute."""
+    def __init__(self, max_per_minute: int = 8):
+        self.max_per_minute = max_per_minute
+        self.calls: list[float] = []
+        self.total_budget: float = 0
+        self.max_budget: float = 50.0  # $50 per session
+        self._lock = threading.Lock()
+
+    def wait(self, budget: float):
+        with self._lock:
+            now = _time.time()
+            # Remove calls older than 60s
+            self.calls = [t for t in self.calls if now - t < 60]
+            # Wait if at limit
+            if len(self.calls) >= self.max_per_minute:
+                wait = 60 - (now - self.calls[0])
+                if wait > 0:
+                    print(f"  ⏳ Rate limit: waiting {wait:.0f}s...")
+                    _time.sleep(wait)
+            # Budget guard
+            if self.total_budget + budget > self.max_budget:
+                raise RuntimeError(
+                    f"Budget limit reached: ${self.total_budget:.2f} used, "
+                    f"${budget:.2f} requested, max ${self.max_budget:.2f}"
+                )
+            self.calls.append(_time.time())
+            self.total_budget += budget
+
+_limiter = _RateLimiter()
+
+
+# ─────────────────────────────────────────────
 # Core call
 # ─────────────────────────────────────────────
 
@@ -60,6 +99,8 @@ def ask_claude(prompt: str, system: str = "", max_budget: float = 2.0) -> str:
     """
     if not CLAUDE_BIN:
         return _api_fallback(prompt, system, max_budget)
+
+    _limiter.wait(max_budget)
 
     cmd = [
         CLAUDE_BIN,

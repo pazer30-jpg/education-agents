@@ -27,6 +27,7 @@ from agent3_content_creator import CONTENT_TYPES
 from qa_checker import run_qa, LoopDetector, QAResult
 from checkpoint import Checkpoint
 from analytics import tracker
+from logger import log
 
 MAX_RETRIES = 2   # מספר ניסיונות חוזרים לפני עצירה
 
@@ -303,6 +304,10 @@ def _execute_step(step: dict, execution_state: dict) -> str:
                 papers_files.append(str(pf))
             execution_state["papers_files"] = papers_files
             execution_state["papers_file"]  = papers_files[-1] if papers_files else None
+            # Checkpoint
+            _ckpt = execution_state.get("_ckpt")
+            if _ckpt:
+                _ckpt.save("researcher", {"papers_files": papers_files})
             return f"✅ נאספו מאמרים מ-{len(papers_files)} נושאים (עם PDF enrichment)"
 
         elif agent == "writer":
@@ -323,6 +328,9 @@ def _execute_step(step: dict, execution_state: dict) -> str:
             article_paths  = run_writer([Path(p) for p in pfs], combined_title=combined_title)
             record_article(article_paths, combined_title)
             execution_state["article_paths"] = {k: str(v) for k, v in article_paths.items()}
+            _ckpt = execution_state.get("_ckpt")
+            if _ckpt:
+                _ckpt.save("writer", {k: str(v) for k, v in article_paths.items()})
             # Agent 2.5: Article editor
             try:
                 from agent_editor import edit_article
@@ -584,8 +592,11 @@ def run_project_manager(request: str, auto_approve: bool = False) -> dict:
     print(f"📊 Project Manager | {datetime.now().strftime('%d/%m/%Y %H:%M')}")
     print(f"   בקשה: {request}")
     print(f"{'='*60}\n")
+    log.run_start(request)
     tracker.start_run(request)
     ckpt = Checkpoint()
+    # Make checkpoint available to _execute_step via execution_state
+    # (will be set in execution_state below)
 
     # 1. Sync memory + read system state
     print("  [PM] קורא מצב מערכת...")
@@ -604,6 +615,7 @@ def run_project_manager(request: str, auto_approve: bool = False) -> dict:
         "qa_log":        [],
         "errors":        [],
         "auto_approve":  auto_approve,
+        "_ckpt":         ckpt,
     }
 
     # 2. Create plan
@@ -668,8 +680,10 @@ def run_project_manager(request: str, auto_approve: bool = False) -> dict:
         if result.startswith("❌"):
             errors.append(result)
             tracker.record_error(agent, result)
+            log.error(agent, result)
         else:
             completed.append(f"{AGENTS.get(agent,{}).get('name',agent)}: {step.get('action','')}")
+            log.step(agent, "completed", step_dur)
 
     # 5. Report
     elapsed = time.time() - total_start
@@ -678,6 +692,7 @@ def run_project_manager(request: str, auto_approve: bool = False) -> dict:
 
     all_errors = errors + execution_state.get("errors", [])
     tracker.end_run(success=not bool(all_errors))
+    log.run_end(success=not bool(all_errors), duration=time.time() - total_start)
 
     # 6. Telegram notifications
     try:
