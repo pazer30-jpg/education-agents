@@ -1,0 +1,38 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+venv/
+.venv/
+
+# Environment
+.env
+
+# Output (generated content — not code)
+output/papers/
+output/articles/
+output/posts/
+output/designs/
+output/checkpoints/
+output/summaries/
+output/cron_*.log
+output/telegram_bot.log
+output/dashboard.html
+output/references.bib
+output/references.csv
+output/analytics.json
+output/memory.json
+output/references.json
+output/review_log.json
+output/scheduler_log.json
+output/.checkpoint.json
+output/.telegram_bot.pid
+
+# Keep output dirs structure
+!output/papers/.gitkeep
+!output/articles/.gitkeep
+!output/posts/.gitkeep
+!output/designs/.gitkeep
+
+# OS
+.DS_Store
