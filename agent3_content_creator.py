@@ -57,9 +57,31 @@ def _build_system(content_types: list[str]) -> str:
     primary = content_types[0]
     voice = get_voice_prompt(primary)
 
+    # Load personal context + rejection rules
+    from memory import get_context, get_published_titles, format_rules_for_prompt
+    ctx = get_context()
+    published = get_published_titles(primary)
+    rej_rules = format_rules_for_prompt(primary)
+
+    ctx_parts = []
+    if ctx.get("season"):
+        ctx_parts.append(f"עונה נוכחית: {ctx['season']}")
+    if ctx.get("content_purpose"):
+        ctx_parts.append(f"מטרת תוכן: {ctx['content_purpose']}")
+    if ctx.get("open_questions"):
+        ctx_parts.append("שאלות פתוחות: " + " | ".join(ctx["open_questions"][:3]))
+    if ctx.get("current_tensions"):
+        ctx_parts.append("מתחים: " + " | ".join(ctx["current_tensions"][:2]))
+    if published:
+        ctx_parts.append(f"כבר כוסה (אל תחזור): {', '.join(published[:5])}")
+    if rej_rules:
+        ctx_parts.append(rej_rules)
+
+    context_block = ("\n\nהקשר אישי של פז:\n" + "\n".join(f"  • {p}" for p in ctx_parts) + "\n") if ctx_parts else ""
+
     base = f"""אתה כותב תוכן בשם פז שלמה — איש חינוך בלתי פורמלי.
 המשימה שלך: לכתוב בדיוק בקולו, לא כמו בוט, לא כמו מאמר, כמו בן אדם שחי את הנושא.
-
+{context_block}
 {voice}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

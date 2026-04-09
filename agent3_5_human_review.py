@@ -198,6 +198,27 @@ def review_content(
         elif choice == "r":
             notes = input("  מה לשפר בגרסה הבאה? ").strip()
             _record_review(platform, content_file, "rejected", notes)
+
+            # Learn from rejection — extract rule
+            if notes:
+                try:
+                    from claude_cli import ask_claude
+                    preview = content_file.read_text(encoding="utf-8", errors="replace")[:200]
+                    rule_raw = ask_claude(
+                        f'פוסט {platform} נדחה. סיבה: "{notes}"\n'
+                        f'תחילת הפוסט: {preview}\n\n'
+                        f'נסח כלל קצר (עד 15 מילים) שמתחיל ב"אל ..." שימנע את הבעיה בעתיד.\n'
+                        f'רק הכלל, ללא הסבר.',
+                        max_budget=0.1,
+                    )
+                    rule = rule_raw.strip().strip('"').strip("'")
+                    if rule:
+                        from memory import save_rejection_rule
+                        save_rejection_rule(platform, notes, rule)
+                        print(f"  💡 כלל חדש: {rule}")
+                except Exception as e:
+                    print(f"  ⚠️  לא הצלחתי לחלץ כלל: {e}")
+
             print("  🔄 נדחה — Agent 3 יכתוב מחדש עם ההנחיה שלך")
             return {"decision": "rejected", "file": content_file, "notes": notes}
 

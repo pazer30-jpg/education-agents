@@ -771,6 +771,7 @@ def _chat_process(user_input: str, session: dict, auto: bool) -> str:
   dashboard                             — דאשבורד ויזואלי בדפדפן
   checkpoints                           — סטטוס checkpoints
   חפש [מילה] / היסטוריה                — חפש בתוכן שנוצר
+  קונטקסט / context                    — הצג/עדכן קונטקסט אישי
   הוסף מאמר [URL]                      — הוסף מקור ידני
   עצור                                  — יציאה"""
 
@@ -826,6 +827,11 @@ def _chat_process(user_input: str, session: dict, auto: bool) -> str:
             return "מה לחפש? (למשל: ביבליוגרפיה חפש belonging)"
         bib.rebuild()
         bib.print_stats()
+        return ""
+
+    if any(w in low for w in ["קונטקסט", "context"]):
+        from context_update import show_context
+        show_context()
         return ""
 
     if any(w in low for w in ["היסטוריה", "history", "חפש", "search", "מה כתבנו"]):

@@ -123,3 +123,93 @@ def get_summary() -> str:
     if mem["gaps"]:
         lines.append(f"   פערים:          {', '.join(mem['gaps'][:3])}")
     return "\n".join(lines)
+
+
+# ─────────────────────────────────────────────
+# Context — מה שפז יודע על עצמו עכשיו
+# ─────────────────────────────────────────────
+
+def _empty_context() -> dict:
+    return {
+        "season":             "",      # "מחפש עבודה" / "בונה קהל" / "כותב תזה"
+        "content_purpose":    "",      # "פוסטים עכשיו = בניית מוניטין לראיונות"
+        "open_questions":     [],      # שאלות שמטרידות אותי עכשיו
+        "recent_experiences": [],      # דברים שקרו לאחרונה
+        "current_tensions":   [],      # מתחים שאני חי איתם
+        "updated_at":         "",
+    }
+
+
+def get_context() -> dict:
+    mem = load_memory()
+    return mem.get("current_context", _empty_context())
+
+
+def save_context(ctx: dict):
+    mem = load_memory()
+    ctx["updated_at"] = datetime.now().isoformat()
+    mem["current_context"] = ctx
+    save_memory(mem)
+
+
+# ─────────────────────────────────────────────
+# Published content — למניעת חזרות
+# ─────────────────────────────────────────────
+
+def record_published(title: str, platform: str, topic: str):
+    """שומר כותרת/נושא של תוכן שנוצר."""
+    mem = load_memory()
+    published = mem.get("published_content", [])
+    published.append({
+        "title":    title[:120],
+        "platform": platform,
+        "topic":    topic,
+        "date":     datetime.now().strftime("%Y-%m-%d"),
+    })
+    mem["published_content"] = published[-200:]
+    save_memory(mem)
+
+
+def get_published_titles(platform: str = None) -> list[str]:
+    """מחזיר כותרות שכבר פורסמו — למניעת חזרה."""
+    mem = load_memory()
+    published = mem.get("published_content", [])
+    if platform:
+        published = [p for p in published if p.get("platform") == platform]
+    return [p["title"] for p in published[-50:]]
+
+
+# ─────────────────────────────────────────────
+# Learning from rejections — כלל מכל דחייה
+# ─────────────────────────────────────────────
+
+def save_rejection_rule(platform: str, reason: str, rule: str):
+    mem = load_memory()
+    rules = mem.get("rejection_rules", [])
+    rules.append({
+        "platform": platform,
+        "reason":   reason,
+        "rule":     rule,
+        "date":     datetime.now().strftime("%Y-%m-%d"),
+    })
+    mem["rejection_rules"] = rules[-30:]
+    save_memory(mem)
+
+
+def get_rejection_rules(platform: str = None) -> list[dict]:
+    mem = load_memory()
+    rules = mem.get("rejection_rules", [])
+    if platform:
+        rules = [r for r in rules if r.get("platform") in (platform, "all")]
+    return rules[-10:]
+
+
+def format_rules_for_prompt(platform: str = None) -> str:
+    """מחזיר כללי דחייה בפורמט שמוסיפים ל-system prompt."""
+    rules = get_rejection_rules(platform)
+    if not rules:
+        return ""
+    lines = ["כללים שנלמדו מדחיות קודמות — חייב לכבד:"]
+    for r in rules:
+        lines.append(f"  ❌ אל: {r['reason']} → {r['rule']}")
+    return "\n".join(lines)
