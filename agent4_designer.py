@@ -40,6 +40,91 @@ BRAND = {
 
 
 # ─────────────────────────────────────────────
+# Topic → mood mapping
+# ─────────────────────────────────────────────
+
+def _infer_mood(text: str) -> str:
+    """Map content to a visual mood description for Claude."""
+    t = text.lower()
+    if any(w in t for w in ["belong", "שייכות", "community", "קהילה", "connection"]):
+        return "warmth, circles of people, interconnected shapes, gentle embrace"
+    if any(w in t for w in ["leader", "מנהיגות", "leading", "management"]):
+        return "upward movement, single figure above horizon, light breaking through"
+    if any(w in t for w in ["resilience", "חוסן", "strength", "grit"]):
+        return "bending but not breaking, tree in wind, roots deep, storm with clearing"
+    if any(w in t for w in ["identity", "זהות", "self", "formation"]):
+        return "mirror reflections, layers of translucent shapes, kaleidoscope"
+    if any(w in t for w in ["youth", "נוער", "young", "adolescent"]):
+        return "energy, upward paths, open horizon, dawn light, motion trails"
+    if any(w in t for w in ["dialog", "דיאלוג", "conversation", "buber", "בובר"]):
+        return "two forms facing each other, bridge between, shared space"
+    if any(w in t for w in ["threshold", "סף", "transition", "liminal", "מעבר"]):
+        return "doorway shapes, gradient transitions, between-space, emerging form"
+    if any(w in t for w in ["hope", "תקווה", "motivation", "מוטיבציה"]):
+        return "rising light, ascending paths, seeds sprouting, warm dawn colors"
+    if any(w in t for w in ["outdoor", "adventure", "הרפתקה", "טבע"]):
+        return "mountain paths, open sky, campfire glow, vast landscape"
+    if any(w in t for w in ["digital", "דיגיטל", "online", "technology"]):
+        return "connected nodes, screen glow, data streams, digital constellation"
+    return "depth, layered meaning, quiet strength, abstract educational landscape"
+
+
+# ─────────────────────────────────────────────
+# Text overlays — minimal, on top of illustration
+# ─────────────────────────────────────────────
+
+def _overlay_linkedin(svg: str, topic_tag: str) -> str:
+    """Add minimal author strip + topic pill on top of illustration."""
+    tag = topic_tag[:20]
+    tag_w = len(tag) * 13 + 30
+    overlay = f"""
+  <!-- topic pill -->
+  <rect x="60" y="30" width="{tag_w}" height="36" rx="18"
+        fill="{BRAND['accent']}" opacity="0.85"/>
+  <text x="{60 + tag_w//2}" y="54" font-family="Assistant,Arial,sans-serif"
+        font-size="16" fill="{BRAND['white']}" text-anchor="middle"
+        font-weight="600">{tag}</text>
+  <!-- author strip -->
+  <rect x="0" y="572" width="1200" height="55"
+        fill="{BRAND['primary']}" opacity="0.75"/>
+  <circle cx="40" cy="599" r="20" fill="{BRAND['accent']}" opacity="0.9"/>
+  <text x="40" y="605" font-family="Assistant,Arial,sans-serif" font-size="15"
+        fill="{BRAND['white']}" font-weight="700" text-anchor="middle">פז</text>
+  <text x="70" y="605" font-family="Assistant,Arial,sans-serif" font-size="14"
+        fill="{BRAND['light']}" opacity="0.9">פז שלמה | חינוך בלתי פורמלי</text>
+</svg>"""
+    return svg.replace("</svg>", overlay)
+
+
+def _overlay_blog(svg: str) -> str:
+    """Thin bottom strip for blog."""
+    overlay = f"""
+  <rect x="0" y="462" width="1600" height="38"
+        fill="{BRAND['primary']}" opacity="0.65"/>
+  <text x="28" y="487" font-family="Heebo,Arial,sans-serif" font-size="15"
+        fill="{BRAND['light']}" opacity="0.8">פז שלמה | חינוך בלתי פורמלי</text>
+</svg>"""
+    return svg.replace("</svg>", overlay)
+
+
+def _overlay_podcast(svg: str, show_name: str, episode_num: int) -> str:
+    """Top + bottom strips for podcast."""
+    overlay = f"""
+  <rect x="0" y="0" width="3000" height="180"
+        fill="{BRAND['primary']}" opacity="0.7"/>
+  <text x="140" y="120" font-family="Assistant,Arial,sans-serif" font-size="90"
+        fill="{BRAND['white']}" font-weight="800">{show_name[:20]}</text>
+  <rect x="0" y="2820" width="3000" height="180"
+        fill="{BRAND['primary']}" opacity="0.7"/>
+  <text x="140" y="2930" font-family="Heebo,Arial,sans-serif" font-size="72"
+        fill="{BRAND['warm']}">פרק {episode_num}</text>
+  <text x="2860" y="2930" font-family="Heebo,Arial,sans-serif" font-size="64"
+        fill="{BRAND['light']}" opacity="0.6" text-anchor="end">פז שלמה</text>
+</svg>"""
+    return svg.replace("</svg>", overlay)
+
+
+# ─────────────────────────────────────────────
 # Claude SVG generator
 # ─────────────────────────────────────────────
 
@@ -64,10 +149,14 @@ Layout: central focal graphic element, show name "חינוך בלתי פורמל
 Bold, iconic, recognizable at small sizes (podcast thumbnail).""",
     }
 
+    mood = _infer_mood(content)
+
     prompt = f"""You are a graphic designer creating an SVG illustration.
 
 CONTENT (understand the theme, don't write the text):
 {content[:2000]}
+
+VISUAL MOOD: {mood}
 
 PLATFORM: {platform_guide.get(platform, '')}
 
@@ -282,12 +371,15 @@ DIMENSIONS = {
 }
 
 
-def _design_platform(content_path: Path, platform: str) -> Path:
+def _design_platform(content_path: Path, platform: str,
+                     show_name: str = "חינוך בלתי פורמלי",
+                     episode_num: int = 1) -> Path:
     label = {"linkedin": "LinkedIn", "blog": "Blog", "podcast": "Podcast"}.get(platform, platform)
     print(f"  [Agent4] מעצב גרפיקה ל-{label}...")
 
     content = content_path.read_text(encoding="utf-8", errors="replace")
     topic_tag = _extract_topic_tag(content)
+    mood = _infer_mood(content)
     dims = DIMENSIONS[platform]
 
     try:
@@ -300,7 +392,21 @@ def _design_platform(content_path: Path, platform: str) -> Path:
     except Exception as e:
         print(f"  [Agent4] ⚠️  Claude SVG failed ({e}) — using template")
         svg = _fallback_svg(dims["w"], dims["h"], topic_tag, platform)
-        dalle = f"Abstract graphic about {topic_tag}, education theme, geometric, deep blue and red, no text"
+        dalle = ""
+
+    # Apply text overlays (minimal — on top of graphic)
+    if platform == "linkedin":
+        svg = _overlay_linkedin(svg, topic_tag)
+    elif platform == "blog":
+        svg = _overlay_blog(svg)
+    elif platform == "podcast":
+        svg = _overlay_podcast(svg, show_name, episode_num)
+
+    # DALL-E prompt based on mood
+    if not dalle:
+        dalle = (f"Editorial illustration, no text, {mood}, "
+                 f"deep navy and coral palette, conceptual minimal art, "
+                 f"{platform} format, cinematic quality")
 
     slug = content_path.stem[:30]
     path = _save(svg, f"{slug}_{platform}", dalle, label)
@@ -346,7 +452,10 @@ def run_designer(
         platform, paths = platform_map[design_type]
         content_file = _latest(paths)
         if content_file:
-            saved[platform] = _design_platform(Path(content_file), platform)
+            saved[platform] = _design_platform(
+                Path(content_file), platform,
+                show_name=show_name, episode_num=episode_num,
+            )
         else:
             print(f"  [Agent4] ⚠️  לא נמצא קובץ ל-{platform} — מדלג")
 
