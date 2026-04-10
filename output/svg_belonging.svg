@@ -1,0 +1,209 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 627">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1A1A2E"/>
+      <stop offset="60%" stop-color="#16213E"/>
+      <stop offset="100%" stop-color="#0d1b2a"/>
+    </linearGradient>
+    <radialGradient id="clusterAura" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#F5A623" stop-opacity="0.18"/>
+      <stop offset="70%" stop-color="#E94560" stop-opacity="0.06"/>
+      <stop offset="100%" stop-color="#1A1A2E" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="periAura" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#0F9B8E" stop-opacity="0.25"/>
+      <stop offset="100%" stop-color="#1A1A2E" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="deepGlow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#F5A623" stop-opacity="0.1"/>
+      <stop offset="100%" stop-color="#1A1A2E" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="nodeA" cx="35%" cy="35%" r="65%">
+      <stop offset="0%" stop-color="#FFD580"/>
+      <stop offset="100%" stop-color="#F5A623"/>
+    </radialGradient>
+    <radialGradient id="nodeB" cx="35%" cy="35%" r="65%">
+      <stop offset="0%" stop-color="#3dcfc0"/>
+      <stop offset="100%" stop-color="#0F9B8E"/>
+    </radialGradient>
+    <radialGradient id="nodeC" cx="35%" cy="35%" r="65%">
+      <stop offset="0%" stop-color="#ff8fa3"/>
+      <stop offset="100%" stop-color="#E94560"/>
+    </radialGradient>
+    <radialGradient id="nodeD" cx="35%" cy="35%" r="65%">
+      <stop offset="0%" stop-color="#f0f0f0"/>
+      <stop offset="100%" stop-color="#aac4cc"/>
+    </radialGradient>
+    <filter id="glowSoft" x="-80%" y="-80%" width="260%" height="260%">
+      <feGaussianBlur stdDeviation="4" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="glowMed" x="-120%" y="-120%" width="340%" height="340%">
+      <feGaussianBlur stdDeviation="8" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="bigBlur" x="-150%" y="-150%" width="400%" height="400%">
+      <feGaussianBlur stdDeviation="28"/>
+    </filter>
+    <filter id="medBlur">
+      <feGaussianBlur stdDeviation="12"/>
+    </filter>
+    <clipPath id="leftPane">
+      <rect x="0" y="0" width="800" height="627"/>
+    </clipPath>
+  </defs>
+
+  <!-- ── BACKGROUND ── -->
+  <rect width="1200" height="627" fill="url(#bgGrad)"/>
+
+  <!-- Deep ambient spheres for atmosphere -->
+  <circle cx="420" cy="300" r="260" fill="url(#clusterAura)" filter="url(#bigBlur)"/>
+  <circle cx="155" cy="420" r="130" fill="url(#periAura)" filter="url(#bigBlur)"/>
+  <circle cx="650" cy="320" r="180" fill="url(#deepGlow)" filter="url(#bigBlur)"/>
+
+  <!-- ── BACKGROUND RINGS — invisible boundary metaphor ── -->
+  <circle cx="430" cy="300" r="230" fill="none" stroke="#F5A623" stroke-width="0.8" opacity="0.07"/>
+  <circle cx="430" cy="300" r="185" fill="none" stroke="#F5A623" stroke-width="0.5" opacity="0.06"/>
+  <circle cx="430" cy="300" r="140" fill="none" stroke="#EAEAEA" stroke-width="0.5" opacity="0.05"/>
+  <circle cx="430" cy="300" r="95" fill="none" stroke="#EAEAEA" stroke-width="0.4" opacity="0.07"/>
+
+  <!-- Full background subtle dot grid -->
+  <circle cx="100" cy="80" r="1.5" fill="#EAEAEA" opacity="0.12"/>
+  <circle cx="180" cy="120" r="1" fill="#EAEAEA" opacity="0.1"/>
+  <circle cx="260" cy="90" r="1.5" fill="#F5A623" opacity="0.15"/>
+  <circle cx="340" cy="140" r="1" fill="#EAEAEA" opacity="0.1"/>
+  <circle cx="600" cy="100" r="1.5" fill="#0F9B8E" opacity="0.18"/>
+  <circle cx="680" cy="130" r="1" fill="#EAEAEA" opacity="0.1"/>
+  <circle cx="720" cy="80" r="1.5" fill="#F5A623" opacity="0.12"/>
+  <circle cx="100" cy="540" r="1.5" fill="#0F9B8E" opacity="0.15"/>
+  <circle cx="220" cy="560" r="1" fill="#EAEAEA" opacity="0.1"/>
+  <circle cx="630" cy="530" r="1.5" fill="#F5A623" opacity="0.12"/>
+  <circle cx="710" cy="560" r="1" fill="#E94560" opacity="0.15"/>
+  <circle cx="750" cy="480" r="1.5" fill="#EAEAEA" opacity="0.1"/>
+
+  <!-- ── FLOWING ARCS — organic belonging curves ── -->
+  <path d="M 60,540 Q 220,120 680,160" fill="none" stroke="#F5A623" stroke-width="1.2" opacity="0.1" stroke-linecap="round"/>
+  <path d="M 50,560 Q 240,140 700,180" fill="none" stroke="#F5A623" stroke-width="0.6" opacity="0.07" stroke-linecap="round"/>
+  <path d="M 80,580 Q 280,200 740,220" fill="none" stroke="#0F9B8E" stroke-width="1" opacity="0.08" stroke-dasharray="6,10" stroke-linecap="round"/>
+  <path d="M 40,460 Q 180,280 420,260" fill="none" stroke="#E94560" stroke-width="0.8" opacity="0.12" stroke-linecap="round"/>
+  <!-- Gentle embracing outer arc around the whole cluster -->
+  <path d="M 155,420 Q 200,150 600,140 Q 750,138 760,310" fill="none" stroke="#F5A623" stroke-width="1.5" opacity="0.08" stroke-linecap="round"/>
+
+  <!-- ── REACHING LINES — peripheral node's dashed connections ── -->
+  <!-- Thin dashed lines: peripheral → cluster edge nodes, fading as they reach deeper -->
+  <line x1="158" y1="415" x2="295" y2="330" stroke="#0F9B8E" stroke-width="1.2" opacity="0.45" stroke-dasharray="5,7"/>
+  <line x1="158" y1="415" x2="330" y2="380" stroke="#0F9B8E" stroke-width="0.9" opacity="0.3" stroke-dasharray="4,8"/>
+  <line x1="158" y1="415" x2="345" y2="255" stroke="#0F9B8E" stroke-width="0.7" opacity="0.2" stroke-dasharray="3,9"/>
+  <line x1="158" y1="415" x2="245" y2="270" stroke="#0F9B8E" stroke-width="0.6" opacity="0.18" stroke-dasharray="2,10"/>
+
+  <!-- ── CLUSTER EDGES — warm solid connections ── -->
+  <!-- Inner dense connections -->
+  <line x1="435" y1="295" x2="350" y2="255" stroke="#F5A623" stroke-width="1.8" opacity="0.55"/>
+  <line x1="435" y1="295" x2="370" y2="360" stroke="#F5A623" stroke-width="1.8" opacity="0.55"/>
+  <line x1="435" y1="295" x2="500" y2="325" stroke="#F5A623" stroke-width="1.8" opacity="0.55"/>
+  <line x1="435" y1="295" x2="475" y2="220" stroke="#F5A623" stroke-width="1.6" opacity="0.5"/>
+  <line x1="435" y1="295" x2="400" y2="385" stroke="#F5A623" stroke-width="1.4" opacity="0.45"/>
+  <line x1="435" y1="295" x2="295" y2="330" stroke="#F5A623" stroke-width="1.2" opacity="0.4"/>
+  <!-- Secondary connections among cluster members -->
+  <line x1="350" y1="255" x2="295" y2="330" stroke="#F5A623" stroke-width="1.2" opacity="0.4"/>
+  <line x1="350" y1="255" x2="475" y2="220" stroke="#F5A623" stroke-width="1.1" opacity="0.38"/>
+  <line x1="350" y1="255" x2="245" y2="270" stroke="#F5A623" stroke-width="1" opacity="0.35"/>
+  <line x1="370" y1="360" x2="295" y2="330" stroke="#0F9B8E" stroke-width="1.2" opacity="0.45"/>
+  <line x1="370" y1="360" x2="400" y2="385" stroke="#F5A623" stroke-width="1.1" opacity="0.4"/>
+  <line x1="370" y1="360" x2="330" y2="380" stroke="#0F9B8E" stroke-width="1" opacity="0.38"/>
+  <line x1="500" y1="325" x2="530" y2="255" stroke="#F5A623" stroke-width="1.2" opacity="0.4"/>
+  <line x1="500" y1="325" x2="520" y2="395" stroke="#F5A623" stroke-width="1" opacity="0.38"/>
+  <line x1="475" y1="220" x2="530" y2="255" stroke="#F5A623" stroke-width="1.1" opacity="0.38"/>
+  <line x1="530" y1="255" x2="580" y2="200" stroke="#F5A623" stroke-width="0.9" opacity="0.3"/>
+  <line x1="520" y1="395" x2="400" y2="385" stroke="#F5A623" stroke-width="1" opacity="0.35"/>
+  <line x1="245" y1="270" x2="295" y2="330" stroke="#0F9B8E" stroke-width="1" opacity="0.38"/>
+  <line x1="245" y1="270" x2="280" y2="205" stroke="#F5A623" stroke-width="0.9" opacity="0.3"/>
+  <line x1="330" y1="380" x2="400" y2="385" stroke="#0F9B8E" stroke-width="0.9" opacity="0.32"/>
+  <line x1="580" y1="200" x2="475" y2="220" stroke="#F5A623" stroke-width="0.8" opacity="0.28"/>
+
+  <!-- ── PERIPHERAL NODE — The one who is "there" but not "from there" ── -->
+  <!-- Outer pulse ring — reaching, present -->
+  <circle cx="158" cy="418" r="42" fill="none" stroke="#0F9B8E" stroke-width="0.8" opacity="0.15"/>
+  <circle cx="158" cy="418" r="33" fill="none" stroke="#0F9B8E" stroke-width="1.2" opacity="0.28" stroke-dasharray="6,4"/>
+  <!-- Core node -->
+  <circle cx="158" cy="418" r="22" fill="url(#nodeB)" opacity="0.88" filter="url(#glowMed)"/>
+  <circle cx="158" cy="418" r="22" fill="none" stroke="#3dcfc0" stroke-width="1.5" opacity="0.5"/>
+
+  <!-- ── MAIN CLUSTER NODES ── -->
+  <!-- Center node — largest, brightest -->
+  <circle cx="435" cy="295" r="36" fill="none" stroke="#F5A623" stroke-width="1.5" opacity="0.2"/>
+  <circle cx="435" cy="295" r="28" fill="url(#nodeA)" opacity="0.92" filter="url(#glowSoft)"/>
+  <circle cx="435" cy="295" r="10" fill="#fff" opacity="0.2"/>
+
+  <!-- Inner ring nodes -->
+  <circle cx="350" cy="255" r="21" fill="url(#nodeA)" opacity="0.8" filter="url(#glowSoft)"/>
+  <circle cx="370" cy="360" r="24" fill="url(#nodeB)" opacity="0.82" filter="url(#glowSoft)"/>
+  <circle cx="500" cy="325" r="20" fill="url(#nodeA)" opacity="0.75"/>
+  <circle cx="475" cy="220" r="18" fill="url(#nodeD)" opacity="0.72"/>
+  <circle cx="400" cy="385" r="16" fill="url(#nodeA)" opacity="0.68"/>
+  <circle cx="295" cy="330" r="22" fill="url(#nodeB)" opacity="0.78" filter="url(#glowSoft)"/>
+
+  <!-- Outer ring nodes — lighter, further out -->
+  <circle cx="530" cy="255" r="17" fill="url(#nodeC)" opacity="0.65"/>
+  <circle cx="520" cy="395" r="15" fill="url(#nodeD)" opacity="0.6"/>
+  <circle cx="245" cy="270" r="19" fill="url(#nodeB)" opacity="0.68"/>
+  <circle cx="330" cy="380" r="14" fill="url(#nodeA)" opacity="0.55"/>
+  <circle cx="580" cy="200" r="13" fill="url(#nodeA)" opacity="0.5"/>
+  <circle cx="280" cy="205" r="12" fill="url(#nodeD)" opacity="0.48"/>
+
+  <!-- Tiny satellite nodes (very outer) -->
+  <circle cx="620" cy="290" r="9" fill="#F5A623" opacity="0.38"/>
+  <circle cx="600" cy="390" r="8" fill="#0F9B8E" opacity="0.35"/>
+  <circle cx="210" cy="195" r="8" fill="#0F9B8E" opacity="0.35"/>
+  <circle cx="630" cy="170" r="7" fill="#EAEAEA" opacity="0.3"/>
+  <circle cx="190" cy="460" r="7" fill="#F5A623" opacity="0.32"/>
+  <circle cx="100" cy="350" r="6" fill="#0F9B8E" opacity="0.28"/>
+
+  <!-- ── DIAMOND ACCENT — threshold/boundary symbol ── -->
+  <polygon points="730,290 745,310 730,330 715,310" fill="none" stroke="#E94560" stroke-width="1.2" opacity="0.35"/>
+  <polygon points="730,298 740,310 730,322 720,310" fill="#E94560" opacity="0.2"/>
+
+  <!-- ── SMALL SPARK MARKS ── -->
+  <line x1="640" y1="145" x2="650" y2="135" stroke="#F5A623" stroke-width="1.5" opacity="0.4" stroke-linecap="round"/>
+  <line x1="645" y1="130" x2="645" y2="150" stroke="#F5A623" stroke-width="1.5" opacity="0.35" stroke-linecap="round"/>
+  <line x1="655" y1="140" x2="635" y2="140" stroke="#F5A623" stroke-width="1.5" opacity="0.35" stroke-linecap="round"/>
+
+  <line x1="108" y1="182" x2="118" y2="172" stroke="#0F9B8E" stroke-width="1.2" opacity="0.4" stroke-linecap="round"/>
+  <line x1="113" y1="167" x2="113" y2="187" stroke="#0F9B8E" stroke-width="1.2" opacity="0.35" stroke-linecap="round"/>
+  <line x1="123" y1="177" x2="103" y2="177" stroke="#0F9B8E" stroke-width="1.2" opacity="0.35" stroke-linecap="round"/>
+
+  <!-- ── RIGHT SIDE AMBIENT — 35% right area ── -->
+  <path d="M 820,0 Q 820,627 820,627" fill="none" stroke="#EAEAEA" stroke-width="0.5" opacity="0.06"/>
+  <!-- Gentle atmospheric arc on right -->
+  <path d="M 1100,627 Q 900,400 980,80" fill="none" stroke="#0F9B8E" stroke-width="80" opacity="0.025" stroke-linecap="round"/>
+  <path d="M 1200,400 Q 1050,300 1150,120" fill="none" stroke="#F5A623" stroke-width="50" opacity="0.025" stroke-linecap="round"/>
+
+  <!-- Right side floating micro-circles -->
+  <circle cx="890" cy="165" r="7" fill="#F5A623" opacity="0.14"/>
+  <circle cx="960" cy="240" r="5" fill="#0F9B8E" opacity="0.18"/>
+  <circle cx="1080" cy="185" r="6" fill="#E94560" opacity="0.14"/>
+  <circle cx="1140" cy="330" r="4" fill="#F5A623" opacity="0.16"/>
+  <circle cx="870" cy="390" r="8" fill="#0F9B8E" opacity="0.12"/>
+  <circle cx="1020" cy="440" r="5" fill="#EAEAEA" opacity="0.1"/>
+  <circle cx="1160" cy="240" r="5" fill="#0F9B8E" opacity="0.13"/>
+  <circle cx="920" cy="480" r="4" fill="#F5A623" opacity="0.12"/>
+  <circle cx="1070" cy="380" r="6" fill="#E94560" opacity="0.1"/>
+
+  <!-- ── BRANDING ── -->
+  <!-- Topic badge -->
+  <rect x="855" y="528" width="176" height="36" rx="18" fill="#E94560" opacity="0.82"/>
+  <rect x="856" y="529" width="174" height="34" rx="17" fill="none" stroke="#ff8fa3" stroke-width="0.8" opacity="0.4"/>
+  <text x="943" y="551" font-family="'Segoe UI', Arial, sans-serif" font-size="13.5" font-weight="700"
+        fill="#FFFFFF" text-anchor="middle" direction="rtl" unicode-bidi="embed">שייכות וזהות</text>
+
+  <!-- Thin accent line -->
+  <line x1="855" y1="580" x2="1150" y2="580" stroke="#F5A623" stroke-width="0.7" opacity="0.25"/>
+
+  <!-- Signature -->
+  <text x="1148" y="604" font-family="'Georgia', serif" font-size="14"
+        fill="#EAEAEA" text-anchor="end" opacity="0.55" direction="rtl" unicode-bidi="embed">פז שלמה</text>
+
+  <!-- Small orange dot accent near signature -->
+  <circle cx="1155" cy="599" r="3" fill="#F5A623" opacity="0.5"/>
+</svg>
+<!-- DALLE: Abstract editorial illustration of belonging and social identity. A dark midnight blue background with a warm luminous cluster of 12-15 interconnected glowing circles in amber, teal, and soft white, connected by golden lines forming a network. One teal circle sits slightly apart from the cluster, connected only by dashed lines, surrounded by a pulse ring. Concentric translucent rings define invisible social boundaries around the main cluster. Flowing organic arcs sweep across the composition. Minimal, modern, symbolic — no text. LinkedIn cover format 1200x627. -->

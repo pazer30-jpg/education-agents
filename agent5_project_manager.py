@@ -1104,28 +1104,270 @@ def run_chat(auto: bool = False):
 # CLI
 # ─────────────────────────────────────────────
 
+def _cli_arg(flag: str) -> str | None:
+    """Get value after a flag: --flag value → 'value'"""
+    if flag in sys.argv:
+        idx = sys.argv.index(flag)
+        if idx + 1 < len(sys.argv) and not sys.argv[idx + 1].startswith("-"):
+            return sys.argv[idx + 1]
+    return None
+
+
+def _cli_args_after(flag: str) -> list[str]:
+    """Get all values after a flag until next --flag"""
+    if flag not in sys.argv:
+        return []
+    idx = sys.argv.index(flag) + 1
+    result = []
+    while idx < len(sys.argv) and not sys.argv[idx].startswith("-"):
+        result.append(sys.argv[idx])
+        idx += 1
+    return result
+
+
+def _cli_status():
+    """Show detailed system status."""
+    state = _read_system_state()
+    files = state.get("existing_files", {})
+    print(f"""
+  📊 מצב מוקי
+  {'─'*40}
+  מחקרים:  {len(files.get('papers', []))} קבצים
+  מאמרים:  {len(files.get('articles', []))} קבצים
+  פוסטים:  {len(files.get('posts', []))} קבצים
+  עיצובים: {len(files.get('designs', []))} קבצים
+
+  🧠 זיכרון:
+""")
+    mem = load_memory()
+    print(f"  נושאים שנחקרו: {len(mem.get('researched_topics', []))}")
+    print(f"  מאמרים נאספו: {len(mem.get('papers', {}))}")
+    print(f"  איטרציות: {mem.get('iterations', 0)}")
+    if mem.get("topic_queue"):
+        print(f"\n  🔮 הבא בתור:")
+        for i, t in enumerate(mem["topic_queue"][:5], 1):
+            print(f"    {i}. {t}")
+
+
+def _cli_qa():
+    """Run QA on all existing files."""
+    from config import LINKEDIN_DIR, BLOG_DIR, PODCAST_DIR
+    state = _read_system_state()
+    latest_papers = state["latest"].get("papers_files", [])
+    tmp_state = {
+        "papers_file": latest_papers[-1] if latest_papers else None,
+        "article_paths": {"md": state["latest"]["article_md"]} if state["latest"].get("article_md") else {},
+        "qa_log": [], "errors": [],
+    }
+    print("  בודק איכות קבצים קיימים...")
+    if tmp_state["papers_file"]:
+        _qa_gate("research", 1, tmp_state)
+    if tmp_state["article_paths"].get("md"):
+        _qa_gate("article", 1, tmp_state)
+    for platform in ["linkedin", "blog", "podcast"]:
+        d = {"linkedin": LINKEDIN_DIR, "blog": BLOG_DIR, "podcast": PODCAST_DIR}[platform]
+        files = sorted(d.glob("*"), key=lambda p: p.stat().st_mtime) if d.exists() else []
+        if files:
+            _qa_gate(platform, 1, tmp_state)
+
+
+def _cli_logs(n: int = 50):
+    """Show last N lines of moki.log"""
+    log_file = OUTPUT_DIR / "moki.log"
+    if not log_file.exists():
+        print("  אין לוג עדיין.")
+        return
+    lines = log_file.read_text(encoding="utf-8").splitlines()
+    print(f"\n  📝 לוג (אחרונים {min(n, len(lines))} שורות):\n")
+    for line in lines[-n:]:
+        print(f"  {line}")
+
+
+def _print_usage():
+    print("""
+╔══════════════════════════════════════════════════════════╗
+║  🤖 מוקי — כל הפקודות מהטרמינל                           ║
+╚══════════════════════════════════════════════════════════╝
+
+🎯 Pipeline
+  --chat                            מצב אינטראקטיבי
+  --chat --auto                     ללא אישורים
+  "בקשה" --auto                     one-shot
+  --run --topic "X" --platforms linkedin blog   pipeline ממוקד
+  --resume                          המשך מ-checkpoint
+
+📊 מידע וסטטוס
+  --status                          מצב מערכת (קבצים + זיכרון)
+  --analytics                       דוח ביצועים מצטבר
+  --last-run                        פירוט ריצה אחרונה
+  --checkpoints                     סטטוס checkpoints
+  --dashboard                       פותח דאשבורד בדפדפן
+  --logs [N]                        N שורות אחרונות מהלוג (default: 50)
+
+📚 ידע ותוכן
+  --bib                             סטטיסטיקות ביבליוגרפיה
+  --bib "query"                     חיפוש בביבליוגרפיה
+  --search "query"                  חיפוש בהיסטוריית התוכן
+  --summary                         סיכום שבועי
+  --summary --save                  + שמירה לקובץ
+  --add-paper "URL"                 הוספת מאמר ידני
+
+✏️ עריכה ואיכות
+  --qa                              בדיקת QA על כל הקבצים
+  --edit article|linkedin|blog|podcast   עריכת קובץ אחרון
+
+🧠 קונטקסט
+  --context                         הצג קונטקסט אישי
+  --context "טקסט"                  עדכון מהיר
+
+📋 תור ועוד
+  --queue                           הצג תור עדיפויות
+  --queue-add "בקשה"                הוסף לתור
+  --test                            הרץ בדיקות (tests.py --quick)
+
+דוגמאות:
+  python3 agent5_project_manager.py --chat
+  python3 agent5_project_manager.py --run --topic "שייכות בחירום" --platforms linkedin blog
+  python3 agent5_project_manager.py --bib "belonging"
+  python3 agent5_project_manager.py --edit linkedin
+  python3 agent5_project_manager.py --logs 100
+""")
+
+
 if __name__ == "__main__":
-    if "--chat" in sys.argv:
-        run_chat(auto="--auto" in sys.argv)
-    elif "--checkpoints" in sys.argv:
-        Checkpoint.print_status()
-    elif "--analytics" in sys.argv:
+    args = sys.argv
+
+    # ── Interactive / pipeline ──────────────────────
+    if "--chat" in args:
+        run_chat(auto="--auto" in args)
+
+    elif "--run" in args:
+        topic = _cli_arg("--topic") or "חינוך בלתי פורמלי"
+        platforms = _cli_args_after("--platforms") or ["linkedin"]
+        req = f"הרץ pipeline: נושא={topic} תוכן={' '.join(platforms)}"
+        run_project_manager(req, auto_approve="--auto" in args)
+
+    elif "--resume" in args:
+        ckpt = Checkpoint.latest()
+        if ckpt:
+            print(f"  ♻️ ממשיך: {ckpt.summary()}")
+            # Pipeline resume needs to be handled by orchestrator
+            import subprocess
+            subprocess.run([sys.executable, "orchestrator.py",
+                          ckpt.get("planner", {}).get("combined_title", "continue"),
+                          "--resume"])
+        else:
+            print("  אין checkpoint לחידוש.")
+
+    # ── Info & Status ────────────────────────────
+    elif "--status" in args:
+        _cli_status()
+
+    elif "--analytics" in args:
         tracker.print_report()
-    elif "--last-run" in sys.argv:
+
+    elif "--last-run" in args:
         print(_explain_last_run())
-    elif "--queue" in sys.argv:
+
+    elif "--checkpoints" in args:
+        Checkpoint.print_status()
+
+    elif "--dashboard" in args:
+        from dashboard import build_dashboard
+        build_dashboard(open_browser=True)
+
+    elif "--logs" in args:
+        n = _cli_arg("--logs")
+        _cli_logs(int(n) if n and n.isdigit() else 50)
+
+    # ── Knowledge & Content ──────────────────────
+    elif "--bib" in args:
+        from bibliography import stats as bib_stats, search as bib_search
+        query = _cli_arg("--bib")
+        if query:
+            results = bib_search(query)
+            print(f"\n  🔍 {len(results)} תוצאות עבור '{query}':\n")
+            for r in results[:15]:
+                print(f"  [{r.get('year','?')}] {r.get('title','')[:60]}")
+                print(f"    {r.get('authors','')[:40]} | {r.get('citation_count',0)} ציטוטים")
+        else:
+            print(bib_stats())
+
+    elif "--search" in args:
+        from history import print_search
+        query = _cli_arg("--search")
+        if query:
+            print_search(query)
+        else:
+            print("  Usage: --search \"query\"")
+
+    elif "--summary" in args:
+        from weekly_summary import print_summary, save_summary
+        print_summary()
+        if "--save" in args:
+            save_summary()
+
+    elif "--add-paper" in args:
+        url = _cli_arg("--add-paper")
+        if url:
+            from add_paper import add_from_url
+            add_from_url(url, "manual")
+            print(f"  ✅ מאמר נוסף: {url[:60]}")
+        else:
+            print("  Usage: --add-paper \"URL\"")
+
+    # ── Editing & QA ─────────────────────────────
+    elif "--qa" in args:
+        _cli_qa()
+
+    elif "--edit" in args:
+        target = _cli_arg("--edit") or "article"
+        from agent_editor import edit_article, edit_content
+        from config import ARTICLES_DIR
+        if target == "article":
+            mds = sorted(ARTICLES_DIR.glob("*.md"), key=lambda p: p.stat().st_mtime)
+            if mds:
+                edit_article({"md": mds[-1], "docx": mds[-1].with_suffix(".docx")})
+                print(f"  ✅ מאמר נערך: {mds[-1].name}")
+            else:
+                print("  לא נמצא מאמר.")
+        elif target in ("linkedin", "blog", "podcast"):
+            r = edit_content(target)
+            if r.get("file"):
+                print(f"  ✅ {target} נערך: {r['file'].name}")
+            else:
+                print(f"  לא נמצא קובץ ל-{target}")
+        else:
+            print("  Usage: --edit article|linkedin|blog|podcast")
+
+    # ── Context ──────────────────────────────────
+    elif "--context" in args:
+        from context_update import show_context, quick_update
+        text = _cli_arg("--context")
+        if text:
+            quick_update(text)
+        else:
+            show_context()
+
+    # ── Queue ────────────────────────────────────
+    elif "--queue-add" in args:
+        req = _cli_arg("--queue-add")
+        if req:
+            print(queue_add(req))
+        else:
+            print("  Usage: --queue-add \"בקשה\"")
+
+    elif "--queue" in args:
         print(queue_status())
-    elif len(sys.argv) > 1 and not sys.argv[1].startswith("-"):
-        auto = "--auto" in sys.argv
-        run_project_manager(sys.argv[1], auto_approve=auto)
+
+    # ── Testing ──────────────────────────────────
+    elif "--test" in args:
+        import subprocess
+        subprocess.run([sys.executable, "tests.py", "--quick"])
+
+    # ── One-shot request ─────────────────────────
+    elif len(args) > 1 and not args[1].startswith("-"):
+        run_project_manager(args[1], auto_approve="--auto" in args)
+
     else:
-        print("""
-Usage:
-  python3 agent5_project_manager.py --chat            # מוקי אינטראקטיבי
-  python3 agent5_project_manager.py --chat --auto     # ללא אישורים
-  python3 agent5_project_manager.py "בקשה" --auto     # one-shot
-  python3 agent5_project_manager.py --analytics       # דוח ביצועים
-  python3 agent5_project_manager.py --checkpoints     # סטטוס checkpoints
-  python3 agent5_project_manager.py --last-run        # ריצה אחרונה
-  python3 agent5_project_manager.py --queue           # תור עדיפויות
-        """)
+        _print_usage()
