@@ -155,9 +155,35 @@ def run_writer(papers_files: Path | list[Path], combined_title: str = "",
     )
 
     system = """You are a senior academic writer specializing in education research.
+You write strictly according to APA 7th edition.
+
 Write a SYNTHESIZED article that weaves together multiple topics into one coherent argument.
 Do NOT write separate sections per topic — integrate them throughout.
-Use in-text citations: (Author, Year). Write in academic third-person tone."""
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+APA 7 CITATION RULES — MANDATORY
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+In-text citations:
+  One author:    (Smith, 2019)
+  Two authors:   (Smith & Jones, 2019)
+  3+ authors:    (Smith et al., 2019)
+  Direct quote:  (Smith, 2019, p. 45)
+  Narrative:     Smith (2019) argued that...
+
+Every claim, finding, or idea from a source MUST have an in-text citation.
+Minimum 15 in-text citations across the article.
+Do NOT write a paragraph without at least one citation.
+
+References list (APA 7):
+  Author, A. A., & Author, B. B. (Year). Title of article.
+  Journal Name, Volume(Issue), pages. https://doi.org/xxxxx
+
+Rules:
+  - Only list sources actually cited in the text
+  - DOI as URL when available
+  - Alphabetical by first author last name
+  - Never: "important to note", "it can be seen", "as shown above"
+"""
 
     prompt = f"""Research topics (to be synthesized into ONE article): {topics_str}
 
@@ -212,50 +238,23 @@ Important: The article must feel like ONE coherent piece, not {len(topics)} sepa
         print(f"\n✅ Agent 2 complete → 2 files saved in {ARTICLES_DIR}\n")
         return saved_paths
 
-    # ── Hebrew article (try/catch — don't crash pipeline) ──
-    print("  [Agent2] Writing Hebrew article (1-2 min)...")
+    # ── Hebrew article — TRANSLATION (not rewriting) ──
+    print("  [Agent2] Translating to Hebrew (חוסך זמן וטוקנים)...")
 
-    system_he = """אתה חוקר בכיר ומומחה לכתיבה אקדמית בתחום מדעי החינוך.
-כתוב מאמר סינתטי שקושר בין מספר נושאים לטענה מרכזית אחת קוהרנטית.
-אל תכתוב חלקים נפרדים לכל נושא — שלב אותם לאורך כל המאמר.
-השתמש בציטוטים בתוך הטקסט: (מחבר, שנה). כתוב בגוף שלישי אקדמי."""
+    system_he = """אתה מתרגם אקדמי. תרגם את המאמר הזה מאנגלית לעברית טבעית.
+שמור על:
+  - כל הציטוטים בפורמט המקורי (Smith, 2019)
+  - כל השמות והמספרים
+  - מבנה הסעיפים (## headers)
+  - הטון האקדמי
+זה תרגום, לא כתיבה מחדש."""
 
-    prompt_he = f"""נושאי המחקר (לסינתזה למאמר אחד): {topics_str}
+    prompt_he = f"""תרגם את המאמר הבא לעברית טבעית. שמור על המבנה והציטוטים:
 
-פירוט לפי נושא:
-{topic_breakdown}
-
-כל המאמרים ({len(all_papers)} סה"כ):
-{json.dumps(all_papers, ensure_ascii=False, indent=1)}
-
-כתוב מאמר אקדמי סינתטי מלא בעברית (2,500–4,000 מילים) שמציע טענה מרכזית אחת
-המחברת את {len(topics)} הנושאים. מבנה:
-
-## תקציר
-(150–200 מילים — הצג את הטענה המסונתזת)
-
-## מבוא
-(כיצד {len(topics)} הנושאים מתחברים — הפער שהסינתזה ממלאת)
-
-## מסגרת תיאורטית
-(בסיסים תיאורטיים משותפים לכל הנושאים)
-
-## סקירת ספרות
-(סינתזה משולבת — שלב את הנושאים, אל תסקור נושא אחרי נושא)
-
-## דיון
-(מתחים וחיבורים בין הנושאים, השלכות מעשיות)
-
-## מסקנות
-(מסקנות מאוחדות, מגבלות, כיוונים לעתיד)
-
-## ביבליוגרפיה
-(פורמט APA — רק מאמרים שצוטטו בפועל)
-
-חשוב: המאמר חייב להרגיש כיצירה קוהרנטית אחת, לא {len(topics)} סקירות נפרדות."""
+{article_en}"""
 
     try:
-        article_he = ask_claude(prompt_he, system=system_he, max_budget=3.5)
+        article_he = ask_claude(prompt_he, system=system_he, max_budget=2.5)
         title_he, content_he = _split_title(article_he, f"מאמר סינתטי: {display_title}")
 
         md_he   = ARTICLES_DIR / f"{base}_he.md"

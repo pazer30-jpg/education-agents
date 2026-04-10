@@ -43,8 +43,23 @@ def _read_article(article_path: Path, max_chars: int = 8000) -> str:
         text = "\n".join(p.text for p in doc.paragraphs if p.text.strip())
     else:
         text = article_path.read_text(encoding="utf-8", errors="replace")
+
+    # Smart truncation: intro + middle sample + conclusion (saves ~50% tokens)
     if len(text) > max_chars:
-        text = text[:max_chars] + "\n\n[... המאמר ממשיך ...]"
+        lines = text.split("\n")
+        # Find conclusion section
+        concl_idx = next(
+            (i for i, l in enumerate(lines)
+             if any(w in l.lower() for w in
+                    ["conclusion", "מסקנות", "discussion", "דיון", "summary"])),
+            int(len(lines) * 0.75)
+        )
+        intro = "\n".join(lines[:50])              # ~1500 chars
+        mid_start = len(lines) // 2
+        middle = "\n".join(lines[mid_start:mid_start+30])  # ~900 chars
+        concl = "\n".join(lines[concl_idx:concl_idx+40])   # ~1200 chars
+        text = (intro + "\n\n[...ניתוח מרכזי מקוצר...]\n\n"
+                + middle + "\n\n[...המשך...]\n\n" + concl)
     return text
 
 
@@ -103,6 +118,11 @@ def _build_system(content_types: list[str]) -> str:
 - ללא אימוג'ים. ללא רשימות ממוספרות. ללא "לסיכום".
 - אורך: 1,200–1,600 תווים
 - סיום בשאלה אמיתית שמישהו יכול לענות עליה מניסיון
+
+מקורות בסוף הפוסט — חובה:
+  📚 מקורות:
+  • שם, ר. (שנה). כותרת קצרה. כתב עת.
+  (2-4 מקורות בלבד — הכי רלוונטיים)
 """
 
     if "blog" in content_types:
@@ -115,6 +135,9 @@ def _build_system(content_types: list[str]) -> str:
 - כל פסקה עד 4 שורות. ללא "לסיכום". ללא רשימות ממוספרות.
 - אורך: 900–1,400 מילים
 - סיום פתוח — שאלה שנשארת
+
+ציטוטים inline + סעיף ## מקורות בסוף (4-6 מקורות APA 7):
+  שם, ר. (שנה). כותרת. כתב עת, כרך(גיליון), עמודים. https://doi.org/...
 """
 
     if "podcast" in content_types:
@@ -126,6 +149,9 @@ def _build_system(content_types: list[str]) -> str:
 - כלול [הפסקה] אחרי טענות חשובות
 - אורך משוער: 20-35 דקות
 - מסיים עם מחשבה פתוחה — לא מסקנה
+
+ציטוטים מדוברים בסקריפט: "לפי X שחקר את הנושא ב-Y..."
+Show notes בסוף עם 4+ מקורות APA 7.
 """
     return base
 

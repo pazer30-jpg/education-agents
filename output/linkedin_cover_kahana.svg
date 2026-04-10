@@ -1,0 +1,211 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 627">
+  <defs>
+    <radialGradient id="bgGrad" cx="35%" cy="50%" r="70%">
+      <stop offset="0%" stop-color="#16213E"/>
+      <stop offset="100%" stop-color="#1A1A2E"/>
+    </radialGradient>
+    <radialGradient id="warmCore" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#F5A623" stop-opacity="0.35"/>
+      <stop offset="45%" stop-color="#E94560" stop-opacity="0.12"/>
+      <stop offset="100%" stop-color="#1A1A2E" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="tealHalo" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#0F9B8E" stop-opacity="0.28"/>
+      <stop offset="100%" stop-color="#0F9B8E" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="figOrange" cx="50%" cy="30%" r="70%">
+      <stop offset="0%" stop-color="#F5A623"/>
+      <stop offset="100%" stop-color="#E94560"/>
+    </radialGradient>
+    <radialGradient id="figTeal" cx="50%" cy="30%" r="70%">
+      <stop offset="0%" stop-color="#0F9B8E"/>
+      <stop offset="100%" stop-color="#16213E"/>
+    </radialGradient>
+    <linearGradient id="bridgeGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#F5A623" stop-opacity="0.9"/>
+      <stop offset="50%" stop-color="#EAEAEA" stop-opacity="1"/>
+      <stop offset="100%" stop-color="#0F9B8E" stop-opacity="0.9"/>
+    </linearGradient>
+    <linearGradient id="rightFade" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#1A1A2E" stop-opacity="0"/>
+      <stop offset="100%" stop-color="#1A1A2E" stop-opacity="0.6"/>
+    </linearGradient>
+    <filter id="glow" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="6" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="softBlur" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="18"/>
+    </filter>
+    <filter id="microGlow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="3" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <!-- ── Background ── -->
+  <rect width="1200" height="627" fill="url(#bgGrad)"/>
+
+  <!-- ── Ambient glows ── -->
+  <ellipse cx="390" cy="313" rx="310" ry="260" fill="url(#warmCore)" filter="url(#softBlur)"/>
+  <ellipse cx="530" cy="230" rx="170" ry="140" fill="url(#tealHalo)" filter="url(#softBlur)"/>
+
+  <!-- ── Concentric structural rings (symmetry metaphor) ── -->
+  <circle cx="390" cy="313" r="290" fill="none" stroke="#EAEAEA" stroke-width="0.4" opacity="0.08"/>
+  <circle cx="390" cy="313" r="240" fill="none" stroke="#E94560" stroke-width="0.6" opacity="0.12"/>
+  <circle cx="390" cy="313" r="185" fill="none" stroke="#0F9B8E" stroke-width="0.7" opacity="0.18"/>
+  <circle cx="390" cy="313" r="130" fill="none" stroke="#F5A623" stroke-width="0.8" opacity="0.22"/>
+  <circle cx="390" cy="313" r="75"  fill="none" stroke="#EAEAEA" stroke-width="0.6" opacity="0.15"/>
+
+  <!-- ── Outer ring tick marks (structural pattern) ── -->
+  <line x1="390" y1="23"  x2="390" y2="43"  stroke="#EAEAEA" stroke-width="1" opacity="0.2"/>
+  <line x1="390" y1="583" x2="390" y2="603" stroke="#EAEAEA" stroke-width="1" opacity="0.2"/>
+  <line x1="100" y1="313" x2="120" y2="313" stroke="#EAEAEA" stroke-width="1" opacity="0.2"/>
+  <line x1="660" y1="313" x2="680" y2="313" stroke="#EAEAEA" stroke-width="1" opacity="0.2"/>
+  <line x1="185" y1="108" x2="199" y2="122" stroke="#EAEAEA" stroke-width="1" opacity="0.15"/>
+  <line x1="581" y1="108" x2="595" y2="122" stroke="#EAEAEA" stroke-width="1" opacity="0.15"/>
+  <line x1="185" y1="518" x2="199" y2="504" stroke="#EAEAEA" stroke-width="1" opacity="0.15"/>
+  <line x1="581" y1="518" x2="595" y2="504" stroke="#EAEAEA" stroke-width="1" opacity="0.15"/>
+
+  <!-- ── Web of connections (background, subtle) ── -->
+  <!-- Outer to outer -->
+  <line x1="390" y1="73"  x2="591" y2="141" stroke="#F5A623" stroke-width="0.6" opacity="0.10"/>
+  <line x1="591" y1="141" x2="660" y2="313" stroke="#F5A623" stroke-width="0.6" opacity="0.10"/>
+  <line x1="660" y1="313" x2="591" y2="485" stroke="#0F9B8E" stroke-width="0.6" opacity="0.10"/>
+  <line x1="591" y1="485" x2="390" y2="553" stroke="#0F9B8E" stroke-width="0.6" opacity="0.10"/>
+  <line x1="390" y1="553" x2="189" y2="485" stroke="#E94560" stroke-width="0.6" opacity="0.10"/>
+  <line x1="189" y1="485" x2="120" y2="313" stroke="#E94560" stroke-width="0.6" opacity="0.10"/>
+  <line x1="120" y1="313" x2="189" y2="141" stroke="#F5A623" stroke-width="0.6" opacity="0.10"/>
+  <line x1="189" y1="141" x2="390" y2="73"  stroke="#F5A623" stroke-width="0.6" opacity="0.10"/>
+  <!-- Skip-one cross lines -->
+  <line x1="390" y1="73"  x2="660" y2="313" stroke="#EAEAEA" stroke-width="0.4" opacity="0.07"/>
+  <line x1="591" y1="141" x2="591" y2="485" stroke="#EAEAEA" stroke-width="0.4" opacity="0.07"/>
+  <line x1="660" y1="313" x2="189" y2="141" stroke="#EAEAEA" stroke-width="0.4" opacity="0.07"/>
+  <line x1="591" y1="485" x2="120" y2="313" stroke="#EAEAEA" stroke-width="0.4" opacity="0.07"/>
+  <line x1="390" y1="553" x2="591" y2="141" stroke="#EAEAEA" stroke-width="0.4" opacity="0.07"/>
+  <line x1="189" y1="485" x2="189" y2="141" stroke="#EAEAEA" stroke-width="0.4" opacity="0.07"/>
+
+  <!-- ── 8 outer figures in circle (youth community) ── -->
+  <!-- Figure top (12 o'clock) -->
+  <circle cx="390" cy="88" r="19" fill="url(#figTeal)" filter="url(#microGlow)" opacity="0.92"/>
+  <path d="M371 107 Q390 142 409 107" fill="none" stroke="#0F9B8E" stroke-width="3" stroke-linecap="round" opacity="0.85"/>
+
+  <!-- Figure top-right (1:30) -->
+  <circle cx="558" cy="151" r="16" fill="url(#figOrange)" filter="url(#microGlow)" opacity="0.88"/>
+  <path d="M542 167 Q558 198 574 167" fill="none" stroke="#F5A623" stroke-width="2.5" stroke-linecap="round" opacity="0.8"/>
+
+  <!-- Figure right (3 o'clock) -->
+  <circle cx="627" cy="313" r="19" fill="#E94560" filter="url(#microGlow)" opacity="0.92"/>
+  <path d="M608 332 Q627 367 646 332" fill="none" stroke="#E94560" stroke-width="3" stroke-linecap="round" opacity="0.85"/>
+
+  <!-- Figure bottom-right (4:30) -->
+  <circle cx="558" cy="474" r="16" fill="url(#figTeal)" filter="url(#microGlow)" opacity="0.88"/>
+  <path d="M542 490 Q558 521 574 490" fill="none" stroke="#0F9B8E" stroke-width="2.5" stroke-linecap="round" opacity="0.8"/>
+
+  <!-- Figure bottom (6 o'clock) -->
+  <circle cx="390" cy="537" r="19" fill="url(#figOrange)" filter="url(#microGlow)" opacity="0.92"/>
+  <path d="M371 556 Q390 591 409 556" fill="none" stroke="#F5A623" stroke-width="3" stroke-linecap="round" opacity="0.85"/>
+
+  <!-- Figure bottom-left (7:30) -->
+  <circle cx="222" cy="474" r="16" fill="#E94560" filter="url(#microGlow)" opacity="0.88"/>
+  <path d="M206 490 Q222 521 238 490" fill="none" stroke="#E94560" stroke-width="2.5" stroke-linecap="round" opacity="0.8"/>
+
+  <!-- Figure left (9 o'clock) -->
+  <circle cx="153" cy="313" r="19" fill="url(#figTeal)" filter="url(#microGlow)" opacity="0.92"/>
+  <path d="M134 332 Q153 367 172 332" fill="none" stroke="#0F9B8E" stroke-width="3" stroke-linecap="round" opacity="0.85"/>
+
+  <!-- Figure top-left (10:30) -->
+  <circle cx="222" cy="151" r="16" fill="url(#figOrange)" filter="url(#microGlow)" opacity="0.88"/>
+  <path d="M206 167 Q222 198 238 167" fill="none" stroke="#F5A623" stroke-width="2.5" stroke-linecap="round" opacity="0.8"/>
+
+  <!-- ── Middle-ring figures (inner group, 4 figures) ── -->
+  <circle cx="390" cy="175" r="12" fill="#F5A623" opacity="0.55"/>
+  <path d="M381 185 Q390 203 399 185" fill="none" stroke="#F5A623" stroke-width="2" opacity="0.5"/>
+
+  <circle cx="545" cy="313" r="12" fill="#0F9B8E" opacity="0.55"/>
+  <path d="M536 323 Q545 341 554 323" fill="none" stroke="#0F9B8E" stroke-width="2" opacity="0.5"/>
+
+  <circle cx="390" cy="450" r="12" fill="#E94560" opacity="0.55"/>
+  <path d="M381 460 Q390 478 399 460" fill="none" stroke="#E94560" stroke-width="2" opacity="0.5"/>
+
+  <circle cx="235" cy="313" r="12" fill="#F5A623" opacity="0.55"/>
+  <path d="M226 323 Q235 341 244 323" fill="none" stroke="#F5A623" stroke-width="2" opacity="0.5"/>
+
+  <!-- ── Central two figures facing each other (structural symmetry) ── -->
+  <!-- Educator figure (left, orange) -->
+  <circle cx="338" cy="290" r="26" fill="url(#figOrange)" filter="url(#glow)" opacity="1"/>
+  <path d="M312 318 Q338 368 364 318" fill="#F5A623" fill-opacity="0.22" stroke="#F5A623" stroke-width="3" stroke-linecap="round" opacity="0.95"/>
+
+  <!-- Youth figure (right, teal) -->
+  <circle cx="442" cy="290" r="26" fill="url(#figTeal)" filter="url(#glow)" opacity="1"/>
+  <path d="M416 318 Q442 368 468 318" fill="#0F9B8E" fill-opacity="0.22" stroke="#0F9B8E" stroke-width="3" stroke-linecap="round" opacity="0.95"/>
+
+  <!-- Bridge of symmetry between the two central figures -->
+  <path d="M364 290 Q390 268 416 290" fill="none" stroke="url(#bridgeGrad)" stroke-width="2.5" stroke-linecap="round" opacity="0.85"/>
+  <path d="M364 305 Q390 322 416 305" fill="none" stroke="url(#bridgeGrad)" stroke-width="1.5" stroke-linecap="round" opacity="0.45"/>
+
+  <!-- Central axis dot (the meeting point) -->
+  <circle cx="390" cy="283" r="5" fill="#EAEAEA" opacity="0.95" filter="url(#microGlow)"/>
+  <circle cx="390" cy="313" r="8" fill="#E94560" opacity="0.9" filter="url(#glow)"/>
+  <circle cx="390" cy="313" r="3" fill="#EAEAEA" opacity="1"/>
+
+  <!-- ── Radiating spokes from center (choice/freedom metaphor) ── -->
+  <line x1="390" y1="305" x2="390" y2="128"  stroke="#EAEAEA" stroke-width="0.5" opacity="0.08"/>
+  <line x1="390" y1="321" x2="390" y2="498"  stroke="#EAEAEA" stroke-width="0.5" opacity="0.08"/>
+  <line x1="382" y1="313" x2="228" y2="313"  stroke="#EAEAEA" stroke-width="0.5" opacity="0.08"/>
+  <line x1="398" y1="313" x2="552" y2="313"  stroke="#EAEAEA" stroke-width="0.5" opacity="0.08"/>
+  <line x1="385" y1="307" x2="258" y2="193"  stroke="#EAEAEA" stroke-width="0.5" opacity="0.06"/>
+  <line x1="395" y1="307" x2="522" y2="193"  stroke="#EAEAEA" stroke-width="0.5" opacity="0.06"/>
+  <line x1="385" y1="319" x2="258" y2="433"  stroke="#EAEAEA" stroke-width="0.5" opacity="0.06"/>
+  <line x1="395" y1="319" x2="522" y2="433"  stroke="#EAEAEA" stroke-width="0.5" opacity="0.06"/>
+
+  <!-- ── Floating accent particles ── -->
+  <circle cx="470" cy="175" r="3.5" fill="#F5A623" opacity="0.7"/>
+  <circle cx="310" cy="172" r="2.5" fill="#0F9B8E"  opacity="0.6"/>
+  <circle cx="605" cy="240" r="3"   fill="#E94560"  opacity="0.6"/>
+  <circle cx="615" cy="390" r="2.5" fill="#F5A623"  opacity="0.55"/>
+  <circle cx="460" cy="468" r="3"   fill="#0F9B8E"  opacity="0.6"/>
+  <circle cx="318" cy="468" r="2.5" fill="#E94560"  opacity="0.55"/>
+  <circle cx="165" cy="390" r="3"   fill="#F5A623"  opacity="0.6"/>
+  <circle cx="168" cy="240" r="2.5" fill="#0F9B8E"  opacity="0.55"/>
+  <circle cx="390" cy="390" r="2"   fill="#EAEAEA"  opacity="0.4"/>
+  <circle cx="460" cy="250" r="2"   fill="#EAEAEA"  opacity="0.35"/>
+  <circle cx="320" cy="250" r="2"   fill="#EAEAEA"  opacity="0.35"/>
+
+  <!-- ── Organic flowing curves (belonging / flow) ── -->
+  <path d="M80 180 Q200 120 340 170 Q480 220 560 160 Q640 100 730 150" fill="none" stroke="#0F9B8E" stroke-width="1.2" opacity="0.13"/>
+  <path d="M80 450 Q200 510 340 460 Q480 410 560 470 Q640 530 730 480" fill="none" stroke="#F5A623" stroke-width="1.2" opacity="0.13"/>
+
+  <!-- ── Right panel separator gradient ── -->
+  <rect x="750" y="0" width="450" height="627" fill="url(#rightFade)"/>
+
+  <!-- ── Right panel decorative orbit (abstract education/cycle) ── -->
+  <circle cx="970" cy="313" r="195" fill="none" stroke="#16213E" stroke-width="28" opacity="0.9"/>
+  <circle cx="970" cy="313" r="195" fill="none" stroke="#0F9B8E" stroke-width="1" opacity="0.14"/>
+  <circle cx="970" cy="313" r="140" fill="none" stroke="#E94560" stroke-width="0.8" opacity="0.12"/>
+  <circle cx="970" cy="313" r="85"  fill="none" stroke="#F5A623" stroke-width="0.7" opacity="0.14"/>
+  <circle cx="970" cy="313" r="38"  fill="#16213E" stroke="#EAEAEA" stroke-width="0.6" opacity="0.9"/>
+
+  <!-- Orbit dots -->
+  <circle cx="970" cy="118" r="7" fill="#F5A623" filter="url(#microGlow)" opacity="0.8"/>
+  <circle cx="1165" cy="313" r="7" fill="#0F9B8E" filter="url(#microGlow)" opacity="0.8"/>
+  <circle cx="970" cy="508" r="7" fill="#E94560" filter="url(#microGlow)" opacity="0.8"/>
+  <circle cx="775" cy="313" r="7" fill="#F5A623" filter="url(#microGlow)" opacity="0.8"/>
+
+  <!-- Right panel small figures (echo of main theme) -->
+  <circle cx="970" cy="297" r="14" fill="url(#figOrange)" opacity="0.75"/>
+  <circle cx="970" cy="325" r="2" fill="#EAEAEA" opacity="0.6"/>
+
+  <!-- Sweep arc connecting orbit dots -->
+  <path d="M970 118 A195 195 0 0 1 1165 313" fill="none" stroke="#F5A623" stroke-width="1.5" opacity="0.2"/>
+  <path d="M1165 313 A195 195 0 0 1 970 508" fill="none" stroke="#0F9B8E" stroke-width="1.5" opacity="0.2"/>
+
+  <!-- ── Topic badge ── -->
+  <rect x="840" y="72" width="240" height="42" rx="21" fill="#E94560" opacity="0.92"/>
+  <rect x="841" y="73" width="238" height="40" rx="20" fill="none" stroke="#EAEAEA" stroke-width="0.8" opacity="0.3"/>
+  <text x="960" y="99" font-family="Arial, Helvetica, sans-serif" font-size="15" font-weight="700" fill="#EAEAEA" text-anchor="middle" letter-spacing="0.5">חינוך בלתי פורמלי</text>
+
+  <!-- ── Signature ── -->
+  <text x="1155" y="596" font-family="Arial, Helvetica, sans-serif" font-size="13" fill="#EAEAEA" text-anchor="end" opacity="0.55" letter-spacing="0.3">פז שלמה</text>
+</svg>
+<!-- DALLE: Abstract editorial illustration for LinkedIn cover: dark navy background (#1A1A2E), eight abstract human figures (small glowing circles as heads with curved arc bodies) arranged in a perfect circle formation, all connected by delicate luminous lines forming a geometric web, two larger central figures facing each other with a glowing bridge between them representing structural symmetry, concentric rings emanating outward, warm orange (#F5A623) and teal (#0F9B8E) color accents, soft radial glow at center, floating luminous particles, clean professional editorial style, no text, ultra-modern graphic design -->
