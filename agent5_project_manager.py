@@ -414,7 +414,15 @@ def _execute_step(step: dict, execution_state: dict) -> str:
             pp = execution_state.get("post_paths", {})
             if not ap and not pp:
                 return "❌ אין תוכן לעצב — הרץ content קודם"
-            design_types = step.get("design_types", ["linkedin_cover"])
+            # ברירת מחדל: עיצוב לכל פלטפורמה שיש לה תוכן
+            content_platforms = set((execution_state.get("post_paths") or {}).keys())
+            default_designs = []
+            if "linkedin" in content_platforms: default_designs.append("linkedin_cover")
+            if "blog" in content_platforms:     default_designs.append("blog_banner")
+            if "podcast" in content_platforms:  default_designs.append("podcast_cover")
+            if not default_designs:
+                default_designs = ["linkedin_cover", "blog_banner"]
+            design_types = step.get("design_types") or default_designs
             topic = step.get("topic", "")
             ap_paths = {k: Path(v) for k, v in ap.items()}
             pp_paths = {k: [Path(p) for p in v] for k, v in pp.items()}

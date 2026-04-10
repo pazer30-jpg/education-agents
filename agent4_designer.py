@@ -23,6 +23,47 @@ from claude_cli import ask_claude
 DESIGNS_DIR = OUTPUT_DIR / "designs"
 DESIGNS_DIR.mkdir(parents=True, exist_ok=True)
 
+IMAGES_DIR = OUTPUT_DIR / "images"
+IMAGES_DIR.mkdir(parents=True, exist_ok=True)
+
+
+# ─────────────────────────────────────────────
+# SVG → PNG conversion
+# ─────────────────────────────────────────────
+
+def _svg_to_png(svg_path: Path, png_path: Path) -> bool:
+    """ממיר SVG ל-PNG. מנסה cairosvg → inkscape → rsvg-convert."""
+    import os, sys
+    try:
+        # Suppress cairosvg's native-lib errors to stderr
+        devnull = open(os.devnull, "w")
+        old_stderr = sys.stderr
+        sys.stderr = devnull
+        try:
+            import cairosvg
+            cairosvg.svg2png(url=str(svg_path), write_to=str(png_path), dpi=150)
+            return True
+        finally:
+            sys.stderr = old_stderr
+            devnull.close()
+    except ImportError:
+        pass
+    except Exception:
+        pass
+
+    import subprocess
+    for cmd in [
+        ["inkscape", "--export-type=png", f"--export-filename={png_path}", str(svg_path)],
+        ["rsvg-convert", "-f", "png", "-o", str(png_path), str(svg_path)],
+    ]:
+        try:
+            r = subprocess.run(cmd, capture_output=True, timeout=30)
+            if r.returncode == 0 and png_path.exists():
+                return True
+        except (FileNotFoundError, subprocess.TimeoutExpired):
+            continue
+    return False
+
 
 # ─────────────────────────────────────────────
 # Brand system
@@ -328,16 +369,23 @@ def _fallback_svg(w: int, h: int, topic_tag: str, platform: str) -> str:
 # ─────────────────────────────────────────────
 
 def _save(svg: str, slug: str, dalle_prompt: str, label: str) -> Path:
-    ts   = datetime.now().strftime("%Y%m%d_%H%M")
-    path = DESIGNS_DIR / f"{slug}_{ts}.svg"
-    path.write_text(svg, encoding="utf-8")
+    ts       = datetime.now().strftime("%Y%m%d_%H%M")
+    svg_path = DESIGNS_DIR / f"{slug}_{ts}.svg"
+    svg_path.write_text(svg, encoding="utf-8")
+
+    png_path = IMAGES_DIR / f"{slug}_{ts}.png"
+    png_ok = _svg_to_png(svg_path, png_path)
+    if png_ok:
+        print(f"  [Agent4] 🖼  PNG: {png_path.name}")
+    else:
+        print(f"  [Agent4] ℹ️  SVG only (pip install cairosvg for PNG)")
 
     prompts_file = DESIGNS_DIR / "image_prompts.txt"
     with open(prompts_file, "a", encoding="utf-8") as f:
-        f.write(f"\n{'─'*60}\n[{label}] {path.name}\n")
+        f.write(f"\n{'─'*60}\n[{label}] {svg_path.name}\n")
         f.write(f"DALL-E / Midjourney:\n{dalle_prompt}\n")
 
-    return path
+    return png_path if png_ok else svg_path
 
 
 # ─────────────────────────────────────────────
