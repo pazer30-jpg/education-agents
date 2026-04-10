@@ -976,8 +976,10 @@ def _chat_process(user_input: str, session: dict, auto: bool) -> str:
     params = intent.get("params", {})
 
     if action == "run_pipeline":
-        topic = params.get("topic", session.get("topic", "חינוך בלתי פורמלי"))
-        content_types = params.get("content_types", ["linkedin"])
+        topic = params.get("topic") or session.get("topic", "חינוך בלתי פורמלי")
+        valid_types = {"linkedin", "blog", "podcast"}
+        raw_types = params.get("content_types") or ["linkedin"]
+        content_types = [t for t in raw_types if t in valid_types] or ["linkedin"]
         parallel = "--parallel" in user_input
         bilingual = "--bilingual" in user_input
 
@@ -997,7 +999,9 @@ def _chat_process(user_input: str, session: dict, auto: bool) -> str:
         return "Pipeline הסתיים."
 
     elif action == "content_only":
-        content_types = params.get("content_types", ["linkedin"])
+        valid_types = {"linkedin", "blog", "podcast"}
+        raw_types = params.get("content_types") or ["linkedin"]
+        content_types = [t for t in raw_types if t in valid_types] or ["linkedin"]
         print(f"\n  יוצר תוכן — {', '.join(content_types)}...")
         req = f"צור תוכן: {' '.join(content_types)} ממאמר קיים"
         run_project_manager(req, auto_approve=True)
