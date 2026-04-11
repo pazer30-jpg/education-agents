@@ -36,6 +36,7 @@ def parse_args():
     p.add_argument("--resume",  action="store_true", help="המשך ריצה אחרונה")
     p.add_argument("--parallel",action="store_true", help="מחקר מקבילי ×3")
     p.add_argument("--bilingual",action="store_true",help="פלט EN + HE")
+    p.add_argument("--auto",    action="store_true", help="דלג על human review")
     return p.parse_args()
 
 
@@ -230,6 +231,14 @@ Checkpoint: {ckpt.run_id}
         }
         ckpt.save("content", results["agent3"]["files"])
         print(f"  ⏱  Content: {results['agent3']['time']}")
+
+        # Agent 3.5: Human Review
+        if not args.auto:
+            try:
+                from agent3_5_human_review import review_all
+                review_all(content_types, auto_approve=False)
+            except Exception as e:
+                print(f"  ⚠️  Human review: {e}")
 
         # Agent 3.6: Content editor
         try:

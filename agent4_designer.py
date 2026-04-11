@@ -107,6 +107,8 @@ def _infer_mood(text: str) -> str:
         return "mountain paths, open sky, campfire glow, vast landscape"
     if any(w in t for w in ["digital", "דיגיטל", "online", "technology"]):
         return "connected nodes, screen glow, data streams, digital constellation"
+    if any(w in t for w in ["trust", "אמון", "safe", "בטוח", "secure"]):
+        return "shelter, protected space, warm enclosed circle, soft boundary"
     return "depth, layered meaning, quiet strength, abstract educational landscape"
 
 
