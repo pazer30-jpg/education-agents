@@ -920,24 +920,21 @@ def _chat_process(user_input: str, session: dict, auto: bool) -> str:
         return ""
 
     if any(w in low for w in ["ביבליוגרפיה", "bib", "מקורות", "references"]):
-        from bibliography import BibManager
-        bib = BibManager()
-        # Check if search query
+        from bibliography import search as bib_search, stats as bib_stats, auto_update
         if "חפש" in low or "search" in low:
             words = low.replace("חפש", "").replace("search", "").replace("ביבליוגרפיה", "").strip()
             if words:
-                results = bib.search(words)
+                results = bib_search(words)
                 lines = [f"🔍 תוצאות עבור '{words}': {len(results)}"]
-                for key, entry in results[:8]:
-                    cit = entry.get("citation_count", 0)
-                    pdf = " 📄" if entry.get("pdf_url") else ""
-                    lines.append(f"  [{key}] {entry.get('year','?')} | "
-                                 f"{entry.get('title','')[:50]} (×{cit}){pdf}")
+                for r in results[:8]:
+                    cit = r.get("citation_count", 0)
+                    pdf = " 📄" if r.get("pdf_url") else ""
+                    lines.append(f"  [{r.get('year','?')}] "
+                                 f"{r.get('title','')[:50]} (×{cit}){pdf}")
                 return "\n".join(lines)
             return "מה לחפש? (למשל: ביבליוגרפיה חפש belonging)"
-        bib.rebuild()
-        bib.print_stats()
-        return ""
+        auto_update()
+        return bib_stats()
 
     if any(w in low for w in ["קונטקסט", "context"]):
         from context_update import show_context
