@@ -903,6 +903,12 @@ def _chat_process(user_input: str, session: dict, auto: bool) -> str:
   ממיר רשימה                           — קבצים זמינים להמרה
   ממיר [from] [to]                     — דוגמה: ממיר blog linkedin
 
+📂 ניהול קבצים
+  קבצים / מצב קבצים                    — דוח: drafts/ready/published/archive
+  סדר / ארגן                           — מעביר drafts שעברו QA → ready
+  פרסמתי linkedin/blog/podcast        — מסמן כפורסם (ready → published)
+  ארכיון                               — מעביר ישנים מ-30 יום → archive
+
 📋 תור
   תור                                  — הצג תור עדיפויות
   תור [בקשה]                           — הוסף לתור
@@ -985,6 +991,37 @@ def _chat_process(user_input: str, session: dict, auto: bool) -> str:
                     return f"לא נמצא תוכן עבור '{query}'"
         print_recent(8)
         return ""
+
+    # ── File organizer ──
+    if low in ("סדר", "organize", "ארגן", "ארגן קבצים"):
+        from file_organizer import organize_drafts, status
+        result = organize_drafts()
+        moved_lines = [f"  {p}: {n}" for p, n in result["moved"].items() if n]
+        msg = "✅ הועברו ל-ready:\n" + "\n".join(moved_lines) if moved_lines else "אין קבצים חדשים להעביר."
+        return msg + "\n" + status()
+
+    if low in ("קבצים", "files", "מצב קבצים"):
+        from file_organizer import status
+        return status()
+
+    if low.startswith("פרסמתי ") or low.startswith("published "):
+        from file_organizer import mark_published
+        parts = user_input.split()
+        if len(parts) < 2:
+            return "שימוש: פרסמתי linkedin / blog / podcast"
+        platform = parts[1].lower()
+        if platform not in ("linkedin", "blog", "podcast"):
+            return f"פלטפורמה לא חוקית: {platform}"
+        result = mark_published(platform)
+        if result:
+            return f"✅ סומן כפורסם: {result.name}"
+        return f"⚠️ אין קובץ ב-ready/{platform} — הרץ 'סדר' קודם"
+
+    if low in ("ארכיון", "archive", "נקה ישנים"):
+        from file_organizer import archive_old
+        result = archive_old(30)
+        total = sum(result.values())
+        return f"📦 הועברו לארכיון ({total} קבצים מ-30+ יום)"
 
     # ── Performance log ──
     if any(w in low for w in ["ביצועים", "performance", "מה עבד"]):
