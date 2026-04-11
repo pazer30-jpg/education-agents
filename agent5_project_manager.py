@@ -200,7 +200,7 @@ def _create_plan(request: str, state: dict) -> dict:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 כללי:
 - use_existing=true אם יש קבצים רלוונטיים קיימים
-- content_types לפי הבקשה (ברירת מחדל: linkedin + blog)
+- content_types לפי הבקשה (ברירת מחדל אם לא צוין: linkedin + blog + podcast — שלושתם)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 החזר JSON עם:
@@ -345,10 +345,10 @@ def _execute_step(step: dict, execution_state: dict) -> str:
             if not ap:
                 return "❌ אין מאמר — הרץ writer קודם"
             valid_types = {"linkedin", "blog", "podcast"}
-            raw_types = step.get("content_types", ["linkedin"])
+            raw_types = step.get("content_types") or ["linkedin", "blog", "podcast"]
             content_types = [t for t in raw_types if t in valid_types]
             if not content_types:
-                content_types = ["linkedin"]  # fallback
+                content_types = ["linkedin", "blog", "podcast"]  # fallback
                 print(f"    ⚠️  content_types שגויים ({raw_types}) → linkedin")
             from agent3_content_creator import run_content_creator
             # Convert string paths back to Path objects
@@ -480,7 +480,7 @@ def _execute_step_with_qa(step: dict, execution_state: dict) -> str:
     qa_stages = {
         "researcher": ["research"],
         "writer":     ["article"],
-        "content":    step.get("content_types", ["linkedin"]),
+        "content":    step.get("content_types") or ["linkedin", "blog", "podcast"],
     }
     stages = qa_stages.get(agent, [])
 
@@ -989,8 +989,8 @@ def _chat_process(user_input: str, session: dict, auto: bool) -> str:
     if action == "run_pipeline":
         topic = params.get("topic") or session.get("topic", "חינוך בלתי פורמלי")
         valid_types = {"linkedin", "blog", "podcast"}
-        raw_types = params.get("content_types") or ["linkedin"]
-        content_types = [t for t in raw_types if t in valid_types] or ["linkedin"]
+        raw_types = params.get("content_types") or ["linkedin", "blog", "podcast"]
+        content_types = [t for t in raw_types if t in valid_types] or ["linkedin", "blog", "podcast"]
         parallel = "--parallel" in user_input
         bilingual = "--bilingual" in user_input
 
@@ -1012,8 +1012,8 @@ def _chat_process(user_input: str, session: dict, auto: bool) -> str:
 
     elif action == "content_only":
         valid_types = {"linkedin", "blog", "podcast"}
-        raw_types = params.get("content_types") or ["linkedin"]
-        content_types = [t for t in raw_types if t in valid_types] or ["linkedin"]
+        raw_types = params.get("content_types") or ["linkedin", "blog", "podcast"]
+        content_types = [t for t in raw_types if t in valid_types] or ["linkedin", "blog", "podcast"]
         print(f"\n  יוצר תוכן — {', '.join(content_types)}...")
         req = f"צור תוכן: {' '.join(content_types)} ממאמר קיים"
         run_project_manager(req, auto_approve=True)
