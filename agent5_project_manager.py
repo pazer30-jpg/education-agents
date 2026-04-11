@@ -868,22 +868,47 @@ def _chat_process(user_input: str, session: dict, auto: bool) -> str:
 
     if low in ("עזרה", "help", "?"):
         return """פקודות:
-  הרץ הכל [--parallel] [--bilingual]  — pipeline מלא
+
+🎯 הרצה
+  הרץ הכל [--parallel] [--bilingual]  — pipeline מלא (3 פלטפורמות)
   פוסט linkedin / blog / podcast       — רק תוכן
-  בדוק איכות                           — QA על קבצים קיימים
-  ערוך [article/linkedin/blog/podcast] — הגהה
+  המשך / resume                        — המשך מ-checkpoint אחרון
+
+📊 מידע
   מה יש / סטטוס                        — קבצים קיימים
-  סיכום שבועי                          — סיכום 7 ימים אחרונים
-  ביבליוגרפיה / bib                    — ניהול מקורות
-  analytics                             — דוח ביצועים
-  dashboard                             — דאשבורד ויזואלי בדפדפן
-  checkpoints                           — סטטוס checkpoints
-  חפש [מילה] / היסטוריה                — חפש בתוכן שנוצר
-  קונטקסט / context                    — הצג/עדכן קונטקסט אישי
   מה קרה / ריצה אחרונה                — פירוט ריצה אחרונה
-  תור / תור [בקשה]                    — תור עדיפויות
+  analytics / דוח                       — דוח ביצועים מצטבר
+  dashboard / דאשבורד                  — לוח בקרה בדפדפן
+  checkpoints                           — סטטוס checkpoints
+  לוגים / logs [N]                     — N שורות אחרונות מהלוג
+
+✏️ עריכה ואיכות
+  בדוק איכות / qa                      — QA על קבצים קיימים
+  ערוך [article/linkedin/blog/podcast] — הגהה
+  בדיקות / tests                        — הרץ tests.py --quick
+
+📚 ידע
+  ביבליוגרפיה / bib [query]            — ניהול/חיפוש מקורות
+  חפש [מילה] / היסטוריה                — חפש בתוכן שנוצר
+  סיכום שבועי                          — סיכום 7 ימים
   הוסף מאמר [URL]                      — הוסף מקור ידני
-  עצור                                  — יציאה"""
+  קונטקסט / context                    — הצג/עדכן קונטקסט אישי
+
+📈 ביצועים ולמידה
+  ביצועים / performance / מה עבד       — דוח performance log
+  הוסף ביצוע                           — הזנת לייקים/תגובות
+  תובנות / insights                    — Claude מנתח מגמות
+
+♻️ Repurposing
+  ממיר רשימה                           — קבצים זמינים להמרה
+  ממיר [from] [to]                     — דוגמה: ממיר blog linkedin
+
+📋 תור
+  תור                                  — הצג תור עדיפויות
+  תור [בקשה]                           — הוסף לתור
+
+🚪 יציאה
+  עצור / exit / q"""
 
     if low in ("סטטוס", "מה יש", "status", "מה קיים", "רשימה"):
         state = _read_system_state()
@@ -960,6 +985,71 @@ def _chat_process(user_input: str, session: dict, auto: bool) -> str:
                     return f"לא נמצא תוכן עבור '{query}'"
         print_recent(8)
         return ""
+
+    # ── Performance log ──
+    if any(w in low for w in ["ביצועים", "performance", "מה עבד"]):
+        from performance_log import show_report
+        show_report()
+        return ""
+
+    if low.startswith("הוסף ביצוע") or low == "perf-add":
+        from performance_log import add_entry_interactive
+        add_entry_interactive()
+        return ""
+
+    if low in ("תובנות", "insights"):
+        import subprocess
+        subprocess.run([sys.executable, "performance_log.py", "--insights"])
+        return ""
+
+    # ── Repurposing ──
+    if low in ("ממיר רשימה", "repurpose list", "רשימת ממיר"):
+        from repurpose_tool import list_available
+        list_available()
+        return ""
+
+    if low.startswith("ממיר ") or low.startswith("repurpose "):
+        parts = user_input.split()
+        if len(parts) >= 3:
+            src, tgt = parts[1], parts[2]
+            from repurpose_tool import repurpose, _find_latest
+            f = _find_latest(src)
+            if f:
+                repurpose(f, tgt)
+                return f"הומר {src} → {tgt}"
+            return f"לא נמצא קובץ אחרון ל-{src}"
+        return "שימוש: ממיר [blog/linkedin/podcast] [יעד]"
+
+    # ── Logs ──
+    if low.startswith("לוגים") or low.startswith("logs"):
+        from logger import log
+        n = 50
+        parts = low.split()
+        if len(parts) > 1 and parts[1].isdigit():
+            n = int(parts[1])
+        log_file = OUTPUT_DIR / "moki.log"
+        if log_file.exists():
+            lines = log_file.read_text(encoding="utf-8").splitlines()[-n:]
+            return "\n".join(lines)
+        return "אין לוגים."
+
+    # ── Tests ──
+    if low in ("בדיקות", "tests", "test"):
+        import subprocess
+        subprocess.run([sys.executable, "tests.py", "--quick"])
+        return ""
+
+    # ── Resume ──
+    if low in ("המשך", "resume", "חידוש"):
+        ckpt = Checkpoint.latest()
+        if ckpt:
+            print(f"  ♻️ ממשיך מ: {ckpt.summary()}")
+            import subprocess
+            subprocess.run([sys.executable, "orchestrator.py",
+                          ckpt.get("planner", {}).get("combined_title", "continue"),
+                          "--resume"])
+            return ""
+        return "אין checkpoint לחידוש."
 
     if any(w in low for w in ["qa", "איכות", "בדוק איכות"]):
         state = _read_system_state()
