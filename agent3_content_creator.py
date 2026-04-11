@@ -72,11 +72,18 @@ def _build_system(content_types: list[str]) -> str:
     primary = content_types[0]
     voice = get_voice_prompt(primary)
 
-    # Load personal context + rejection rules
+    # Load personal context + rejection rules + performance patterns
     from memory import get_context, get_published_titles, format_rules_for_prompt
     ctx = get_context()
     published = get_published_titles(primary)
     rej_rules = format_rules_for_prompt(primary)
+
+    perf_patterns = ""
+    try:
+        from performance_log import get_patterns_for_prompt
+        perf_patterns = get_patterns_for_prompt()
+    except Exception:
+        pass
 
     ctx_parts = []
     if ctx.get("season"):
@@ -91,6 +98,8 @@ def _build_system(content_types: list[str]) -> str:
         ctx_parts.append(f"כבר כוסה (אל תחזור): {', '.join(published[:5])}")
     if rej_rules:
         ctx_parts.append(rej_rules)
+    if perf_patterns:
+        ctx_parts.append(perf_patterns)
 
     context_block = ("\n\nהקשר אישי של פז:\n" + "\n".join(f"  • {p}" for p in ctx_parts) + "\n") if ctx_parts else ""
 

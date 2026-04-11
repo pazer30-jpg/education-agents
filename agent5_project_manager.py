@@ -1228,6 +1228,16 @@ def _print_usage():
   --context                         הצג קונטקסט אישי
   --context "טקסט"                  עדכון מהיר
 
+📊 ביצועים (performance log)
+  --perf                            הצג דוח ביצועי תוכן
+  --perf-add                        הוסף ביצוע חדש (אינטראקטיבי)
+  --perf-insights                   Claude מנתח מגמות
+
+♻️ Repurposing
+  --repurpose-list                  הצג קבצים זמינים להמרה
+  --repurpose --from FILE --to linkedin blog podcast
+  --repurpose --latest blog --to linkedin
+
 📋 תור ועוד
   --queue                           הצג תור עדיפויות
   --queue-add "בקשה"                הוסף לתור
@@ -1367,6 +1377,55 @@ if __name__ == "__main__":
 
     elif "--queue" in args:
         print(queue_status())
+
+    # ── Performance log ──────────────────────────
+    elif "--perf-add" in args:
+        from performance_log import add_entry_interactive
+        add_entry_interactive()
+
+    elif "--perf-insights" in args:
+        import subprocess
+        subprocess.run([sys.executable, "performance_log.py", "--insights"])
+
+    elif "--perf" in args:
+        from performance_log import show_report
+        show_report()
+
+    # ── Repurposing ──────────────────────────────
+    elif "--repurpose-list" in args:
+        from repurpose_tool import list_available
+        list_available()
+
+    elif "--repurpose" in args:
+        from repurpose_tool import repurpose, repurpose_all, _find_latest, PLATFORM_DIRS
+        targets = _cli_args_after("--to")
+        latest  = _cli_arg("--latest")
+        src_arg = _cli_arg("--from")
+
+        if not targets:
+            print("  דרוש --to linkedin|blog|podcast")
+        else:
+            source = None
+            if latest:
+                source = _find_latest(latest)
+                if not source:
+                    print(f"  לא נמצאו קבצים ב-{latest}")
+            elif src_arg:
+                source = Path(src_arg)
+                if not source.exists():
+                    for d in PLATFORM_DIRS.values():
+                        candidate = d / src_arg
+                        if candidate.exists():
+                            source = candidate
+                            break
+            else:
+                print("  דרוש --from FILE או --latest PLATFORM")
+
+            if source and source.exists():
+                if len(targets) == 1:
+                    repurpose(source, targets[0])
+                else:
+                    repurpose_all(source, targets)
 
     # ── Testing ──────────────────────────────────
     elif "--test" in args:
