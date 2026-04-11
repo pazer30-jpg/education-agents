@@ -813,6 +813,8 @@ def queue_status() -> str:
 # Chat: intent classification (via claude_cli)
 # ─────────────────────────────────────────────
 
+LONG_RUN_THRESHOLD_MINS = 5  # pipeline ארוך מזה דורש אישור מפורש
+
 def _classify_intent(user_input: str) -> dict:
     """Classify user intent using claude_cli."""
     prompt = f"""המשתמש אמר: "{user_input}"
@@ -820,13 +822,17 @@ def _classify_intent(user_input: str) -> dict:
 החזר JSON עם:
   action: "run_pipeline" | "content_only" | "qa_check" | "edit" | "info" | "add_paper" | "chat"
   params: dict עם פרמטרים (topic, content_types, platform, url)
-  confirm_needed: true אם הפעולה תיקח יותר מ-2 דקות
+  eta_mins: הערכת זמן ריצה בדקות (מספר שלם)
 
 JSON בלבד."""
     try:
-        return ask_claude_json(prompt, max_budget=0.3)
+        result = ask_claude_json(prompt, max_budget=0.3)
+        # Backward compat: confirm_needed נגזר מ-eta_mins אם לא קיים
+        if "confirm_needed" not in result:
+            result["confirm_needed"] = result.get("eta_mins", 0) >= LONG_RUN_THRESHOLD_MINS
+        return result
     except Exception:
-        return {"action": "chat", "params": {}, "confirm_needed": False}
+        return {"action": "chat", "params": {}, "eta_mins": 1, "confirm_needed": False}
 
 
 def _chat_response(user_input: str, history: list[dict]) -> str:
@@ -992,11 +998,12 @@ def _chat_process(user_input: str, session: dict, auto: bool) -> str:
         bilingual = "--bilingual" in user_input
 
         ct_str = " + ".join(CONTENT_TYPES.get(t, t) for t in content_types)
-        print(f"\n  מריץ pipeline — {topic} | {ct_str}...")
+        eta = intent.get("eta_mins", 10)
+        print(f"\n  מריץ pipeline — {topic} | {ct_str} | ~{eta} דק' משוער...")
 
-        if intent.get("confirm_needed") and not auto:
+        if eta >= LONG_RUN_THRESHOLD_MINS and not auto:
             try:
-                ok = input("  להמשיך? (Enter=כן, n=לא): ").strip().lower()
+                ok = input(f"  זה ייקח ~{eta} דקות. להמשיך? (Enter=כן, n=לא): ").strip().lower()
             except (EOFError, KeyboardInterrupt):
                 ok = ""
             if ok in {"n", "no", "לא", "בטל", "cancel"}:
