@@ -61,6 +61,19 @@ def _get_recent_files(directory: Path, patterns: list[str], limit: int = 5) -> l
     return files[:limit]
 
 
+def _ready_to_publish() -> dict:
+    """כמה תוצרים מוכנים לפרסום (לא .bak, לא template)."""
+    def _count_real(d: Path, pattern: str) -> int:
+        if not d.exists():
+            return 0
+        return sum(1 for p in d.glob(pattern) if not p.name.endswith(".bak"))
+    return {
+        "linkedin": _count_real(LINKEDIN_DIR, "*_ready.txt"),
+        "blog":     _count_real(BLOG_DIR, "*.md"),
+        "podcast":  _count_real(PODCAST_DIR, "*_script_*.md"),
+    }
+
+
 def generate_dashboard() -> str:
     analytics = _load_analytics()
     runs = analytics.get("runs", [])
@@ -69,7 +82,9 @@ def generate_dashboard() -> str:
     # ── All data as JSON for JS filtering ─────
     runs_json = json.dumps(runs, ensure_ascii=False, default=str)
 
-    # ── Static counts ─────────────────────────
+    # ── File counts ───────────────────────────
+    ready = _ready_to_publish()
+    n_ready_total = ready["linkedin"] + ready["blog"] + ready["podcast"]
     n_papers = _count_files(PAPERS_DIR, ["*.json"])
     n_articles = _count_files(ARTICLES_DIR, ["*.md"])
     n_linkedin = _count_files(LINKEDIN_DIR, ["*.txt"])
@@ -130,54 +145,58 @@ def generate_dashboard() -> str:
 <title>מוקי — Dashboard</title>
 <style>
 :root {{
-  --bg:#0c0e14;--card:#151821;--border:#1e2233;--hover:#1a1f2e;
-  --t:#d4d4d8;--td:#71717a;--tb:#fafafa;
+  --bg:#0a0b10;--surface:#12141c;--card:#171a24;--border:#222636;
+  --t:#e4e4e7;--td:#71717a;--tb:#fafafa;--tdim:#52525b;
   --red:#E94560;--green:#4ade80;--blue:#60a5fa;--orange:#F5A623;--purple:#a78bfa;
-  --r:14px;
+  --r:12px;
 }}
 *{{margin:0;padding:0;box-sizing:border-box}}
-body{{font-family:'Inter',-apple-system,sans-serif;background:var(--bg);color:var(--t);padding:20px;max-width:1240px;margin:0 auto}}
+html{{scroll-behavior:smooth}}
+body{{font-family:-apple-system,'Inter','Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--t);padding:16px 20px 40px;max-width:1200px;margin:0 auto;line-height:1.5}}
 
-.hdr{{text-align:center;padding:24px 0 8px}}
-.hdr h1{{font-size:30px;color:var(--tb);font-weight:800}}
-.hdr .sub{{color:var(--td);font-size:12px;margin:6px 0}}
-.pipe{{display:flex;justify-content:center;gap:4px;margin:12px 0;flex-wrap:wrap}}
-.pipe .s{{background:var(--card);border:1px solid var(--border);padding:5px 12px;border-radius:18px;font-size:11px;color:var(--td)}}
-.pipe .a{{color:#444;padding-top:5px;font-size:10px}}
+/* ─── Topbar ─── */
+.top{{display:flex;justify-content:space-between;align-items:center;padding:12px 0 20px;border-bottom:1px solid var(--border);margin-bottom:24px}}
+.top .brand{{display:flex;align-items:center;gap:10px}}
+.top .brand .logo{{font-size:22px}}
+.top .brand h1{{font-size:18px;color:var(--tb);font-weight:700;letter-spacing:-.3px}}
+.top .brand .tag{{font-size:10px;color:var(--td);padding:2px 8px;background:var(--card);border-radius:10px;margin-right:4px}}
+.top .filters{{display:flex;gap:4px}}
+.top .filters .btn{{background:transparent;border:1px solid var(--border);color:var(--td);padding:6px 14px;border-radius:8px;font-size:11px;cursor:pointer;transition:all .15s}}
+.top .filters .btn:hover{{color:var(--tb);border-color:#333}}
+.top .filters .btn.active{{background:var(--tb);border-color:var(--tb);color:#000;font-weight:600}}
 
-/* Controls */
-.controls{{display:flex;justify-content:center;gap:8px;margin:16px 0}}
-.btn{{background:var(--card);border:1px solid var(--border);color:var(--t);padding:8px 18px;border-radius:20px;font-size:12px;cursor:pointer;transition:all .2s}}
-.btn:hover{{border-color:#444;color:var(--tb)}}
-.btn.active{{background:var(--red);border-color:var(--red);color:#fff}}
-.btn.run{{background:#1a2e1a;border-color:#2d5a2d;color:var(--green)}}
-.btn.run:hover{{background:#2d5a2d}}
-.refresh-dot{{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--green);margin-left:6px;animation:pulse 2s infinite}}
+/* ─── Hero ─── */
+.hero{{background:linear-gradient(135deg,#151a29 0%,#1a1f30 100%);border:1px solid var(--border);border-radius:var(--r);padding:28px 32px;margin-bottom:20px;position:relative;overflow:hidden}}
+.hero::before{{content:'';position:absolute;top:-40%;right:-10%;width:400px;height:400px;background:radial-gradient(circle,rgba(74,222,128,.08) 0%,transparent 70%);pointer-events:none}}
+.hero-grid{{display:grid;grid-template-columns:1fr auto;gap:20px;align-items:center;position:relative}}
+.hero-num{{font-size:72px;font-weight:800;color:var(--tb);line-height:1;letter-spacing:-2px;background:linear-gradient(135deg,#fff 0%,#a78bfa 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}}
+.hero-label{{font-size:13px;color:var(--td);margin-top:6px;font-weight:500}}
+.hero-breakdown{{display:flex;gap:18px;margin-top:14px;font-size:12px}}
+.hero-breakdown span{{color:var(--td)}}
+.hero-breakdown span b{{color:var(--tb);font-weight:700;margin-left:2px}}
+.hero-cta{{display:flex;flex-direction:column;gap:8px;align-items:flex-end}}
+.btn-primary{{background:var(--green);color:#0a0b10;border:none;padding:12px 24px;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;transition:all .15s;white-space:nowrap}}
+.btn-primary:hover{{background:#6ef095;transform:translateY(-1px)}}
+.btn-secondary{{background:transparent;color:var(--td);border:1px solid var(--border);padding:8px 16px;border-radius:8px;font-size:11px;cursor:pointer}}
+.btn-secondary:hover{{color:var(--tb);border-color:#333}}
+
+/* ─── Compact stat strip ─── */
+.strip{{display:grid;grid-template-columns:repeat(5,1fr);gap:1px;background:var(--border);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;margin-bottom:20px}}
+.strip .c{{background:var(--card);padding:16px 18px}}
+.strip .c .l{{font-size:10px;color:var(--td);text-transform:uppercase;letter-spacing:.8px;font-weight:600}}
+.strip .c .v{{font-size:24px;font-weight:700;color:var(--tb);margin-top:4px;letter-spacing:-.5px}}
+.strip .c .d{{font-size:11px;color:var(--td);margin-top:2px}}
+@media(max-width:900px){{.strip{{grid-template-columns:repeat(2,1fr)}}}}
+
+.refresh-dot{{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--green);margin-left:6px;animation:pulse 2s infinite;vertical-align:middle}}
 @keyframes pulse{{0%,100%{{opacity:1}}50%{{opacity:.3}}}}
 
-/* Stats */
-.stats{{display:grid;grid-template-columns:repeat(auto-fit,minmax(155px,1fr));gap:12px;margin:18px 0}}
-.st{{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:18px;transition:border .2s}}
-.st:hover{{border-color:#333}}
-.st .l{{font-size:10px;color:var(--td);text-transform:uppercase;letter-spacing:1px}}
-.st .v{{font-size:34px;font-weight:800;margin:4px 0}}
-.st .d{{font-size:11px;color:var(--td)}}
-
-/* Last run card */
-.last-run{{background:linear-gradient(135deg,#1a1d27,#1e2435);border:1px solid var(--border);border-radius:var(--r);padding:22px;margin:14px 0;position:relative;overflow:hidden}}
-.last-run::before{{content:'';position:absolute;top:0;right:0;width:4px;height:100%;border-radius:0 var(--r) var(--r) 0}}
-.last-run.success::before{{background:var(--green)}}
-.last-run.fail::before{{background:var(--red)}}
-.last-run h3{{font-size:14px;color:var(--tb);margin-bottom:10px}}
-.last-run .lr-grid{{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:12px}}
-.last-run .lr-item .lr-label{{font-size:10px;color:var(--td);text-transform:uppercase}}
-.last-run .lr-item .lr-val{{font-size:18px;font-weight:700;color:var(--tb);margin-top:2px}}
-
-/* Sections */
-.sec{{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:20px;margin:12px 0}}
-.sec h2{{font-size:15px;font-weight:700;color:var(--tb);margin-bottom:12px;display:flex;align-items:center;gap:8px}}
-.g2{{display:grid;grid-template-columns:1fr 1fr;gap:12px}}
-.g3{{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}}
+/* ─── Sections ─── */
+.sec{{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:18px 20px;margin-bottom:16px}}
+.sec h2{{font-size:12px;font-weight:700;color:var(--td);text-transform:uppercase;letter-spacing:.8px;margin-bottom:14px;display:flex;align-items:center;gap:8px}}
+.sec h2 .count{{background:var(--border);color:var(--tb);padding:1px 7px;border-radius:8px;font-size:10px;font-weight:600}}
+.g2{{display:grid;grid-template-columns:1fr 1fr;gap:16px}}
+.g3{{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px}}
 @media(max-width:768px){{.g2,.g3{{grid-template-columns:1fr}}}}
 
 /* Chart */
@@ -247,33 +266,42 @@ tr:hover td{{background:var(--hover)}}
 </head>
 <body>
 
-<div class="hdr">
-  <h1>🤖 מוקי</h1>
-  <div class="sub">לוח בקרה <span class="refresh-dot"></span> רענון אוטומטי כל 60 שניות</div>
-  <div class="pipe">
-    <span class="s">🧠 Planner</span><span class="a">→</span>
-    <span class="s">🔍 Research×3</span><span class="a">→</span>
-    <span class="s">📄 PDF</span><span class="a">→</span>
-    <span class="s">✍️ Writer</span><span class="a">→</span>
-    <span class="s">✏️ Editor</span><span class="a">→</span>
-    <span class="s">✨ Content</span><span class="a">→</span>
-    <span class="s">🎨 Design</span>
+<!-- Topbar -->
+<div class="top">
+  <div class="brand">
+    <span class="logo">🤖</span>
+    <h1>מוקי</h1>
+    <span class="tag">Education Agents</span>
+    <span class="refresh-dot"></span>
+  </div>
+  <div class="filters">
+    <button class="btn active" onclick="setPeriod(7, event)">שבוע</button>
+    <button class="btn" onclick="setPeriod(30, event)">חודש</button>
+    <button class="btn" onclick="setPeriod(0, event)">הכל</button>
   </div>
 </div>
 
-<!-- Controls: period filter + run button -->
-<div class="controls">
-  <button class="btn active" onclick="setPeriod(7)">שבוע</button>
-  <button class="btn" onclick="setPeriod(30)">חודש</button>
-  <button class="btn" onclick="setPeriod(0)">הכל</button>
-  <button class="btn run" onclick="runNow()">▶ הרץ עכשיו</button>
+<!-- Hero: Ready to publish -->
+<div class="hero">
+  <div class="hero-grid">
+    <div>
+      <div class="hero-num">{n_ready_total}</div>
+      <div class="hero-label">תוצרים מוכנים לפרסום</div>
+      <div class="hero-breakdown">
+        <span>💼 LinkedIn <b>{ready['linkedin']}</b></span>
+        <span>📰 Blog <b>{ready['blog']}</b></span>
+        <span>🎙️ Podcast <b>{ready['podcast']}</b></span>
+      </div>
+    </div>
+    <div class="hero-cta">
+      <button class="btn-primary" onclick="runNow()">▶ הרץ pipeline חדש</button>
+      <button class="btn-secondary" onclick="location.reload()">↻ רענן</button>
+    </div>
+  </div>
 </div>
 
-<!-- Last run card -->
-<div id="lastRun"></div>
-
-<!-- Stat cards -->
-<div class="stats" id="statCards"></div>
+<!-- Compact stat strip -->
+<div class="strip" id="statStrip"></div>
 
 <!-- Charts -->
 <div class="g2">
@@ -285,11 +313,11 @@ tr:hover td{{background:var(--hover)}}
 <div class="g2">
   <div class="sec"><h2>🤖 ביצועי סוכנים</h2><div id="agentPerf"></div></div>
   <div class="sec">
-    <h2>🗺️ כיסוי נושאים ({len(coverage_map)})</h2>
-    <div style="font-size:11px;color:var(--td);margin-bottom:8px">
-      <span class="tag high" style="font-size:10px">🔴 BLOCKED ({n_blocked})</span>
-      <span class="tag med" style="font-size:10px">🟡 CAUTION ({n_caution})</span>
-      <span class="tag low" style="font-size:10px">🟢 AVAILABLE ({n_available})</span>
+    <h2>🗺️ כיסוי נושאים <span class="count">{len(coverage_map)}</span></h2>
+    <div style="font-size:10px;color:var(--td);margin-bottom:10px;display:flex;gap:8px">
+      <span class="tag low" style="font-size:10px">🟢 פנוי ({n_available})</span>
+      <span class="tag med" style="font-size:10px">🟡 זהירות ({n_caution})</span>
+      <span class="tag high" style="font-size:10px">🔴 חסום ({n_blocked})</span>
     </div>
     <div class="cloud" id="coverageMap"></div>
   </div>
@@ -306,27 +334,13 @@ tr:hover td{{background:var(--hover)}}
 <div class="g3">
   <div class="sec"><h2>🔮 בתור</h2>{queue_html}</div>
   <div class="sec"><h2>⚠️ פערים</h2>{gaps_html}</div>
-  <div class="sec"><h2>📁 אחרונים</h2>{files_html if files_html else '<div class="empty">אין קבצים</div>'}</div>
+  <div class="sec"><h2>📁 תוצרים אחרונים</h2>{files_html if files_html else '<div class="empty">אין קבצים</div>'}</div>
 </div>
 
 <!-- Errors -->
-<div class="sec"><h2>🔴 שגיאות</h2><div id="errorsDiv"></div></div>
+<div class="sec"><h2>🔴 שגיאות אחרונות</h2><div id="errorsDiv"></div></div>
 
-<!-- Quick access -->
-<div class="sec" style="background:linear-gradient(135deg,#151821,#1a2030)">
-  <h2>🚀 גישה מהירה למוקי</h2>
-  <div style="font-size:13px;line-height:2.2;color:var(--td)">
-    <div><span style="color:var(--tb);font-weight:600">צ'אט אינטראקטיבי:</span> <code style="background:#1e2233;padding:3px 10px;border-radius:6px;color:var(--green);font-size:12px">python3 agent5_project_manager.py --chat</code></div>
-    <div><span style="color:var(--tb);font-weight:600">הרצה אוטומטית:</span> <code style="background:#1e2233;padding:3px 10px;border-radius:6px;color:var(--blue);font-size:12px">python3 agent5_project_manager.py "הרץ הכל" --auto</code></div>
-    <div><span style="color:var(--tb);font-weight:600">Pipeline ישיר:</span> <code style="background:#1e2233;padding:3px 10px;border-radius:6px;color:var(--orange);font-size:12px">python3 orchestrator.py "non-formal education" --parallel</code></div>
-    <div><span style="color:var(--tb);font-weight:600">סיכום שבועי:</span> <code style="background:#1e2233;padding:3px 10px;border-radius:6px;color:var(--purple);font-size:12px">python3 weekly_summary.py --save</code></div>
-    <div><span style="color:var(--tb);font-weight:600">ביבליוגרפיה:</span> <code style="background:#1e2233;padding:3px 10px;border-radius:6px;color:var(--red);font-size:12px">python3 bibliography.py --stats</code></div>
-    <div><span style="color:var(--tb);font-weight:600">דאשבורד חי:</span> <code style="background:#1e2233;padding:3px 10px;border-radius:6px;color:var(--green);font-size:12px">python3 dashboard.py --serve</code></div>
-    <div style="margin-top:6px;color:#555;font-size:11px">תיקייה: <code style="color:#666">~/Desktop/education-agents/</code></div>
-  </div>
-</div>
-
-<div class="ft">מוקי — Education Agents Pipeline · {datetime.now().strftime('%Y')}</div>
+<div class="ft">מוקי · {datetime.now().strftime('%d/%m/%Y %H:%M')}</div>
 
 <script>
 const ALL_RUNS = {runs_json};
@@ -336,10 +350,10 @@ const MEM = {{topics:{total_topics_mem},papers:{total_papers_mem},iterations:{it
 
 let currentPeriod = 7;
 
-function setPeriod(days) {{
+function setPeriod(days, ev) {{
   currentPeriod = days;
-  document.querySelectorAll('.controls .btn:not(.run)').forEach(b => b.classList.remove('active'));
-  event.target.classList.add('active');
+  document.querySelectorAll('.filters .btn').forEach(b => b.classList.remove('active'));
+  (ev && ev.target || document.querySelector('.filters .btn')).classList.add('active');
   render();
 }}
 
@@ -351,8 +365,7 @@ function filterRuns(days) {{
 
 function render() {{
   const runs = filterRuns(currentPeriod);
-  renderLastRun(runs);
-  renderStats(runs);
+  renderStrip(runs);
   renderQAChart(runs);
   renderDurChart(runs);
   renderAgentPerf(runs);
@@ -361,31 +374,7 @@ function render() {{
   renderErrors(runs);
 }}
 
-function renderLastRun(runs) {{
-  const el = document.getElementById('lastRun');
-  if (!runs.length) {{ el.innerHTML = ''; return; }}
-  const r = runs[runs.length-1];
-  const ok = r.success;
-  const dur = r.duration_s ? (r.duration_s/60).toFixed(1) : '?';
-  const date = (r.started_at||'').slice(0,16).replace('T',' ');
-  const steps = (r.steps||[]).length;
-  const cost = r.est_cost ? '$'+r.est_cost : '~$8';
-  const errs = (r.errors||[]).length;
-  el.innerHTML = `
-    <div class="last-run ${{ok?'success':'fail'}}">
-      <h3>${{ok?'✅':'❌'}} ריצה אחרונה — ${{date}}</h3>
-      <div class="lr-grid">
-        <div class="lr-item"><div class="lr-label">נושא</div><div class="lr-val" style="font-size:14px">${{(r.topic||'').slice(0,40)}}</div></div>
-        <div class="lr-item"><div class="lr-label">זמן</div><div class="lr-val">${{dur}} דק'</div></div>
-        <div class="lr-item"><div class="lr-label">QA</div><div class="lr-val" style="color:${{(r.avg_qa||0)>=80?'var(--green)':'var(--orange)'}}">${{r.avg_qa||'—'}}/100</div></div>
-        <div class="lr-item"><div class="lr-label">שלבים</div><div class="lr-val">${{steps}}</div></div>
-        <div class="lr-item"><div class="lr-label">עלות</div><div class="lr-val cost">${{cost}}</div></div>
-        <div class="lr-item"><div class="lr-label">שגיאות</div><div class="lr-val" style="color:${{errs?'var(--red)':'var(--green)'}}">${{errs||'0'}}</div></div>
-      </div>
-    </div>`;
-}}
-
-function renderStats(runs) {{
+function renderStrip(runs) {{
   const succ = runs.filter(r=>r.success).length;
   const total = runs.length;
   const rate = total ? Math.round(succ/total*100) : 0;
@@ -393,18 +382,17 @@ function renderStats(runs) {{
   const avgQa = qas.length ? Math.round(qas.reduce((a,b)=>a+b,0)/qas.length) : 0;
   const durs = runs.map(r=>r.duration_s).filter(Boolean);
   const avgDur = durs.length ? (durs.reduce((a,b)=>a+b,0)/durs.length/60).toFixed(1) : '0';
-  const totalH = durs.length ? (durs.reduce((a,b)=>a+b,0)/3600).toFixed(1) : '0';
   const costs = runs.map(r=>r.est_cost||0);
   const totalCost = costs.reduce((a,b)=>a+b,0).toFixed(2);
-  const avgCost = costs.length ? (totalCost/costs.length).toFixed(2) : '0';
+  const rateColor = rate>=80?'var(--green)':rate>=50?'var(--orange)':'var(--red)';
+  const qaColor = avgQa>=80?'var(--green)':avgQa>=60?'var(--orange)':'var(--red)';
 
-  document.getElementById('statCards').innerHTML = `
-    <div class="st"><div class="l">ריצות</div><div class="v" style="color:var(--red)">${{total}}</div><div class="d">${{succ}} הצלחות · ${{total-succ}} כשלים</div></div>
-    <div class="st"><div class="l">הצלחה</div><div class="v" style="color:var(--green)">${{rate}}%</div><div class="d">${{currentPeriod?currentPeriod+' ימים':'הכל'}}</div></div>
-    <div class="st"><div class="l">QA ממוצע</div><div class="v" style="color:var(--blue)">${{avgQa}}</div><div class="d">מתוך 100</div></div>
-    <div class="st"><div class="l">זמן ממוצע</div><div class="v" style="color:var(--orange)">${{avgDur}}</div><div class="d">דקות · סה"כ ${{totalH}}h</div></div>
-    <div class="st"><div class="l">עלות</div><div class="v" style="color:var(--purple)">${{totalCost}}$</div><div class="d">ממוצע ${{avgCost}}$ לריצה</div></div>
-    <div class="st"><div class="l">תוכן</div><div class="v" style="color:var(--tb)">${{FILE_COUNTS.total}}</div><div class="d">📝${{FILE_COUNTS.articles}} 💼${{FILE_COUNTS.linkedin}} 📰${{FILE_COUNTS.blog}} 🎙️${{FILE_COUNTS.podcast}}</div></div>
+  document.getElementById('statStrip').innerHTML = `
+    <div class="c"><div class="l">ריצות</div><div class="v">${{total}}</div><div class="d">${{succ}}/${{total}} הצלחות</div></div>
+    <div class="c"><div class="l">הצלחה</div><div class="v" style="color:${{rateColor}}">${{rate}}%</div><div class="d">${{currentPeriod?currentPeriod+' ימים':'הכל'}}</div></div>
+    <div class="c"><div class="l">QA ממוצע</div><div class="v" style="color:${{qaColor}}">${{avgQa||'—'}}</div><div class="d">מתוך 100</div></div>
+    <div class="c"><div class="l">זמן ממוצע</div><div class="v">${{avgDur}}</div><div class="d">דקות לריצה</div></div>
+    <div class="c"><div class="l">עלות</div><div class="v" style="color:var(--orange)">${{totalCost}}$</div><div class="d">סה"כ בתקופה</div></div>
   `;
 }}
 
