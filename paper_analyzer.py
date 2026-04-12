@@ -29,18 +29,22 @@ def analyze_paper(paper: dict) -> dict:
 
     prompt = f"""Paper: {paper.get('title','Untitled')} ({paper.get('year','')})
 Authors: {paper.get('authors','')}
+Citations: {paper.get('citation_count', 0)}
 
 Content:
 {text}
 
 Analyze and return JSON with:
   thesis: central claim (1 sentence)
-  method: empirical|theoretical|review|mixed|case_study
+  method: empirical|theoretical|review|meta_analysis|case_study|mixed
   findings: [3-5 key findings, max 20 words each]
   limitations: [1-2 limitations]
   open_questions: [1-2 questions left unanswered]
   key_concepts: [3 main concepts]
-  population: who was studied
+  population: who was studied (age, n=size, country)
+  sample_size: integer or null if not stated
+  evidence_strength: "strong" (meta-analysis/large RCT n>200) | "moderate" (empirical n=50-200) | "limited" (case study/small n<50/theoretical)
+  era: "foundational" (before 2005) | "established" (2005-2015) | "recent" (2016+)
 JSON only."""
 
     try:
@@ -134,10 +138,43 @@ def build_synthesis_map(profiles: list[dict], relationships: dict,
             lines.append(f"  ⚡ {t}")
         lines.append("")
 
+    # Evidence strength summary
+    strong = [p for p in profiles if p.get("evidence_strength") == "strong"]
+    moderate = [p for p in profiles if p.get("evidence_strength") == "moderate"]
+    limited = [p for p in profiles if p.get("evidence_strength") == "limited"]
+    if strong or moderate or limited:
+        lines.append("EVIDENCE STRENGTH (weight citations accordingly):")
+        if strong:
+            lines.append(f"  ★★★ Strong ({len(strong)}): " +
+                         ", ".join(p.get("_title","")[:30] for p in strong[:3]))
+        if moderate:
+            lines.append(f"  ★★  Moderate ({len(moderate)}): " +
+                         ", ".join(p.get("_title","")[:30] for p in moderate[:3]))
+        if limited:
+            lines.append(f"  ★   Limited ({len(limited)}): " +
+                         ", ".join(p.get("_title","")[:30] for p in limited[:3]))
+        lines.append("")
+
+    # Temporal evolution
+    foundational = [p for p in profiles if p.get("era") == "foundational"]
+    established = [p for p in profiles if p.get("era") == "established"]
+    recent = [p for p in profiles if p.get("era") == "recent"]
+    if foundational or established or recent:
+        lines.append("TEMPORAL EVOLUTION (write a narrative arc):")
+        if foundational:
+            lines.append(f"  Early (<2005): {', '.join(p.get('_title','')[:30] for p in foundational[:2])}")
+        if established:
+            lines.append(f"  Middle (2005-15): {', '.join(p.get('_title','')[:30] for p in established[:2])}")
+        if recent:
+            lines.append(f"  Recent (2016+): {', '.join(p.get('_title','')[:30] for p in recent[:2])}")
+        lines.append("")
+
     lines.append("PAPER QUICK-REFERENCE:")
     for p in profiles[:12]:
+        strength = {"strong": "★★★", "moderate": "★★", "limited": "★"}.get(p.get("evidence_strength",""), "")
+        n = f" n={p['sample_size']}" if p.get("sample_size") else ""
         lines.append(f"  [{p.get('_year','')}] {p.get('_title','')[:45]}")
-        lines.append(f"    → {p.get('thesis','')[:80]} [{p.get('method','')}]")
+        lines.append(f"    → {p.get('thesis','')[:70]} [{p.get('method','')}]{n} {strength}")
 
     lines += ["", "═" * 45,
               "Use this map to SYNTHESIZE, not summarize.",
