@@ -534,6 +534,42 @@ def _search_all_sources(queries: list[str]) -> tuple[list[dict], dict]:
             print(f"  [Agent1] 🔓 Unpaywall: found {found} PDFs")
             stats["unpaywall_pdfs"] = found
 
+    # ── Citation chain: follow top-cited papers ──
+    top_cited = sorted(
+        [p for p in all_papers if p.get("citation_count", 0) > 20],
+        key=lambda p: p.get("citation_count", 0), reverse=True,
+    )[:3]
+    if top_cited:
+        print(f"  [Agent1] 🔗 Citation chain: following {len(top_cited)} top-cited papers...")
+        for p in top_cited:
+            paper_id = p.get("paperId") or ""
+            if not paper_id or paper_id.startswith("http"):
+                continue
+            try:
+                url = f"{SEMANTIC_SCHOLAR_BASE}/paper/{paper_id}/citations"
+                r = requests.get(url, params={"fields": "title,authors,year,url,citationCount", "limit": 5},
+                                 headers=_ss_headers(), timeout=12)
+                if r.status_code == 200:
+                    citing = r.json().get("data", [])
+                    for c in citing:
+                        cp = c.get("citingPaper", {})
+                        if cp.get("title"):
+                            _add_unique([{
+                                "title": cp.get("title", ""),
+                                "authors": ", ".join(a.get("name","") for a in (cp.get("authors") or [])[:3]),
+                                "year": cp.get("year"),
+                                "url": cp.get("url", ""),
+                                "citation_count": cp.get("citationCount", 0),
+                                "source": "citation_chain",
+                                "abstract": "", "pdf_url": "", "venue": "",
+                            }], "citation_chain")
+                    stats["citation_chain"] = stats.get("citation_chain", 0) + len(citing)
+                time.sleep(2)
+            except Exception:
+                pass
+        if stats.get("citation_chain"):
+            print(f"  [Agent1] 🔗 Citation chain: {stats['citation_chain']} citing papers found")
+
     return all_papers, stats
 
 
@@ -579,7 +615,11 @@ def run_researcher(topic: str, subtopics: list[str], force: bool = False) -> Pat
     # Step 1: Generate search queries
     print("  [Agent1] Generating search queries...")
     queries_prompt = f"""Topic: "{topic}", Subtopics: {json.dumps(subtopics)}
-Generate 4 diverse English academic search queries for finding education research papers.
+Generate 5 diverse search queries for finding education research papers.
+Rules:
+  - 4 queries in English (academic terms)
+  - 1 query in Hebrew (for Israeli research: e.g. "חינוך בלתי פורמלי נוער")
+  - Each query uses different terms/angles
 Return ONLY a JSON array of strings."""
 
     try:
@@ -589,7 +629,7 @@ Return ONLY a JSON array of strings."""
     except Exception:
         queries = [topic] + [s for s in subtopics[:3]]
 
-    print(f"  [Agent1] Queries: {queries}")
+    print(f"  [Agent1] Queries ({len(queries)}): {queries}")
 
     # Step 2: Search all sources
     all_papers, stats = _search_all_sources(queries)
