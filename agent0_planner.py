@@ -6,9 +6,51 @@ Agent 0 — Planner
 
 import json
 from pathlib import Path
+from datetime import datetime, timedelta
 from config import PAPERS_DIR, ARTICLES_DIR
 from claude_cli import ask_claude_json
 from memory import load_memory, save_memory, add_to_queue, set_gaps
+
+
+# ─────────────────────────────────────────────
+# Calendar awareness — חגים ואירועים חינוכיים
+# ─────────────────────────────────────────────
+
+CALENDAR_EVENTS = [
+    # (month, day, name, topic_hint)
+    (1,  27, "יום השואה הבינלאומי", "זיכרון, טראומה, חוסן קהילתי"),
+    (4,  22, "יום השואה", "זיכרון, חינוך לשואה, טראומה בין-דורית"),
+    (4,  29, "יום הזיכרון", "אבל, חוסן, שייכות לאומית, תקווה"),
+    (4,  30, "יום העצמאות", "זהות, שייכות, חינוך ערכי"),
+    (5,  15, "סוף שנת לימודים", "סיכום, מעברים, פרידה מקבוצה"),
+    (9,   1, "תחילת שנה\"ל", "שייכות חדשה, בניית קבוצה, מנהיגות"),
+    (9,  15, "ראש השנה (בערך)", "התחדשות, רפלקציה, תחילת דרך"),
+    (10,  7, "שנה ל-7/10", "חוסן, טראומה, קהילה בחירום, תקווה"),
+    (12, 25, "חנוכה (בערך)", "אור, זהות, חינוך בלתי-פורמלי בחגים"),
+    (3,  15, "פורים (בערך)", "זהות, מסכות, קבוצה, שייכות"),
+]
+
+
+def _get_upcoming_events(days_ahead: int = 21) -> list[dict]:
+    """מחזיר אירועים שקרובים ב-N ימים הקרובים."""
+    today = datetime.now()
+    upcoming = []
+    for month, day, name, hint in CALENDAR_EVENTS:
+        try:
+            event_date = datetime(today.year, month, day)
+            if event_date < today:
+                event_date = datetime(today.year + 1, month, day)
+            delta = (event_date - today).days
+            if 0 <= delta <= days_ahead:
+                upcoming.append({
+                    "name": name,
+                    "date": event_date.strftime("%d/%m"),
+                    "days_until": delta,
+                    "topic_hint": hint,
+                })
+        except ValueError:
+            pass
+    return sorted(upcoming, key=lambda e: e["days_until"])
 
 
 def _build_context() -> dict:
@@ -49,6 +91,19 @@ def _build_context() -> dict:
     all_researched = set(t.lower() for t in mem.get("researched_topics", []))
     unexplored = [t for t in mem.get("topic_queue", []) if t.lower() not in all_researched]
 
+    # Calendar events
+    upcoming_events = _get_upcoming_events(21)
+
+    # Performance patterns — what resonated with the audience
+    perf_patterns = {}
+    try:
+        from performance_log import get_patterns_for_prompt
+        perf_text = get_patterns_for_prompt()
+        if perf_text:
+            perf_patterns = mem.get("performance_patterns", {})
+    except Exception:
+        pass
+
     return {
         "memory_summary": {
             "main_field": mem.get("main_field"),
@@ -64,6 +119,8 @@ def _build_context() -> dict:
         "unexplored_topics": unexplored[:10],
         "papers_sample": papers_sample[:40],
         "articles_preview": articles_preview[:6],
+        "upcoming_events": upcoming_events,
+        "performance_patterns": perf_patterns,
     }
 
 
@@ -104,6 +161,18 @@ def run_planner(main_field: str, user_hints: list[str] = None) -> dict:
 
 נושאים שטרם נחקרו (עדיפות גבוהה מאד!):
 {json.dumps(ctx['unexplored_topics'], ensure_ascii=False)}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📅 אירועים קרובים (21 יום) — תעדוף נושאים רלוונטיים!
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+{json.dumps(ctx['upcoming_events'], ensure_ascii=False, indent=2) if ctx['upcoming_events'] else 'אין אירועים קרובים.'}
+אם יש אירוע קרוב — נושא אחד לפחות מ-3 חייב להיות רלוונטי אליו.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📈 מה עבד אצל הקהל (performance patterns)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+{json.dumps(ctx['performance_patterns'], ensure_ascii=False, indent=2) if ctx['performance_patterns'] else 'אין נתוני ביצועים עדיין.'}
+אם יש best_topics — תעדף נושאים קרובים אליהם. הקהל הגיב.
 
 דגימה מהמאמרים הקיימים:
 {json.dumps(ctx['papers_sample'], ensure_ascii=False, indent=1)}
