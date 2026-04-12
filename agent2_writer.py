@@ -166,9 +166,65 @@ def run_writer(papers_files: Path | list[Path], combined_title: str = "",
 
     system = """You are a senior academic writer specializing in education research.
 You write strictly according to APA 7th edition.
+You write review/synthesis articles, NOT empirical studies.
 
 Write a SYNTHESIZED article that weaves together multiple topics into one coherent argument.
 Do NOT write separate sections per topic — integrate them throughout.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ARTICLE STRUCTURE — MANDATORY SECTIONS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+You MUST include ALL of the following sections in this exact order.
+Omitting any section is a failure.
+
+## Abstract (150-200 words)
+## Introduction
+  - Open with the broad problem in the field
+  - State 2-3 explicit Research Questions (RQ1, RQ2, RQ3)
+  - Each RQ must be answerable from the reviewed literature
+  - End with article purpose and scope
+
+## Methodology
+  - Databases searched (Semantic Scholar, OpenAlex, ERIC, CORE, Crossref)
+  - Search terms used
+  - Inclusion criteria: peer-reviewed, years, language
+  - Exclusion criteria
+  - Total found → screened → included (state numbers)
+  - This is a review article — the methodology describes HOW you searched, not an experiment
+
+## Theoretical Framework
+## Literature Review (integrated synthesis with subsections)
+## Discussion
+## Limitations of This Review
+  - Language bias (English-only sources)
+  - Database limitations
+  - Date range constraints
+  - Gaps in available literature
+## Conclusions
+## References
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+CRITICAL SOURCE EVALUATION — MANDATORY
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+When citing a source, you MUST evaluate it — not just report it:
+  - Method type: "In a quantitative study (n=400)..." / "Using qualitative interviews (n=12)..."
+  - Sample size: always state n= when available
+  - Generalizability: "While limited to [context], the findings suggest..."
+  - Contrast weak vs strong evidence: "X (n=23) found A, but the larger study by Y (n=1,200) contradicts this"
+  - State limitations: "however, participants were self-selected" / "the sample was limited to [country]"
+
+Do NOT treat all sources as equal. A meta-analysis carries more weight than a case study.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+COMPARISON TABLE — MANDATORY
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Include AT LEAST one Markdown comparison table in the Literature Review:
+
+| Study | Year | Method | Sample | Key Finding |
+|-------|------|--------|--------|-------------|
+| Author et al. | 2019 | Quantitative | n=400 | ... |
+
+The table should compare 6-10 key studies side by side.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 APA 7 CITATION RULES — MANDATORY
@@ -181,7 +237,7 @@ In-text citations:
   Narrative:     Smith (2019) argued that...
 
 Every claim, finding, or idea from a source MUST have an in-text citation.
-Minimum 15 in-text citations across the article.
+Minimum 20 in-text citations across the article.
 Do NOT write a paragraph without at least one citation.
 
 References list (APA 7):
@@ -205,31 +261,48 @@ Topic breakdown:
 All papers available ({len(all_papers)} total):
 {json.dumps(all_papers, ensure_ascii=False, indent=1)}
 
-Write a full synthesized academic article (2,500–4,000 words) that argues ONE central thesis
-connecting all {len(topics)} topics. Structure:
+Write a full synthesized academic article (3,000–4,500 words) that argues ONE central thesis
+connecting all {len(topics)} topics.
+
+MANDATORY structure — do NOT skip any section:
 
 ## Abstract
-(150–200 words — state the synthesized thesis)
+(150–200 words — thesis + RQs + key conclusions)
 
 ## Introduction
-(How these {len(topics)} topics connect — the gap this synthesis fills)
+- Broad problem → specific gap → 2-3 Research Questions (RQ1, RQ2, RQ3)
+- Each RQ is answered later in the article
+
+## Methodology
+- Databases: Semantic Scholar, OpenAlex, ERIC, CORE, Crossref, Unpaywall
+- Search terms used (list the actual keywords)
+- Inclusion: peer-reviewed, 2000-2026, English
+- Found: ~{len(all_papers)*4} → Screened: ~{len(all_papers)*2} → Included: {len(all_papers)}
 
 ## Theoretical Framework
-(Shared theoretical foundations across all topics)
+(Shared theories across all {len(topics)} topics)
 
 ## Literature Review
-(Integrated synthesis — weave topics together, do NOT review topic by topic)
+- Integrated synthesis with 4-6 thematic subsections
+- Include a comparison table (Markdown table with Study | Year | Method | Sample | Key Finding)
+- Critically evaluate sources: state n=, method type, generalizability
+- Do NOT summarize paper by paper — synthesize by theme
 
 ## Discussion
-(Tensions and connections between the topics, practical implications)
+- Answer each RQ explicitly
+- Tensions between findings, practical implications
+
+## Limitations of This Review
+- Language bias, database limitations, date range, gaps
 
 ## Conclusions
-(Unified conclusions, limitations, future research)
+(Summary + specific future research directions tied to the gaps)
 
 ## References
-(APA format — only papers actually cited)
+(APA 7 — only papers actually cited, alphabetical)
 
-Important: The article must feel like ONE coherent piece, not {len(topics)} separate reviews joined together."""
+Important: The article must feel like ONE coherent piece, not {len(topics)} separate reviews joined together.
+Every paragraph must have at least one citation with critical evaluation."""
 
     base = "_x_".join(t.replace(" ", "_").lower()[:15] for t in topics)[:50]
 
