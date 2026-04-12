@@ -129,6 +129,48 @@ def _edit_text(text: str, system_prompt: str,
     return result, changes
 
 
+def _verify_citations(text: str) -> list[str]:
+    """Cross-check in-text citations vs References list. Returns issues."""
+    import re as _re
+    issues = []
+
+    # Extract in-text citations: (Author, Year) or (Author et al., Year)
+    in_text = set()
+    for m in _re.finditer(r'\(([A-Z][a-zà-ÿ]+(?:\s+(?:et al\.|&\s+[A-Z][a-zà-ÿ]+))*),\s*(\d{4})', text):
+        in_text.add((m.group(1).strip(), m.group(2)))
+    # Narrative: Author (Year)
+    for m in _re.finditer(r'([A-Z][a-zà-ÿ]+(?:\s+et al\.)?)\s*\((\d{4})\)', text):
+        in_text.add((m.group(1).strip(), m.group(2)))
+
+    # Extract References entries
+    ref_section = ""
+    ref_match = _re.search(r'##\s*References?\s*\n([\s\S]+?)(?=\n##|\Z)', text)
+    if ref_match:
+        ref_section = ref_match.group(1)
+
+    ref_entries = set()
+    for line in ref_section.split("\n"):
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+        m = _re.match(r'([A-Z][a-zà-ÿ]+).*?\((\d{4})\)', line)
+        if m:
+            ref_entries.add((m.group(1), m.group(2)))
+
+    # Find orphan citations (in text but not in References)
+    for author, year in in_text:
+        first_author = author.split(" et al")[0].split(" & ")[0].strip()
+        if not any(first_author in r[0] for r in ref_entries):
+            issues.append(f"ציטוט ללא מקור: ({author}, {year})")
+
+    # Find unused references
+    for author, year in ref_entries:
+        if not any(author in c[0] for c in in_text):
+            issues.append(f"מקור לא מצוטט: {author} ({year})")
+
+    return issues[:10]
+
+
 def _backup_and_write(file_path: Path, new_content: str) -> Path:
     """גיבוי + כתיבה."""
     bak = file_path.with_suffix(file_path.suffix + ".bak")
@@ -176,6 +218,24 @@ def edit_article(article_paths: dict[str, Path],
             _markdown_to_docx(edited, title, Path(docx_path))
         except Exception as e:
             print(f"  ⚠️  לא עדכן DOCX: {e}")
+
+    # Citation verification
+    cit_issues = _verify_citations(edited)
+    if cit_issues:
+        print(f"  📎 בעיות ציטוט ({len(cit_issues)}):")
+        for ci in cit_issues[:5]:
+            print(f"     • {ci}")
+        # Auto-fix: ask Claude to resolve citation mismatches
+        fix_prompt = "תקן את בעיות הציטוט הבאות:\n" + "\n".join(f"- {ci}" for ci in cit_issues)
+        try:
+            fixed, _ = _edit_text(edited, ARTICLE_EDITOR_SYSTEM, fix_prompt)
+            if fixed and len(fixed) > len(edited) * 0.7:
+                edited = fixed
+                _backup_and_write(md_path, edited)
+                remaining = _verify_citations(edited)
+                print(f"  📎 תוקנו — {len(cit_issues) - len(remaining)} בעיות נפתרו")
+        except Exception:
+            pass
 
     # דוח
     delta = words_after - words_before
