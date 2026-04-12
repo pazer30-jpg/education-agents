@@ -146,6 +146,8 @@ def update_from_papers(papers_dir: Path = PAPERS_DIR) -> tuple[int, int]:
             continue
 
         for p in papers:
+            if not isinstance(p, dict):
+                continue
             title = (p.get("title") or "").strip()
             if not title:
                 continue
