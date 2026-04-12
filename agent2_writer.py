@@ -148,6 +148,16 @@ def run_writer(papers_files: Path | list[Path], combined_title: str = "",
 
     print(f"  [Agent2] {len(all_papers)} מאמרים מ-{len(topics)} נושאים: {topics_str}")
 
+    # ── Paper Analyzer (Agent 1.7) — synthesis map ──
+    synthesis_block = ""
+    try:
+        from paper_analyzer import run_paper_analyzer
+        analysis = run_paper_analyzer(papers_files[-1])
+        synthesis_block = analysis["synthesis_map"]
+        print(f"  [Agent2] Synthesis map מוכן — {len(analysis.get('profiles',[]))} profiles")
+    except Exception as e:
+        print(f"  [Agent2] ⚠️  Paper analysis דולג ({e})")
+
     # Build topic breakdown for prompt
     topic_breakdown = "\n".join(
         f"  - {t}: {sum(1 for p in all_papers if p.get('_source_topic') == t)} papers"
@@ -185,11 +195,13 @@ Rules:
   - Never: "important to note", "it can be seen", "as shown above"
 """
 
+    synthesis_section = f"\n\nSYNTHESIS MAP (use this to structure your article — write about the debates, fill the gaps, reference the consensus):\n{synthesis_block}\n" if synthesis_block else ""
+
     prompt = f"""Research topics (to be synthesized into ONE article): {topics_str}
 
 Topic breakdown:
 {topic_breakdown}
-
+{synthesis_section}
 All papers available ({len(all_papers)} total):
 {json.dumps(all_papers, ensure_ascii=False, indent=1)}
 
