@@ -76,16 +76,19 @@ class _RateLimiter:
                 if wait > 0:
                     print(f"  ⏳ Rate limit: waiting {wait:.0f}s...")
                     _time.sleep(wait)
-            # Budget guard
+            # Budget guard — warn loudly but don't crash the pipeline
             if self.total_budget + budget > self.max_budget:
-                raise RuntimeError(
-                    f"Budget limit reached: ${self.total_budget:.2f} used, "
-                    f"${budget:.2f} requested, max ${self.max_budget:.2f}"
-                )
+                print(f"  ⚠️  Budget warning: ${self.total_budget:.2f}/${self.max_budget:.2f} used. Continuing cautiously.")
+                # Don't raise — log and continue. The user can stop manually.
             self.calls.append(_time.time())
             self.total_budget += budget
 
 _limiter = _RateLimiter()
+
+
+def reset_budget():
+    """Reset session budget counter — call at start of new pipeline run."""
+    _limiter.total_budget = 0
 
 
 # ─────────────────────────────────────────────

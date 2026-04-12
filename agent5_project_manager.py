@@ -602,6 +602,10 @@ def run_project_manager(request: str, auto_approve: bool = False) -> dict:
     request: בקשה חופשית בעברית
     auto_approve: אם True — לא שואל אישור לפני הרצה
     """
+    # Reset budget for new pipeline run
+    from claude_cli import reset_budget
+    reset_budget()
+
     print(f"\n{'='*60}")
     print(f"📊 Project Manager | {datetime.now().strftime('%d/%m/%Y %H:%M')}")
     print(f"   בקשה: {request}")
