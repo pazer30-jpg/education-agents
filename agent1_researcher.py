@@ -152,9 +152,9 @@ def _clean_openalex_papers(raw: list[dict]) -> list[dict]:
         pdf_url = ""
         oa = p.get("open_access") or {}
         if oa.get("oa_url"):
-            pdf_url = oa["oa_url"]
-        elif p.get("primary_location", {}).get("pdf_url"):
-            pdf_url = p["primary_location"]["pdf_url"]
+            pdf_url = oa.get("oa_url", "")
+        elif (p.get("primary_location") or {}).get("pdf_url"):
+            pdf_url = (p.get("primary_location") or {}).get("pdf_url", "")
 
         # DOI
         doi = p.get("doi") or ""
@@ -234,10 +234,10 @@ def _clean_core_papers(raw: list[dict]) -> list[dict]:
             "authors": authors,
             "year": year,
             "abstract": (p.get("abstract") or "")[:500],
-            "url": doi or p.get("sourceFulltextUrls", [""])[0] if p.get("sourceFulltextUrls") else doi,
+            "url": (p.get("sourceFulltextUrls") or [""])[0] if p.get("sourceFulltextUrls") else (doi or ""),
             "pdf_url": pdf_url,
             "citation_count": p.get("citationCount", 0),
-            "venue": p.get("publisher", "") or p.get("journals", [{}])[0].get("title", "") if p.get("journals") else "",
+            "venue": p.get("publisher", "") or ((p.get("journals") or [{}])[0].get("title", "") if p.get("journals") else ""),
             "source": "CORE",
         })
     return cleaned

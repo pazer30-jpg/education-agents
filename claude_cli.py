@@ -174,6 +174,7 @@ def ask_claude_json(prompt: str, system: str = "", max_budget: float = 2.0) -> d
 
 def _api_fallback(prompt: str, system: str, max_budget: float) -> str:
     """משתמש ב-Anthropic API ישיר אם CLI לא זמין."""
+    _limiter.wait(max_budget)  # rate limit also applies to API fallback
     try:
         import anthropic
         client = anthropic.Anthropic()

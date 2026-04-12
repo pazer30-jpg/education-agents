@@ -612,11 +612,12 @@ def run_project_manager(request: str, auto_approve: bool = False) -> dict:
     state = _read_system_state()
 
     # Seed execution_state with existing latest files
-    latest_papers = state["latest"].get("papers_files", [])
+    latest = state.get("latest") or {}
+    latest_papers = latest.get("papers_files", [])
     execution_state = {
-        "papers_files":  latest_papers,                  # רשימה של עד 3 קבצי מחקר
-        "papers_file":   latest_papers[-1] if latest_papers else None,  # backward compat
-        "article_paths": {"md": state["latest"]["article_md"]} if state["latest"].get("article_md") else {},
+        "papers_files":  latest_papers,
+        "papers_file":   latest_papers[-1] if latest_papers else None,
+        "article_paths": {"md": latest["article_md"]} if latest.get("article_md") else {},
         "post_paths":    {},
         "design_paths":  {},
         "last_plan":     {},
@@ -1090,10 +1091,11 @@ def _chat_process(user_input: str, session: dict, auto: bool) -> str:
 
     if any(w in low for w in ["qa", "איכות", "בדוק איכות"]):
         state = _read_system_state()
-        latest_papers = state["latest"].get("papers_files", [])
+        latest = state.get("latest") or {}
+        latest_papers = latest.get("papers_files", [])
         tmp_state = {
             "papers_file": latest_papers[-1] if latest_papers else None,
-            "article_paths": {"md": state["latest"]["article_md"]} if state["latest"].get("article_md") else {},
+            "article_paths": {"md": latest["article_md"]} if latest.get("article_md") else {},
             "qa_log": [], "errors": [],
         }
         print("  בודק איכות קבצים קיימים...")
@@ -1290,10 +1292,11 @@ def _cli_qa():
     """Run QA on all existing files."""
     from config import LINKEDIN_DIR, BLOG_DIR, PODCAST_DIR
     state = _read_system_state()
-    latest_papers = state["latest"].get("papers_files", [])
+    latest = state.get("latest") or {}
+    latest_papers = latest.get("papers_files", [])
     tmp_state = {
         "papers_file": latest_papers[-1] if latest_papers else None,
-        "article_paths": {"md": state["latest"]["article_md"]} if state["latest"].get("article_md") else {},
+        "article_paths": {"md": latest["article_md"]} if latest.get("article_md") else {},
         "qa_log": [], "errors": [],
     }
     print("  בודק איכות קבצים קיימים...")
