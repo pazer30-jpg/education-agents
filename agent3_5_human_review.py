@@ -185,12 +185,26 @@ def review_content(
             _open_in_editor(content_file)
             new_content = content_file.read_text(encoding="utf-8", errors="replace")
             changed = new_content != content
-            content = new_content
             if changed:
-                print("  ✏️  הקובץ עודכן — מציג גרסה חדשה:")
-                _display_content(platform, content)
-            else:
-                print("  ℹ️  לא זוהו שינויים")
+                # Show diff
+                _print_divider("שינויים")
+                import difflib
+                old_lines = content.splitlines()
+                new_lines = new_content.splitlines()
+                diff = list(difflib.unified_diff(old_lines, new_lines, lineterm="", n=1))
+                for line in diff[:30]:
+                    if line.startswith("+") and not line.startswith("+++"):
+                        print(f"  \033[32m{line}\033[0m")
+                    elif line.startswith("-") and not line.startswith("---"):
+                        print(f"  \033[31m{line}\033[0m")
+                    elif line.startswith("@@"):
+                        print(f"  \033[36m{line}\033[0m")
+                if len(diff) > 30:
+                    print(f"  ... ({len(diff) - 30} שורות נוספות)")
+                _print_divider()
+            content = new_content
+            if not changed:
+                print("  לא זוהו שינויים")
             notes = input("  הערת עריכה (אופציונלי): ").strip()
             _record_review(platform, content_file, "edited", notes)
             return {"decision": "edited", "file": content_file, "notes": notes}
