@@ -1117,8 +1117,10 @@ def _chat_process(user_input: str, session: dict, auto: bool) -> str:
 
     if action == "run_pipeline":
         topic = params.get("topic") or session.get("topic", "חינוך בלתי פורמלי")
-        # תמיד שלושת הפלטפורמות — המשתמש רוצה את הכל בכל ריצה
-        content_types = ["linkedin", "blog", "podcast"]
+        # ברירת מחדל: שלושתם, אבל הקלסיפייר יכול לצמצם
+        valid_types = {"linkedin", "blog", "podcast"}
+        raw_types = params.get("content_types") or ["linkedin", "blog", "podcast"]
+        content_types = [t for t in raw_types if t in valid_types] or ["linkedin", "blog", "podcast"]
         parallel = "--parallel" in user_input
         bilingual = "--bilingual" in user_input
 
@@ -1139,8 +1141,9 @@ def _chat_process(user_input: str, session: dict, auto: bool) -> str:
         return "Pipeline הסתיים."
 
     elif action == "content_only":
-        # תמיד שלושת הפלטפורמות
-        content_types = ["linkedin", "blog", "podcast"]
+        valid_types = {"linkedin", "blog", "podcast"}
+        raw_types = params.get("content_types") or ["linkedin", "blog", "podcast"]
+        content_types = [t for t in raw_types if t in valid_types] or ["linkedin", "blog", "podcast"]
         print(f"\n  יוצר תוכן — {', '.join(content_types)}...")
         req = f"צור תוכן: {' '.join(content_types)} ממאמר קיים"
         run_project_manager(req, auto_approve=True)

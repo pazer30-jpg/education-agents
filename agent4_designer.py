@@ -261,16 +261,6 @@ viewBox must be "0 0 {w} {h}". All coordinates within bounds."""
         if match:
             svg = match.group(0)
 
-    # Brand consistency check — verify at least 2 brand colors are used
-    brand_colors_used = sum(1 for c in BRAND.values() if c.lower() in svg.lower())
-    if brand_colors_used < 2:
-        # Inject brand colors into the SVG background
-        svg = svg.replace(
-            'viewBox=',
-            f'style="background:{BRAND["primary"]}" viewBox=',
-            1,
-        )
-
     # Extract DALL-E prompt from comment
     dalle = ""
     dalle_match = re.search(r'<!--\s*DALLE:\s*(.+?)\s*-->', svg)

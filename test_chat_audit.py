@@ -1,5 +1,5 @@
 """
-test_chat_smoke.py — Smoke test for all chat commands
+test_chat_smoke.py — Architecture audit for all chat commands
 Runs each command once through _chat_process and checks it doesn't crash.
 """
 import sys
@@ -28,7 +28,7 @@ def run_smoke():
     passed, failed = 0, 0
 
     print(f"\n{'='*50}")
-    print(f"  Smoke Test — {len(COMMANDS)} commands")
+    print(f"  Architecture Audit — {len(COMMANDS)} commands")
     print(f"{'='*50}\n")
 
     for cmd, expect_substr in COMMANDS:
