@@ -64,7 +64,20 @@ def record_research(topic: str, subtopics: list[str], papers_file: Path):
                     "citation_count": p.get("citation_count") or p.get("citations", 0),
                 }
 
+    # Update coverage — topic gets +3, subtopics get +1
+    # Also update similar existing topics (fuzzy match) to prevent near-duplicates
     mem["coverage_map"][topic] = mem["coverage_map"].get(topic, 0) + 3
+    topic_words = set(topic.lower().split())
+    for existing_topic in list(mem["coverage_map"].keys()):
+        if existing_topic == topic:
+            continue
+        existing_words = set(existing_topic.lower().split())
+        # If 60%+ word overlap → consider them related, boost the existing one too
+        if topic_words and existing_words:
+            overlap = len(topic_words & existing_words) / min(len(topic_words), len(existing_words))
+            if overlap >= 0.6:
+                mem["coverage_map"][existing_topic] = mem["coverage_map"].get(existing_topic, 0) + 2
+
     for s in subtopics:
         mem["coverage_map"][s] = mem["coverage_map"].get(s, 0) + 1
     mem["topic_queue"] = [t for t in mem["topic_queue"] if t != topic]
