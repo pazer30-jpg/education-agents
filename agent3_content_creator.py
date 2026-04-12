@@ -101,6 +101,28 @@ def _build_system(content_types: list[str]) -> str:
     if perf_patterns:
         ctx_parts.append(perf_patterns)
 
+    # Calendar awareness — upcoming events
+    try:
+        from agent0_planner import _get_upcoming_events
+        events = _get_upcoming_events(14)
+        if events:
+            ev_str = " | ".join(f"{e['name']} ({e['days_until']}d)" for e in events[:2])
+            ctx_parts.append(f"אירועים קרובים: {ev_str} — אם רלוונטי, חבר לנושא")
+    except Exception:
+        pass
+
+    # Content calendar — what was published recently per platform
+    from datetime import datetime, timedelta
+    recent_cutoff = (datetime.now() - timedelta(days=3)).strftime("%Y%m%d")
+    for ct in content_types:
+        from config import OUTPUT_DIR
+        ready_dir = OUTPUT_DIR / "ready" / ct
+        if ready_dir.exists():
+            recent = [f for f in ready_dir.iterdir()
+                      if f.stat().st_mtime > (datetime.now() - timedelta(days=3)).timestamp()]
+            if recent:
+                ctx_parts.append(f"⚠️ {ct}: {len(recent)} פוסטים ב-3 ימים אחרונים — גוון את הזווית")
+
     context_block = ("\n\nהקשר אישי של פז:\n" + "\n".join(f"  • {p}" for p in ctx_parts) + "\n") if ctx_parts else ""
 
     base = f"""אתה כותב תוכן בשם פז שלמה — איש חינוך בלתי פורמלי.
@@ -126,7 +148,11 @@ def _build_system(content_types: list[str]) -> str:
 - שורות קצרות + רווחים נדיבים
 - ללא אימוג'ים. ללא רשימות ממוספרות. ללא "לסיכום".
 - אורך: 1,200–1,600 תווים
-- סיום בשאלה אמיתית שמישהו יכול לענות עליה מניסיון
+- סיום: גוון בין סוגי סגירה (לא תמיד שאלה!):
+  a. שאלה ספציפית שמישהו יכול לענות מניסיון
+  b. הצהרה מתגרה ("ואולי הגיע הזמן לעצור ולשאול...")
+  c. הזמנה לפעולה ("הפעם הבאה שאתם ב-X, נסו...")
+  d. מתח פתוח ("אני עדיין לא יודע את התשובה. אבל...")
 
 מקורות בסוף הפוסט — חובה:
   📚 מקורות:
