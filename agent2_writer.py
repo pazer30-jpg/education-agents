@@ -307,9 +307,42 @@ Every paragraph must have at least one citation with critical evaluation."""
     base = "_x_".join(t.replace(" ", "_").lower()[:15] for t in topics)[:50]
 
     # ── English article ──────────────────────────
-    print("  [Agent2] Writing English article (1-2 min)...")
-    article_en = ask_claude(prompt, system=system, max_budget=3.5)
+    print("  [Agent2] Writing English article (2-3 min)...")
+    article_en = ask_claude(prompt, system=system, max_budget=4.0)
     title_en, content_en = _split_title(article_en, f"Synthesized Article: {display_title}")
+
+    # ── Self-review: verify structure + citations ──
+    print("  [Agent2] Self-review: checking structure and citations...")
+    review_prompt = f"""Review this academic article and fix problems. Return the FIXED article only.
+
+CHECK LIST:
+1. Every ## section from the structure exists? (Abstract, Introduction, Methodology, Theoretical Framework, Literature Review, Discussion, Limitations, Conclusions, References)
+   If ANY section is missing — add it with appropriate content.
+2. Every (Author, Year) citation in the text appears in ## References?
+   If not — remove the orphan citation OR add to References.
+3. Every entry in ## References is cited in the text?
+   If not — remove from References.
+4. Is there at least one Markdown table in Literature Review?
+   If not — add a comparison table.
+5. Are RQ1, RQ2, RQ3 stated in Introduction and answered in Discussion?
+   If not — fix.
+6. Does Methodology mention databases and inclusion criteria?
+   If not — add.
+
+Return the COMPLETE fixed article in Markdown. No explanations.
+
+Article to review:
+{article_en}"""
+
+    try:
+        reviewed = ask_claude(review_prompt, max_budget=3.0)
+        if reviewed and len(reviewed) > len(article_en) * 0.7:
+            title_en, content_en = _split_title(reviewed, title_en)
+            print("  [Agent2] Self-review applied")
+        else:
+            print("  [Agent2] Self-review skipped (output too short)")
+    except Exception as e:
+        print(f"  [Agent2] Self-review failed ({e}) — using original")
 
     md_en   = ARTICLES_DIR / f"{base}_en.md"
     docx_en = ARTICLES_DIR / f"{base}_en.docx"
