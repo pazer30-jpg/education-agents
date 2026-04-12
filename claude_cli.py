@@ -62,7 +62,7 @@ class _RateLimiter:
         self.max_per_minute = max_per_minute
         self.calls: list[float] = []
         self.total_budget: float = 0
-        self.max_budget: float = 50.0  # $50 per session
+        self.max_budget: float = 100.0  # $100 per session (pipeline with self-review ~$8-12)
         self._lock = threading.Lock()
 
     def wait(self, budget: float):

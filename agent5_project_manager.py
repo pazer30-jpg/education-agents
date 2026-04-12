@@ -477,14 +477,20 @@ def _qa_gate(stage: str, attempt: int, execution_state: dict) -> tuple[bool, QAR
 def _execute_step_with_qa(step: dict, execution_state: dict) -> str:
     """Run a step with QA check and retry up to MAX_RETRIES."""
     agent = step.get("agent", "")
+
+    # writer and content have internal review loops — don't retry from outside
+    # (self-review in Agent 2, rejection learning in Agent 3.5)
+    no_external_retry = {"writer", "content"}
+
     qa_stages = {
         "researcher": ["research"],
         "writer":     ["article"],
-        "content":    ["linkedin", "blog", "podcast"],  # תמיד כולם
+        "content":    ["linkedin", "blog", "podcast"],
     }
     stages = qa_stages.get(agent, [])
+    max_attempts = 1 if agent in no_external_retry else MAX_RETRIES + 1
 
-    for attempt in range(1, MAX_RETRIES + 2):
+    for attempt in range(1, max_attempts + 1):
         if attempt > 1:
             hint = step.get("retry_hint", "")
             print(f"\n  ♻️  ניסיון חוזר {attempt}/{MAX_RETRIES+1} ל-{agent}"
