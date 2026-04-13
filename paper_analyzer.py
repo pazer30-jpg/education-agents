@@ -19,8 +19,8 @@ from claude_cli import ask_claude_json, ask_claude
 # ─────────────────────────────────────────────
 
 def analyze_paper(paper: dict) -> dict:
-    """מנתח מאמר אחד — מחזיר structured profile."""
-    text = (paper.get("fulltext") or paper.get("abstract") or paper.get("title", ""))[:3000]
+    """מנתח מאמר אחד — מחזיר structured profile + quantitative details."""
+    text = (paper.get("fulltext") or paper.get("abstract") or paper.get("title", ""))[:4000]
 
     if not text.strip():
         return {"thesis": "N/A", "method": "unknown", "findings": [],
@@ -34,17 +34,33 @@ Citations: {paper.get('citation_count', 0)}
 Content:
 {text}
 
-Analyze and return JSON with:
+Extract the following information. For quantitative fields: use EXACT
+numbers from the text, or null if not stated. DO NOT guess or estimate.
+
+Return JSON with:
   thesis: central claim (1 sentence)
   method: empirical|theoretical|review|meta_analysis|case_study|mixed
   findings: [3-5 key findings, max 20 words each]
   limitations: [1-2 limitations]
   open_questions: [1-2 questions left unanswered]
   key_concepts: [3 main concepts]
-  population: who was studied (age, n=size, country)
-  sample_size: integer or null if not stated
-  evidence_strength: "strong" (meta-analysis/large RCT n>200) | "moderate" (empirical n=50-200) | "limited" (case study/small n<50/theoretical)
-  era: "foundational" (before 2005) | "established" (2005-2015) | "recent" (2016+)
+  population: who was studied (age, context, country)
+
+  QUANTITATIVE (null if not explicitly stated):
+  sample_size: integer (e.g. 400) or null
+  statistical_method: "regression"|"ANOVA"|"SEM"|"qualitative coding"|"thematic analysis"|"grounded theory"|"meta-analysis"|null
+  effect_size: string with metric (e.g. "d=0.45", "r=0.31", "OR=1.8") or null
+  p_value: string (e.g. "p<.001", "p=.03") or null
+  confidence_interval: string (e.g. "95% CI [0.2, 0.6]") or null
+  study_duration: string (e.g. "6 months", "2 years") or null
+  data_collection_years: string (e.g. "2018-2020") or null
+
+  CRITICAL — only fill quantitative fields if the EXACT value appears
+  in the text. If you are not sure or inferring — use null. Never make
+  up numbers.
+
+  evidence_strength: "strong" (meta-analysis/RCT n>200) | "moderate" (empirical n=50-200) | "limited" (case study/small/theoretical)
+  era: "foundational" (<2005) | "established" (2005-2015) | "recent" (2016+)
 JSON only."""
 
     try:
@@ -169,16 +185,31 @@ def build_synthesis_map(profiles: list[dict], relationships: dict,
             lines.append(f"  Recent (2016+): {', '.join(p.get('_title','')[:30] for p in recent[:2])}")
         lines.append("")
 
-    lines.append("PAPER QUICK-REFERENCE:")
+    lines.append("PAPER QUICK-REFERENCE (use exact numbers — never invent):")
     for p in profiles[:12]:
         strength = {"strong": "★★★", "moderate": "★★", "limited": "★"}.get(p.get("evidence_strength",""), "")
-        n = f" n={p['sample_size']}" if p.get("sample_size") else ""
-        lines.append(f"  [{p.get('_year','')}] {p.get('_title','')[:45]}")
-        lines.append(f"    → {p.get('thesis','')[:70]} [{p.get('method','')}]{n} {strength}")
+        # Build quantitative tag: n=400, d=0.45, p<.001
+        quant_parts = []
+        if p.get("sample_size"):
+            quant_parts.append(f"n={p['sample_size']}")
+        if p.get("effect_size"):
+            quant_parts.append(p["effect_size"])
+        if p.get("p_value"):
+            quant_parts.append(p["p_value"])
+        quant = " | ".join(quant_parts) if quant_parts else "no quant data"
+
+        stat_method = f" [{p['statistical_method']}]" if p.get("statistical_method") else ""
+        duration = f" · {p['study_duration']}" if p.get("study_duration") else ""
+
+        lines.append(f"  [{p.get('_year','')}] {p.get('_title','')[:45]} {strength}")
+        lines.append(f"    → {p.get('thesis','')[:70]}")
+        lines.append(f"    📊 {quant}{stat_method}{duration}")
 
     lines += ["", "═" * 45,
               "Use this map to SYNTHESIZE, not summarize.",
-              "Every paragraph should connect multiple papers."]
+              "When citing quantitative claims — use the EXACT numbers from 📊 above.",
+              "If a claim has 'no quant data' — write about it qualitatively.",
+              "NEVER invent numbers, p-values, or effect sizes."]
 
     return "\n".join(lines)
 
