@@ -40,7 +40,23 @@ numbers from the text, or null if not stated. DO NOT guess or estimate.
 Return JSON with:
   thesis: central claim (1 sentence)
   method: empirical|theoretical|review|meta_analysis|case_study|mixed
-  findings: [3-5 key findings, max 20 words each]
+
+  findings: list of objects, each with:
+    {
+      "claim": "the statement itself (max 20 words)",
+      "type": "proven" (past tense, direct result, "we found X")
+            | "suggested" (hedged, "we suggest", "may indicate", "seems to")
+            | "theoretical" (argument not empirically tested),
+      "evidence": "the specific evidence in the paper, or 'none' if unsupported"
+    }
+  IMPORTANT: distinguish "we found that belonging enhances resilience"
+  (proven) from "we suggest belonging may enhance resilience" (suggested).
+  Do NOT promote suggestions to findings.
+
+  contradictions: [list of internal contradictions found, or empty list]
+  Scan the text carefully: does the paper claim X in one place and
+  ¬X in another? List them.
+
   limitations: [1-2 limitations]
   open_questions: [1-2 questions left unanswered]
   key_concepts: [3 main concepts]
@@ -205,11 +221,26 @@ def build_synthesis_map(profiles: list[dict], relationships: dict,
         lines.append(f"    → {p.get('thesis','')[:70]}")
         lines.append(f"    📊 {quant}{stat_method}{duration}")
 
+        # Show findings by claim type — distinguish proven from suggested
+        findings = p.get("findings", [])
+        if findings and isinstance(findings[0], dict):
+            for f in findings[:3]:
+                icon = {"proven": "✓", "suggested": "~", "theoretical": "T"}.get(f.get("type", ""), "?")
+                lines.append(f"    {icon} [{f.get('type','?')}] {f.get('claim','')[:75]}")
+
+        # Flag contradictions
+        contras = p.get("contradictions", [])
+        if contras:
+            for c in contras[:2]:
+                lines.append(f"    ⚡ CONTRADICTION: {str(c)[:80]}")
+
     lines += ["", "═" * 45,
-              "Use this map to SYNTHESIZE, not summarize.",
-              "When citing quantitative claims — use the EXACT numbers from 📊 above.",
-              "If a claim has 'no quant data' — write about it qualitatively.",
-              "NEVER invent numbers, p-values, or effect sizes."]
+              "CRITICAL RULES for the writer:",
+              "1. Use EXACT numbers from 📊 — never invent.",
+              "2. ✓ proven = direct evidence. Cite as fact.",
+              "3. ~ suggested = hedged claim. Write 'X suggested that...' — do NOT upgrade to fact.",
+              "4. T theoretical = no empirical test. Write as theoretical argument.",
+              "5. ⚡ contradictions = note them in Discussion. Do not hide."]
 
     return "\n".join(lines)
 

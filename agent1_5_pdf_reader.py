@@ -126,28 +126,66 @@ def _fetch_pdf(url: str) -> str | None:
 
 def _truncate_smart(text: str, max_chars: int) -> str:
     """
-    חותך בחוכמה — שומר מבוא + מסקנות, לא רק את ההתחלה.
+    חותך בחוכמה — שומר 4 חלקים: intro + Methods + Results/Discussion + Conclusions.
+    Methods קריטי להערכת אמינות המחקר — לא לדלג עליו.
     """
     if len(text) <= max_chars:
         return text
 
-    half = max_chars // 2
-    intro = text[:half]
+    # Allocate: intro 25% · methods 25% · results 25% · conclusions 25%
+    slice_size = max_chars // 4
+    text_lower = text.lower()
 
-    # מנסה למצוא חלק "מסקנות/דיון" בסוף
-    conclusion_markers = [
-        "conclusion", "מסקנות", "discussion", "דיון",
-        "summary", "סיכום", "implications"
-    ]
-    end_start = len(text) - half
-    for marker in conclusion_markers:
-        idx = text.lower().rfind(marker, end_start)
+    # Section finder — returns index or -1
+    def find_section(markers: list[str], start: int = 0) -> int:
+        for m in markers:
+            idx = text_lower.find(m, start)
+            if idx != -1:
+                return idx
+        return -1
+
+    # Intro: always the beginning
+    intro = text[:slice_size]
+
+    # Methods: look for Methods/Methodology/Participants/Procedure
+    methods_start = find_section(
+        ["\nmethods", "\nmethodology", "\nparticipants", "\nprocedure",
+         "\nresearch design", "\nשיטה", "\nמתודולוגיה"],
+        slice_size,
+    )
+    if methods_start != -1:
+        methods = text[methods_start:methods_start + slice_size]
+    else:
+        # Fallback: take middle
+        mid = len(text) // 2
+        methods = text[mid - slice_size // 2:mid + slice_size // 2]
+
+    # Results/Findings
+    results_start = find_section(
+        ["\nresults", "\nfindings", "\nממצאים", "\nתוצאות"],
+        methods_start + slice_size if methods_start != -1 else len(text) // 2,
+    )
+    if results_start != -1:
+        results = text[results_start:results_start + slice_size]
+    else:
+        results = ""
+
+    # Conclusions/Discussion (from end)
+    concl_markers = ["\nconclusion", "\nמסקנות", "\ndiscussion", "\nדיון",
+                     "\nsummary", "\nסיכום", "\nimplications"]
+    concl_start = len(text) - slice_size
+    for m in concl_markers:
+        idx = text_lower.rfind(m, len(text) - slice_size * 2)
         if idx != -1:
-            end_start = idx
+            concl_start = idx
             break
+    conclusions = text[concl_start:concl_start + slice_size]
 
-    outro = text[end_start:end_start + half]
-    return intro + "\n\n[...]\n\n" + outro
+    parts = [intro, "[...METHODS...]", methods]
+    if results:
+        parts += ["[...RESULTS...]", results]
+    parts += ["[...DISCUSSION/CONCLUSIONS...]", conclusions]
+    return "\n\n".join(parts)
 
 
 # ─────────────────────────────────────────────
