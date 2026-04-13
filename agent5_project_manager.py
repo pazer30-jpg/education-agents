@@ -243,7 +243,7 @@ def _show_plan(plan: dict):
 # Step executor
 # ─────────────────────────────────────────────
 
-STEP_TIMEOUT = 1200  # 20 minutes max per step
+STEP_TIMEOUT = 1800  # 30 minutes max per step (self-review + analyzer heavy)
 
 def _execute_step(step: dict, execution_state: dict) -> str:
     agent = step.get("agent")
@@ -478,9 +478,12 @@ def _execute_step_with_qa(step: dict, execution_state: dict) -> str:
     """Run a step with QA check and retry up to MAX_RETRIES."""
     agent = step.get("agent", "")
 
-    # writer and content have internal review loops — don't retry from outside
-    # (self-review in Agent 2, rejection learning in Agent 3.5)
-    no_external_retry = {"writer", "content"}
+    # researcher/writer/content have internal retry/review/fallback logic.
+    # Don't retry from outside — it causes loop false positives and waste.
+    #   researcher: retries per source internally, returns cached if topic exists
+    #   writer: self-review loop
+    #   content: rejection learning loop
+    no_external_retry = {"researcher", "writer", "content"}
 
     qa_stages = {
         "researcher": ["research"],
@@ -667,7 +670,7 @@ def run_project_manager(request: str, auto_approve: bool = False) -> dict:
     errors    = []
     total_start = time.time()
 
-    PIPELINE_TIMEOUT = 3600  # 60 minutes max for entire pipeline
+    PIPELINE_TIMEOUT = 5400  # 90 minutes max for entire pipeline
 
     for i, step in enumerate(steps, 1):
         # Pipeline timeout check
