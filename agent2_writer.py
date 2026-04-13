@@ -85,6 +85,77 @@ def _split_title(article_md: str, default_title: str) -> tuple[str, str]:
     return default_title, article_md.strip()
 
 
+def _create_briefing(article_en: str, display_title: str, base: str,
+                     synthesis_block: str = "") -> Path:
+    """
+    Create a practitioner-facing briefing from the academic article.
+    This is what Agent 3 reads — NOT the full article.
+    Format designed for Paz (practitioner), not for journals.
+    """
+    print("  [Agent2] Creating practitioner briefing for Agent 3...")
+
+    system = """אתה מסייע לפרקטיקן בחינוך בלתי-פורמלי לעבד מחקר אקדמי.
+אתה לא כותב מאמר. אתה מכין לו מסמך עבודה קצר — scaffolding — שממנו הוא יכתוב בעצמו.
+
+הוא צריך:
+  1. מה המאמרים באמת טוענים (מדויק, לא מוגזם)
+  2. מספרים אמיתיים שהוא יכול לצטט
+  3. סתירות ופערים שהוא יכול להצביע עליהם
+  4. זוויות שהוא יכול לחקור מניסיונו בשטח
+
+אתה לא מנסה להרשים. אתה נותן לו חומר גלם שהוא יעבד בקול שלו."""
+
+    prompt = f"""המאמר האקדמי המלא:
+
+{article_en}
+
+{synthesis_block}
+
+בנה מסמך briefing פרקטי (עברית, 800-1,200 מילים) במבנה הזה:
+
+## נושא
+(משפט אחד — על מה זה)
+
+## 5-7 טענות מרכזיות מהמחקר
+לכל טענה:
+- הטענה עצמה (משפט)
+- ✓ proven / ~ suggested / T theoretical
+- הציטוט (Author, Year) + אם יש: n=, d=, p=
+- משפט קצר: "מה פז יכול לומר על זה מהשטח"
+
+## מספרים שפז יכול לצטט
+רשימה של 5-10 נתונים עם מקור. רק מה שבאמת מופיע במאמרים.
+
+## סתירות/מתחים במחקר
+2-3 מקומות שמחקרים לא מסכימים, או שיש פער בין מה שנחקר למציאות.
+
+## 3 שאלות פתוחות
+שאלות שהמחקרים לא עונים עליהן. אלה הזוויות של פז.
+
+## 2 זוויות פרסום
+שתי אפשרויות ספציפיות לפוסט/בלוג שפז יכול לכתוב:
+- זווית 1: [טענה] ← [דוגמה אפשרית מהשטח שפז יכיר]
+- זווית 2: ...
+
+הנחיות:
+- עברית טבעית, לא אקדמית
+- ציטוטים בצורה (שם, שנה) — שמות חוקרים בעברית
+- לא להגזים. ~ suggested זה לא proven.
+- לא להמציא מספרים.
+- לא לכתוב כאילו אתה פז — אתה מכין לו חומר."""
+
+    briefing = ask_claude(prompt, system=system, max_budget=2.0)
+    briefing_path = ARTICLES_DIR / f"{base}_briefing.md"
+    briefing_path.write_text(
+        f"# Briefing: {display_title}\n\n"
+        f"*מסמך עבודה פנימי — חומר גלם לפז. לא לפרסום.*\n\n"
+        f"{briefing}",
+        encoding="utf-8",
+    )
+    print(f"  [Agent2] Briefing saved: {briefing_path.name}")
+    return briefing_path
+
+
 # ─────────────────────────────────────────────
 # Main agent function
 # ─────────────────────────────────────────────
@@ -351,9 +422,12 @@ Article to review:
     _markdown_to_docx(content_en, title_en, docx_en)
     print(f"  [Agent2] English saved: {md_en.name}, {docx_en.name}")
 
+    # ── Briefing — practitioner-facing distillation for Agent 3 ──
+    briefing_path = _create_briefing(content_en, display_title, base, synthesis_block)
+
     if not bilingual:
-        saved_paths = {"md": md_en, "docx": docx_en}
-        print(f"\n✅ Agent 2 complete → 2 files saved in {ARTICLES_DIR}\n")
+        saved_paths = {"md": md_en, "docx": docx_en, "briefing": briefing_path}
+        print(f"\n✅ Agent 2 complete → 3 files saved in {ARTICLES_DIR}\n")
         return saved_paths
 
     # ── Hebrew article — TRANSLATION (not rewriting) ──
@@ -382,12 +456,13 @@ Article to review:
         _markdown_to_docx(content_he, title_he, docx_he)
         print(f"  [Agent2] Hebrew saved: {md_he.name}, {docx_he.name}")
 
-        saved_paths = {"md": md_en, "docx": docx_en, "md_he": md_he, "docx_he": docx_he}
-        print(f"\n✅ Agent 2 complete → 4 files saved in {ARTICLES_DIR}\n")
+        saved_paths = {"md": md_en, "docx": docx_en, "md_he": md_he,
+                       "docx_he": docx_he, "briefing": briefing_path}
+        print(f"\n✅ Agent 2 complete → 5 files saved in {ARTICLES_DIR}\n")
     except Exception as e:
         print(f"  ⚠️  [Agent2] Hebrew article failed ({e}) — continuing with English only")
-        saved_paths = {"md": md_en, "docx": docx_en}
-        print(f"\n✅ Agent 2 complete → 2 files saved in {ARTICLES_DIR}\n")
+        saved_paths = {"md": md_en, "docx": docx_en, "briefing": briefing_path}
+        print(f"\n✅ Agent 2 complete → 3 files saved in {ARTICLES_DIR}\n")
 
     return saved_paths
 

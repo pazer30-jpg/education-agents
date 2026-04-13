@@ -420,7 +420,15 @@ def run_content_creator(
     print(f"✨ Agent 3 - Content Creator | יוצר: {type_display}")
     print(f"{'='*60}\n")
 
-    article_path = article_paths.get("md") or article_paths.get("docx")
+    # Prefer briefing (practitioner-facing) over full academic article.
+    # Briefing has: proven vs suggested tagging, exact numbers, contradictions,
+    # and publication angles — optimized for Agent 3 to write from.
+    briefing = article_paths.get("briefing")
+    if briefing and Path(briefing).exists():
+        article_path = briefing
+        print(f"  [Agent3] Using briefing (practitioner mode)")
+    else:
+        article_path = article_paths.get("md") or article_paths.get("docx")
     if not article_path or not Path(article_path).exists():
         raise ValueError("No article file. Run Agent 2 first.")
 
