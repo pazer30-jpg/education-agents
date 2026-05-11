@@ -1,0 +1,128 @@
+{
+  "arc_id": "arc_02",
+  "anchor_theme": "ב-2021 ראיתי צוות שמסר בכבוד, בחדות, עם כל הרגש הנכון. שבועות אחרי — הם עדיין היו שם.",
+  "thesis": "ב-2021 ראיתי צוות שמסר בכבוד, בחדות, עם כל הרגש הנכון. שבועות אחרי — הם עדיין היו שם.",
+  "post_count": 13,
+  "target_length": 12,
+  "is_complete": true,
+  "last_updated": "2026-05-07T14:40:46",
+  "posts": [
+    {
+      "post_id": "youth_movements_x_peer_mentorship_x_assessment_and_en_blog_20260407_1317",
+      "title": "מה שבניתי לא מופיע באף דוח",
+      "platform": "blog",
+      "date": "2026-04-07",
+      "path": "/Users/ASUS/education-agents/output/posts/blog/youth_movements_x_peer_mentorship_x_assessment_and_en_blog_20260407_1317.md",
+      "stage": "opening",
+      "position": 1
+    },
+    {
+      "post_id": "פרק_01_שייכות_ומדידה_LINKEDIN",
+      "title": "בשנה השנייה בכפר הנוער ישבתי מול גורם מימון וניסיתי להסביר מה עשינו.",
+      "platform": "linkedin",
+      "date": "2026-04-09",
+      "path": "/Users/ASUS/education-agents/output/posts/linkedin/פרק_01_שייכות_ומדידה_LINKEDIN.txt",
+      "stage": "opening",
+      "position": 2
+    },
+    {
+      "post_id": "פרק_02_תקווה_בחירום_LINKEDIN_גרסה_א",
+      "title": "בשנה הראשונה שלי בכפר הנוער הבנתי שמשהו קורה בשעות שאין בהן שיעורים.",
+      "platform": "linkedin",
+      "date": "2026-04-09",
+      "path": "/Users/ASUS/education-agents/output/posts/linkedin/פרק_02_תקווה_בחירום_LINKEDIN_גרסה_א.txt",
+      "stage": "opening",
+      "position": 3
+    },
+    {
+      "post_id": "מתוך_תוצאת_plan_en_blog_20260412_1724",
+      "title": "התוכנית לא גידלה אף אחד — מה כן גידל?",
+      "platform": "blog",
+      "date": "2026-04-12",
+      "path": "/Users/ASUS/education-agents/output/posts/blog/מתוך_תוצאת_plan_en_blog_20260412_1724.md",
+      "stage": "opening",
+      "position": 4
+    },
+    {
+      "post_id": "מתוך_תוצאת_plan_en_blog_20260413_1037",
+      "title": "התוכנית הייתה מושלמת. המפגש היה אחר לגמרי.",
+      "platform": "blog",
+      "date": "2026-04-13",
+      "path": "/Users/ASUS/education-agents/output/posts/blog/מתוך_תוצאת_plan_en_blog_20260413_1037.md",
+      "stage": "opening",
+      "position": 5
+    },
+    {
+      "post_id": "פרק_16_תכנון_פדגוגי_BLOG",
+      "title": "התוכנית הייתה מושלמת. המפגש היה אחר לגמרי.",
+      "platform": "blog",
+      "date": "2026-04-13",
+      "path": "/Users/ASUS/education-agents/output/posts/blog/פרק_16_תכנון_פדגוגי_BLOG.md",
+      "stage": "opening",
+      "position": 6
+    },
+    {
+      "post_id": "פרק_17_ספורט_וחינוך_LINKEDIN",
+      "title": "יש רגע שכל מי שעבד עם נוער בספורט מכיר.",
+      "platform": "linkedin",
+      "date": "2026-05-04",
+      "path": "/Users/ASUS/education-agents/output/posts/linkedin/פרק_17_ספורט_וחינוך_LINKEDIN.txt",
+      "stage": "building",
+      "position": 7
+    },
+    {
+      "post_id": "כוחו_של_הדיאלוג_he_linkedin_ready",
+      "title": "יש ישיבות צוות שכולן \"דיאלוג\".",
+      "platform": "linkedin",
+      "date": "2026-04-14",
+      "path": "/Users/ASUS/education-agents/output/posts/linkedin/כוחו_של_הדיאלוג_he_linkedin_ready.txt",
+      "stage": "building",
+      "position": 8
+    },
+    {
+      "post_id": "youth_movements_x_peer_mentorship_x_assessment_and_en_linkedin_ready",
+      "title": "בשנה השנייה בכפר הנוער ישבתי מול גורם מימון וניסיתי להסביר מה עשינו.",
+      "platform": "linkedin",
+      "date": "2026-04-07",
+      "path": "/Users/ASUS/education-agents/output/posts/linkedin/youth_movements_x_peer_mentorship_x_assessment_and_en_linkedin_ready.txt",
+      "stage": "building",
+      "position": 9
+    },
+    {
+      "post_id": "education_durin_x_education_for_h_x_non-formal_edu_en_linkedin_ready",
+      "title": "בשנה הראשונה שלי בכפר הנוער הבנתי שמשהו קורה בשעות שאין בהן שיעורים.",
+      "platform": "linkedin",
+      "date": "2026-04-07",
+      "path": "/Users/ASUS/education-agents/output/posts/linkedin/education_durin_x_education_for_h_x_non-formal_edu_en_linkedin_ready.txt",
+      "stage": "building",
+      "position": 10
+    },
+    {
+      "post_id": "מנהיגות_חינוכית_he_linkedin_ready",
+      "title": "יש נוער שנולד עם \"ניצוץ מנהיגות.\"",
+      "platform": "linkedin",
+      "date": "2026-04-10",
+      "path": "/Users/ASUS/education-agents/output/posts/linkedin/מנהיגות_חינוכית_he_linkedin_ready.txt",
+      "stage": "complication",
+      "position": 11
+    },
+    {
+      "post_id": "מנהיגות_חינוכית_en_linkedin_ready",
+      "title": "כל תוכנית מנהיגות שאני מכיר מודדת אותו דבר.",
+      "platform": "linkedin",
+      "date": "2026-04-11",
+      "path": "/Users/ASUS/education-agents/output/posts/linkedin/מנהיגות_חינוכית_en_linkedin_ready.txt",
+      "stage": "complication",
+      "position": 12
+    },
+    {
+      "post_id": "israeli_youth_group__x_ritual_transition_pe_x_handover_cerem_he_linkedin_ready_20260505_2013",
+      "title": "ב-2021 ראיתי צוות שמסר בכבוד, בחדות, עם כל הרגש הנכון. שבועות אחרי — הם עדיין היו שם.",
+      "platform": "linkedin",
+      "date": "2026-05-05",
+      "path": "/Users/ASUS/education-agents/output/posts/linkedin/israeli_youth_group__x_ritual_transition_pe_x_handover_cerem_he_linkedin_ready_20260505_2013.txt",
+      "stage": "conclusion",
+      "position": 13
+    }
+  ]
+}

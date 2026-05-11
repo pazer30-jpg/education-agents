@@ -37,7 +37,7 @@ except ImportError:
 from config import PAPERS_DIR
 
 # כמה תווים מהטקסט המלא לשמור (כדי לא לפוצץ את ה-context של Agent 2)
-MAX_CHARS_PER_PAPER = 8000
+MAX_CHARS_PER_PAPER = 12000
 DOWNLOAD_TIMEOUT    = 15   # שניות
 MAX_PAPERS_TO_FETCH = 12   # לא מורידים יותר מ-X PDFs בהרצה אחת
 

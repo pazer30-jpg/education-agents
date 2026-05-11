@@ -1,0 +1,56 @@
+{
+  "arc_id": "arc_03",
+  "anchor_theme": "יש מציאות שמי שעבד בחינוך הבלתי-פורמלי מכיר, אבל לא תמיד מנסח.",
+  "thesis": "יש מציאות שמי שעבד בחינוך הבלתי-פורמלי מכיר, אבל לא תמיד מנסח.",
+  "post_count": 5,
+  "target_length": 12,
+  "is_complete": false,
+  "last_updated": "2026-05-07T14:40:46",
+  "posts": [
+    {
+      "post_id": "non-formal_educ_x_social_entrepre_x_non-formal_edu_en_blog_20260409_1329",
+      "title": "בית הספר לא נכשל — הוא הצליח לעשות בדיוק מה שתוכנן",
+      "platform": "blog",
+      "date": "2026-04-09",
+      "path": "/Users/ASUS/education-agents/output/posts/blog/non-formal_educ_x_social_entrepre_x_non-formal_edu_en_blog_20260409_1329.md",
+      "stage": "opening",
+      "position": 1
+    },
+    {
+      "post_id": "פרק_06_ביקורת_מערכתית_BLOG",
+      "title": "בית הספר לא נכשל — הוא הצליח לעשות בדיוק מה שתוכנן",
+      "platform": "blog",
+      "date": "2026-04-09",
+      "path": "/Users/ASUS/education-agents/output/posts/blog/פרק_06_ביקורת_מערכתית_BLOG.md",
+      "stage": "opening",
+      "position": 2
+    },
+    {
+      "post_id": "reuven_kahana_n_x_reuven_kahana_y_x_non-formal_edu_en_linkedin_ready",
+      "title": "---",
+      "platform": "linkedin",
+      "date": "2026-04-10",
+      "path": "/Users/ASUS/education-agents/output/posts/linkedin/reuven_kahana_n_x_reuven_kahana_y_x_non-formal_edu_en_linkedin_ready.txt",
+      "stage": "building",
+      "position": 3
+    },
+    {
+      "post_id": "מתוך_תוצאת_plan_en_blog_20260412_1450",
+      "title": "בין התוכנית למגרש — מה שפער היישום לא מספר לנו על חינוך",
+      "platform": "blog",
+      "date": "2026-04-12",
+      "path": "/Users/ASUS/education-agents/output/posts/blog/מתוך_תוצאת_plan_en_blog_20260412_1450.md",
+      "stage": "building",
+      "position": 4
+    },
+    {
+      "post_id": "play-based_learning__x_economic_inequality__x_volunteer_and__en_linkedin_ready_20260423_1345",
+      "title": "יש מציאות שמי שעבד בחינוך הבלתי-פורמלי מכיר, אבל לא תמיד מנסח.",
+      "platform": "linkedin",
+      "date": "2026-04-23",
+      "path": "/Users/ASUS/education-agents/output/posts/linkedin/play-based_learning__x_economic_inequality__x_volunteer_and__en_linkedin_ready_20260423_1345.txt",
+      "stage": "complication",
+      "position": 5
+    }
+  ]
+}

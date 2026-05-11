@@ -1,19 +1,25 @@
 """
 Agent 1 - Researcher
-מחפש מאמרים אקדמיים מ-6 מקורות:
+מחפש מאמרים אקדמיים מ-מספר מקורות:
   1. Semantic Scholar  — ציטוטים, peer-reviewed
   2. OpenAlex          — ללא rate limit, open access
   3. Crossref          — DOI metadata, citation counts
   4. ERIC              — ספציפי לחינוך
   5. CORE              — full-text open access
-  6. Unpaywall         — מוצא PDFs לפי DOI
+  6. DOAJ              — open access, supports Hebrew
+  7. Hebrew (OpenAlex he-filter + translated queries)
+  8. PubMed            — בריאות, טראומה, פסיכולוגיה (NCBI E-utilities)
+  + Unpaywall          — מוצא PDFs לפי DOI
   + Claude Knowledge כ-fallback אחרון
 """
 
 import requests
 import json
 import time
+import threading
 from pathlib import Path
+from datetime import datetime
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from config import SEMANTIC_SCHOLAR_BASE, SEMANTIC_SCHOLAR_API_KEY, PAPERS_DIR
 from claude_cli import ask_claude_json
 
@@ -50,7 +56,9 @@ def _ss_headers() -> dict:
     return h
 
 
-def search_semantic_scholar(query: str, limit: int = 10, retry: int = 4) -> list[dict]:
+def search_semantic_scholar(query: str, limit: int = 10, retry: int = 2) -> list[dict]:
+    """Reduced retry: 2 attempts max with 10s + 20s wait = 30s budget per query.
+    Other sources (OpenAlex, CORE, ERIC) cover the gap when SS is rate-limited."""
     url = f"{SEMANTIC_SCHOLAR_BASE}/paper/search"
     params = {
         "query": query,
@@ -63,16 +71,18 @@ def search_semantic_scholar(query: str, limit: int = 10, retry: int = 4) -> list
             if r.status_code == 200:
                 return r.json().get("data", [])
             elif r.status_code == 429:
-                wait = 10 * (attempt + 1)
-                print(f"  [SS] Rate limited, waiting {wait}s (attempt {attempt+1}/{retry})...")
-                time.sleep(wait)
+                if attempt < retry - 1:
+                    wait = 10 * (attempt + 1)
+                    print(f"  [SS] Rate limited, waiting {wait}s ({attempt+1}/{retry})...")
+                    time.sleep(wait)
+                else:
+                    print(f"  [SS] Rate limited — giving up, falling back to OpenAlex")
+                    return []
             else:
-                print(f"  [SS] status {r.status_code}")
                 return []
-        except Exception as e:
-            print(f"  [SS] Error: {e}")
+        except Exception:
             if attempt < retry - 1:
-                time.sleep(5)
+                time.sleep(3)
             else:
                 return []
     return []
@@ -90,7 +100,7 @@ def _clean_ss_papers(raw: list[dict]) -> list[dict]:
             "abstract": (p.get("abstract") or "")[:500],
             "url": p.get("url", ""),
             "pdf_url": pdf.get("url", "") if pdf else "",
-            "citation_count": p.get("citationCount", 0),
+            "citation_count": int(p.get("citationCount") or 0),
             "venue": p.get("venue", ""),
             "source": "Semantic Scholar",
         })
@@ -104,26 +114,126 @@ def _clean_ss_papers(raw: list[dict]) -> list[dict]:
 OPENALEX_BASE = "https://api.openalex.org"
 
 
-def search_openalex(query: str, limit: int = 10) -> list[dict]:
-    """Search OpenAlex — no API key needed, no rate limit."""
+def search_openalex(query: str, limit: int = 10, language: str = None) -> list[dict]:
+    """Search OpenAlex — no API key needed, no rate limit.
+    language: ISO code like 'he' to filter Hebrew-only results."""
     url = f"{OPENALEX_BASE}/works"
     params = {
         "search": query,
         "per_page": limit,
         "sort": "relevance_score:desc",
         "select": "id,title,abstract_inverted_index,authorships,publication_year,"
-                  "cited_by_count,primary_location,doi,open_access",
+                  "cited_by_count,primary_location,doi,open_access,language",
     }
+    if language:
+        params["filter"] = f"language:{language}"
     try:
         r = requests.get(url, params=params, timeout=15,
                          headers={"User-Agent": "education-agents/1.0"})
         if r.status_code != 200:
-            print(f"  [OpenAlex] status {r.status_code}")
             return []
         return r.json().get("results", [])
-    except Exception as e:
-        print(f"  [OpenAlex] Error: {e}")
+    except Exception:
         return []
+
+
+# ─────────────────────────────────────────────
+# DOAJ (Hebrew-friendly open access)
+# ─────────────────────────────────────────────
+
+DOAJ_BASE = "https://doaj.org/api/search/articles"
+
+
+def search_doaj(query: str, limit: int = 10, hebrew_only: bool = False) -> list[dict]:
+    """Search DOAJ — open access journals, supports Hebrew via language filter."""
+    import urllib.parse
+    q = urllib.parse.quote(query)
+    url = f"{DOAJ_BASE}/{q}"
+    params = {"pageSize": limit}
+    try:
+        r = requests.get(url, params=params, timeout=15,
+                         headers={"User-Agent": "education-agents/1.0"})
+        if r.status_code != 200:
+            return []
+        results = r.json().get("results", [])
+        if hebrew_only:
+            results = [p for p in results
+                       if "he" in (p.get("bibjson", {}).get("language") or [])]
+        return results
+    except Exception:
+        return []
+
+
+def _clean_doaj_papers(raw: list[dict]) -> list[dict]:
+    cleaned = []
+    for p in raw:
+        bj = p.get("bibjson", {}) if isinstance(p, dict) else {}
+        authors = ", ".join(
+            (a.get("name", "") if isinstance(a, dict) else str(a))
+            for a in (bj.get("author") or [])[:4]
+        )
+        links = bj.get("link", []) or []
+        pdf_url = next((l.get("url", "") for l in links
+                        if isinstance(l, dict) and l.get("type") == "fulltext"), "")
+        journal = bj.get("journal", {}) if isinstance(bj.get("journal"), dict) else {}
+        cleaned.append({
+            "title": bj.get("title", "")[:200],
+            "authors": authors,
+            "year": bj.get("year"),
+            "abstract": (bj.get("abstract") or "")[:500],
+            "url": (bj.get("identifier", [{}])[0].get("id", "")
+                    if bj.get("identifier") else ""),
+            "pdf_url": pdf_url,
+            "citation_count": 0,  # DOAJ doesn't provide
+            "venue": journal.get("title", "") if isinstance(journal, dict) else "",
+            "source": "DOAJ",
+            "language": ", ".join(bj.get("language", []) or []),
+        })
+    return cleaned
+
+
+# ─────────────────────────────────────────────
+# Hebrew query translation (minimal static map)
+# ─────────────────────────────────────────────
+
+_EN_HE_MAP = {
+    "youth movements": "תנועות נוער",
+    "non-formal education": "חינוך בלתי-פורמלי",
+    "informal education": "חינוך לא-פורמלי",
+    "education": "חינוך",
+    "belonging": "שייכות",
+    "identity": "זהות",
+    "resilience": "חוסן",
+    "leadership": "מנהיגות",
+    "mentoring": "הנחיה",
+    "group": "קבוצה",
+    "memorial": "זיכרון",
+    "trauma": "טראומה",
+    "israel": "ישראל",
+    "israeli": "ישראלי",
+    "civic education": "חינוך אזרחי",
+    "civil religion": "דת אזרחית",
+    "boarding school": "פנימייה",
+    "youth village": "כפר נוער",
+}
+
+
+def _translate_to_hebrew(query: str) -> str:
+    """Minimal English→Hebrew translation for common education terms."""
+    q = query.lower()
+    hebrew_parts = []
+    for en, he in _EN_HE_MAP.items():
+        if en in q:
+            hebrew_parts.append(he)
+    return " ".join(hebrew_parts) if hebrew_parts else ""
+
+
+def _is_israel_related(query: str) -> bool:
+    """Check if query is about Israel/Israeli context — triggers Hebrew search."""
+    indicators = ["israel", "israeli", "ישראל", "ישראלי", "jewish", "zionist",
+                  "kibbutz", "aliya", "moshav", "kfar", "mechina"]
+    q = query.lower()
+    return any(ind in q for ind in indicators)
 
 
 def _rebuild_abstract(inverted_index: dict | None) -> str:
@@ -144,7 +254,10 @@ def _clean_openalex_papers(raw: list[dict]) -> list[dict]:
         # Authors
         authors = []
         for a in (p.get("authorships") or [])[:4]:
-            name = a.get("author", {}).get("display_name", "")
+            if not isinstance(a, dict):
+                continue
+            author_obj = a.get("author") or {}
+            name = author_obj.get("display_name", "") if isinstance(author_obj, dict) else ""
             if name:
                 authors.append(name)
 
@@ -168,7 +281,7 @@ def _clean_openalex_papers(raw: list[dict]) -> list[dict]:
             "abstract": _rebuild_abstract(p.get("abstract_inverted_index")),
             "url": doi,
             "pdf_url": pdf_url,
-            "citation_count": p.get("cited_by_count", 0),
+            "citation_count": int(p.get("cited_by_count") or 0),
             "venue": ((p.get("primary_location") or {}).get("source") or {}).get("display_name", ""),
             "source": "OpenAlex",
         })
@@ -236,7 +349,7 @@ def _clean_core_papers(raw: list[dict]) -> list[dict]:
             "abstract": (p.get("abstract") or "")[:500],
             "url": (p.get("sourceFulltextUrls") or [""])[0] if p.get("sourceFulltextUrls") else (doi or ""),
             "pdf_url": pdf_url,
-            "citation_count": p.get("citationCount", 0),
+            "citation_count": int(p.get("citationCount") or 0),
             "venue": p.get("publisher", "") or ((p.get("journals") or [{}])[0].get("title", "") if p.get("journals") else ""),
             "source": "CORE",
         })
@@ -311,7 +424,7 @@ def _clean_crossref_papers(raw: list[dict]) -> list[dict]:
             "abstract": "",  # Crossref rarely has abstracts
             "url": url,
             "pdf_url": pdf_url,
-            "citation_count": p.get("is-referenced-by-count", 0),
+            "citation_count": int(p.get("is-referenced-by-count") or 0),
             "venue": venue,
             "source": "Crossref",
         })
@@ -377,6 +490,109 @@ def _clean_eric_papers(raw: list[dict]) -> list[dict]:
             "citation_count": 0,
             "venue": p.get("source", "") or p.get("publisher", ""),
             "source": "ERIC",
+        })
+    return cleaned
+
+
+# ─────────────────────────────────────────────
+# PubMed (NCBI E-utilities) — health/trauma/mental/psychology
+# ─────────────────────────────────────────────
+
+PUBMED_ESEARCH = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi"
+PUBMED_EFETCH  = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi"
+
+_PUBMED_KEYWORDS = (
+    "health", "trauma", "mental", "wellbeing", "well-being", "well being",
+    "psychology", "psychological", "psychiatric", "depression", "anxiety",
+    "ptsd", "resilience", "therapy", "therapeutic", "child", "adolescent",
+    "youth", "טראומה", "בריאות", "נפש", "פסיכולוג", "רווחה",
+)
+
+
+def _is_pubmed_relevant(query: str) -> bool:
+    q = (query or "").lower()
+    return any(kw in q for kw in _PUBMED_KEYWORDS)
+
+
+def search_pubmed(query: str, limit: int = 10) -> list[dict]:
+    """Search PubMed via NCBI E-utilities. No API key needed for low volume.
+    Returns list of dicts with raw fields ready for _clean_pubmed_papers."""
+    try:
+        r = requests.get(PUBMED_ESEARCH, params={
+            "db": "pubmed", "term": query, "retmax": limit, "retmode": "json",
+        }, timeout=15, headers={"User-Agent": "education-agents/1.0"})
+        if r.status_code != 200:
+            return []
+        ids = r.json().get("esearchresult", {}).get("idlist", []) or []
+        if not ids:
+            return []
+        time.sleep(0.4)  # be polite to NCBI
+        r2 = requests.get(PUBMED_EFETCH, params={
+            "db": "pubmed", "id": ",".join(ids), "rettype": "abstract", "retmode": "xml",
+        }, timeout=20, headers={"User-Agent": "education-agents/1.0"})
+        if r2.status_code != 200:
+            return []
+        import xml.etree.ElementTree as ET
+        root = ET.fromstring(r2.content)
+        papers = []
+        for art in root.findall(".//PubmedArticle"):
+            pmid_el = art.find(".//PMID")
+            pmid = pmid_el.text if pmid_el is not None else ""
+            title_el = art.find(".//ArticleTitle")
+            title = "".join(title_el.itertext()).strip() if title_el is not None else ""
+            abstract_parts = [
+                "".join(ab.itertext()).strip()
+                for ab in art.findall(".//Abstract/AbstractText")
+            ]
+            abstract = " ".join(p for p in abstract_parts if p)
+            year_el = art.find(".//PubDate/Year") or art.find(".//PubDate/MedlineDate")
+            year = None
+            if year_el is not None and year_el.text:
+                try:
+                    year = int(year_el.text[:4])
+                except (ValueError, TypeError):
+                    pass
+            authors = []
+            for au in art.findall(".//Author")[:4]:
+                ln = au.find("LastName")
+                fn = au.find("ForeName") or au.find("Initials")
+                name = " ".join(x.text for x in (fn, ln) if x is not None and x.text).strip()
+                if name:
+                    authors.append(name)
+            venue_el = art.find(".//Journal/Title") or art.find(".//Journal/ISOAbbreviation")
+            venue = venue_el.text if venue_el is not None else ""
+            doi = ""
+            for aid in art.findall(".//ArticleId"):
+                if aid.get("IdType") == "doi" and aid.text:
+                    doi = aid.text
+                    break
+            papers.append({
+                "pmid": pmid, "title": title, "abstract": abstract, "authors": authors,
+                "year": year, "venue": venue, "doi": doi,
+            })
+        return papers
+    except Exception as e:
+        print(f"  [PubMed] Error: {e}")
+        return []
+
+
+def _clean_pubmed_papers(raw: list[dict]) -> list[dict]:
+    cleaned = []
+    for p in raw:
+        pmid = p.get("pmid", "")
+        url = f"https://pubmed.ncbi.nlm.nih.gov/{pmid}/" if pmid else ""
+        if p.get("doi"):
+            url = f"https://doi.org/{p['doi']}"
+        cleaned.append({
+            "title": p.get("title", "")[:200],
+            "authors": ", ".join(p.get("authors", []) or []),
+            "year": p.get("year"),
+            "abstract": (p.get("abstract") or "")[:500],
+            "url": url,
+            "pdf_url": "",  # PubMed itself doesn't host PDFs; Unpaywall may fill this
+            "citation_count": 0,  # PubMed doesn't provide citation counts
+            "venue": p.get("venue", "") or "",
+            "source": "PubMed",
         })
     return cleaned
 
@@ -470,75 +686,169 @@ IMPORTANT:
 
 def _search_all_sources(queries: list[str]) -> tuple[list[dict], dict]:
     """
-    Search all 3 sources, merge and deduplicate.
+    Search all 5 sources in parallel, merge and deduplicate.
     Returns: (all_papers_cleaned, stats)
     """
     all_papers = []
     seen_titles = set()
-    stats = {"semantic_scholar": 0, "openalex": 0, "crossref": 0, "eric": 0, "core": 0}
+    stats = {"semantic_scholar": 0, "openalex": 0, "crossref": 0, "eric": 0, "core": 0,
+             "doaj": 0, "hebrew": 0, "pubmed": 0}
+    _lock = threading.Lock()
 
     def _add_unique(papers: list[dict], source: str):
-        for p in papers:
-            title_key = (p.get("title") or "").lower().strip()[:80]
-            if title_key and title_key not in seen_titles:
-                seen_titles.add(title_key)
-                all_papers.append(p)
-                stats[source] += 1
+        with _lock:
+            for p in papers:
+                title_key = (p.get("title") or "").lower().strip()[:80]
+                if title_key and title_key not in seen_titles:
+                    seen_titles.add(title_key)
+                    all_papers.append(p)
+                    stats[source] += 1
 
-    # ── Semantic Scholar ──────────────────────
-    for i, q in enumerate(queries):
-        if i > 0:
-            time.sleep(5)
-        print(f"  [Agent1] 🔍 SS: '{q[:50]}'...")
-        results = search_semantic_scholar(q, limit=10)
-        _track("semantic_scholar", results)
-        if not results and i == 0:
-            print("  [Agent1] ⚠️  SS rate limited")
-            break
-        _add_unique(_clean_ss_papers(results), "semantic_scholar")
+    # ── Source search functions (each runs in its own thread) ──
 
-    # ── OpenAlex (always — no rate limit) ─────
-    for q in queries:
-        print(f"  [Agent1] 🌐 OpenAlex: '{q[:50]}'...")
-        results = search_openalex(q, limit=10)
-        _track("openalex", results)
-        _add_unique(_clean_openalex_papers(results), "openalex")
+    def _search_semantic_scholar():
+        """Semantic Scholar — rate limited at 1 req/sec."""
+        for i, q in enumerate(queries):
+            if i > 0:
+                time.sleep(5)  # SS rate limit: generous delay between queries
+            print(f"  [Agent1/SS] 🔍 '{q[:50]}'...")
+            results = search_semantic_scholar(q, limit=10)
+            _track("semantic_scholar", results)
+            if not results and i == 0:
+                print("  [Agent1/SS] ⚠️  rate limited, skipping remaining queries")
+                break
+            _add_unique(_clean_ss_papers(results), "semantic_scholar")
 
-    # ── Crossref (DOI + citations) ────────────
-    for q in queries[:2]:
-        print(f"  [Agent1] 🔗 Crossref: '{q[:50]}'...")
-        results = search_crossref(q, limit=8)
-        _track("crossref", results)
-        _add_unique(_clean_crossref_papers(results), "crossref")
+    def _search_openalex():
+        """OpenAlex — no rate limit."""
+        for i, q in enumerate(queries):
+            if i > 0:
+                time.sleep(1)  # polite delay
+            print(f"  [Agent1/OpenAlex] 🌐 '{q[:50]}'...")
+            results = search_openalex(q, limit=10)
+            _track("openalex", results)
+            _add_unique(_clean_openalex_papers(results), "openalex")
 
-    # ── ERIC (education-specific) ─────────────
-    for q in queries[:3]:
-        print(f"  [Agent1] 🎓 ERIC: '{q[:50]}'...")
-        results = search_eric(q, limit=8)
-        _track("eric", results)
-        _add_unique(_clean_eric_papers(results), "eric")
+    def _search_crossref():
+        """Crossref — DOI + citations."""
+        for i, q in enumerate(queries[:2]):
+            if i > 0:
+                time.sleep(1)  # polite delay
+            print(f"  [Agent1/Crossref] 🔗 '{q[:50]}'...")
+            results = search_crossref(q, limit=8)
+            _track("crossref", results)
+            _add_unique(_clean_crossref_papers(results), "crossref")
 
-    # ── CORE (for full-text PDFs) ─────────────
-    for q in queries[:2]:
-        print(f"  [Agent1] 📄 CORE: '{q[:50]}'...")
-        results = search_core(q, limit=8)
-        _track("core", results)
-        _add_unique(_clean_core_papers(results), "core")
+    def _search_eric():
+        """ERIC — education-specific."""
+        for i, q in enumerate(queries[:3]):
+            if i > 0:
+                time.sleep(1)  # polite delay
+            print(f"  [Agent1/ERIC] 🎓 '{q[:50]}'...")
+            results = search_eric(q, limit=8)
+            _track("eric", results)
+            _add_unique(_clean_eric_papers(results), "eric")
 
-    # ── Unpaywall: find PDFs for papers with DOI ──
+    def _search_core():
+        """CORE — full-text open access."""
+        for i, q in enumerate(queries[:2]):
+            if i > 0:
+                time.sleep(1)  # polite delay
+            print(f"  [Agent1/CORE] 📄 '{q[:50]}'...")
+            results = search_core(q, limit=8)
+            _track("core", results)
+            _add_unique(_clean_core_papers(results), "core")
+
+    def _search_doaj():
+        """DOAJ — open access, supports Hebrew."""
+        for i, q in enumerate(queries[:2]):
+            if i > 0:
+                time.sleep(1)
+            print(f"  [Agent1/DOAJ] 🇮🇱 '{q[:50]}'...")
+            results = search_doaj(q, limit=8)
+            _track("doaj", results)
+            _add_unique(_clean_doaj_papers(results), "doaj")
+
+    def _search_pubmed():
+        """PubMed — only run for health/trauma/mental/wellbeing queries."""
+        relevant = [q for q in queries if _is_pubmed_relevant(q)]
+        if not relevant:
+            print("  [Agent1/PubMed] ⏭️  no health-related queries — skipping")
+            return
+        for i, q in enumerate(relevant[:3]):
+            if i > 0:
+                time.sleep(0.5)
+            print(f"  [Agent1/PubMed] 🧬 '{q[:50]}'...")
+            results = search_pubmed(q, limit=8)
+            _track("pubmed", results)
+            _add_unique(_clean_pubmed_papers(results), "pubmed")
+
+    def _search_hebrew():
+        """Hebrew-specific: OpenAlex filter + translated query."""
+        # Only activate if query mentions Israel/Israeli context
+        israel_queries = [q for q in queries if _is_israel_related(q)]
+        if not israel_queries:
+            return
+
+        # Hebrew-filtered OpenAlex
+        for q in israel_queries[:2]:
+            print(f"  [Agent1/Hebrew-OA] 📜 '{q[:50]}'...")
+            results = search_openalex(q, limit=8, language="he")
+            _track("hebrew", results)
+            _add_unique(_clean_openalex_papers(results), "hebrew")
+
+        # Translated queries to Hebrew
+        for q in israel_queries[:2]:
+            he_query = _translate_to_hebrew(q)
+            if he_query:
+                time.sleep(1)
+                print(f"  [Agent1/Hebrew-translated] 📜 '{he_query[:50]}'...")
+                results = search_openalex(he_query, limit=6)
+                _add_unique(_clean_openalex_papers(results), "hebrew")
+                time.sleep(1)
+                results = search_doaj(he_query, limit=6, hebrew_only=True)
+                _add_unique(_clean_doaj_papers(results), "hebrew")
+
+    # ── Run all sources in parallel ─────────
+    source_funcs = {
+        "Semantic Scholar": _search_semantic_scholar,
+        "OpenAlex": _search_openalex,
+        "Crossref": _search_crossref,
+        "ERIC": _search_eric,
+        "CORE": _search_core,
+        "DOAJ": _search_doaj,
+        "Hebrew": _search_hebrew,
+        "PubMed": _search_pubmed,
+    }
+
+    print(f"  [Agent1] Searching {len(source_funcs)} sources in parallel...")
+    with ThreadPoolExecutor(max_workers=8) as executor:
+        futures = {
+            executor.submit(fn): name
+            for name, fn in source_funcs.items()
+        }
+        for future in as_completed(futures):
+            source_name = futures[future]
+            try:
+                future.result()
+                print(f"  [Agent1] ✅ {source_name} done")
+            except Exception as e:
+                print(f"  [Agent1] ⚠️ {source_name} failed: {e}")
+
+    # ── Unpaywall: find PDFs for papers with DOI (sequential, after all sources) ──
     papers_with_doi = [p for p in all_papers if p.get("url") and "doi.org" in p.get("url", "") and not p.get("pdf_url")]
     if papers_with_doi:
-        print(f"  [Agent1] 🔓 Unpaywall: searching PDFs for {len(papers_with_doi)} papers...")
-        found = enrich_pdfs_via_unpaywall(papers_with_doi[:15])  # limit API calls
+        print(f"  [Agent1] 🔓 Unpaywall: searching PDFs for {min(8, len(papers_with_doi))} papers...")
+        found = enrich_pdfs_via_unpaywall(papers_with_doi[:8])  # was 15 — reduced to cut sequential time
         if found:
             print(f"  [Agent1] 🔓 Unpaywall: found {found} PDFs")
             stats["unpaywall_pdfs"] = found
 
-    # ── Citation chain: follow top-cited papers ──
+    # ── Citation chain: follow top-cited papers (only top 1 to cut time) ──
     top_cited = sorted(
         [p for p in all_papers if p.get("citation_count", 0) > 20],
         key=lambda p: p.get("citation_count", 0), reverse=True,
-    )[:3]
+    )[:1]  # was 3 — reduced because each call can rate-limit SS
     if top_cited:
         print(f"  [Agent1] 🔗 Citation chain: following {len(top_cited)} top-cited papers...")
         for p in top_cited:
@@ -559,7 +869,7 @@ def _search_all_sources(queries: list[str]) -> tuple[list[dict], dict]:
                                 "authors": ", ".join(a.get("name","") for a in (cp.get("authors") or [])[:3]),
                                 "year": cp.get("year"),
                                 "url": cp.get("url", ""),
-                                "citation_count": cp.get("citationCount", 0),
+                                "citation_count": int(cp.get("citationCount") or 0),
                                 "source": "citation_chain",
                                 "abstract": "", "pdf_url": "", "venue": "",
                             }], "citation_chain")
@@ -614,7 +924,24 @@ def run_researcher(topic: str, subtopics: list[str], force: bool = False) -> Pat
 
     # Step 1: Generate search queries
     print("  [Agent1] Generating search queries...")
-    queries_prompt = f"""Topic: "{topic}", Subtopics: {json.dumps(subtopics)}
+
+    # Check scratchpad for missing-source hints from fact_checker (previous run)
+    extra_hints = ""
+    try:
+        from scratchpad import read as _scratch_read
+        missing = _scratch_read("fact_checker", "missing_sources")
+        if missing and isinstance(missing, dict):
+            sugg = missing.get("suggested_searches", [])
+            if sugg:
+                extra_hints = (
+                    f"\n\nMandatory: Previous fact_checker found missing citations. "
+                    f"Include searches for these specific sources: {', '.join(sugg[:5])}"
+                )
+                print(f"  [Agent1] 🔄 Got {len(sugg)} missing-source hints from fact_checker")
+    except Exception:
+        pass
+
+    queries_prompt = f"""Topic: "{topic}", Subtopics: {json.dumps(subtopics)}{extra_hints}
 Generate 5 diverse search queries for finding education research papers.
 Rules:
   - 4 queries in English (academic terms)
@@ -636,7 +963,9 @@ Return ONLY a JSON array of strings."""
 
     total = sum(v for k, v in stats.items() if k != "unpaywall_pdfs")
     print(f"\n  [Agent1] 📊 נמצאו {total} מאמרים:")
-    icons = {"semantic_scholar": "🔍", "openalex": "🌐", "crossref": "🔗", "eric": "🎓", "core": "📄", "unpaywall_pdfs": "🔓"}
+    icons = {"semantic_scholar": "🔍", "openalex": "🌐", "crossref": "🔗", "eric": "🎓",
+             "core": "📄", "doaj": "🇮🇱", "hebrew": "📜", "pubmed": "🧬",
+             "unpaywall_pdfs": "🔓"}
     for source, count in stats.items():
         if count > 0:
             print(f"     {icons.get(source, '•')} {source}: {count}")
@@ -690,8 +1019,157 @@ title, authors, year, abstract, url, pdf_url, citation_count, venue, source, rel
     if report:
         print(report)
 
+    # ── Create research summary (structured Markdown for humans + Agent 2) ──
+    try:
+        summary_path = _create_research_summary(topic, subtopics, curated, topic_slug)
+        if summary_path:
+            print(f"  [Agent1] 📋 Summary: {summary_path.name}")
+    except Exception as e:
+        print(f"  [Agent1] Summary failed: {e}")
+
     print(f"\n✅ Agent 1 complete → {filepath} ({len(curated)} papers)\n")
     return filepath
+
+
+def _create_research_summary(topic: str, subtopics: list[str],
+                              papers: list[dict], topic_slug: str) -> Path | None:
+    """
+    Create structured research_summary.md per topic with:
+    - top 3-5 papers (sorted by citation count)
+    - synthesis paragraph (one paragraph)
+    - identified gaps
+    - theoretical frameworks
+
+    Output: output/papers/<topic_slug>_summary.md
+    Cost: ~$0.5/topic (one LLM call)
+    """
+    # Take top 5 most cited papers with abstracts
+    top_papers = sorted(
+        [p for p in papers if p.get("abstract") and len(p.get("abstract", "")) > 100],
+        key=lambda p: p.get("citation_count", 0),
+        reverse=True,
+    )[:5]
+
+    if len(top_papers) < 3:
+        return None  # Not enough papers for meaningful synthesis
+
+    # Build slim payload for LLM
+    slim = []
+    for p in top_papers:
+        authors = p.get("authors", "")
+        if isinstance(authors, list):
+            authors = ", ".join(str(a) for a in authors[:3])
+        slim.append({
+            "title": (p.get("title") or "")[:140],
+            "authors": authors[:80],
+            "year": p.get("year"),
+            "citations": p.get("citation_count") or 0,
+            "abstract": (p.get("abstract") or "")[:400],
+            "venue": (p.get("venue") or "")[:60],
+        })
+
+    prompt = f"""You are an academic research synthesizer. Topic: "{topic}"
+Subtopics: {", ".join(subtopics) if subtopics else "(none)"}
+
+Top {len(slim)} papers (by citation count):
+{json.dumps(slim, ensure_ascii=False, indent=1)}
+
+Return JSON with EXACTLY this structure (no extra fields):
+{{
+  "synthesis": "ONE paragraph (3-5 sentences) describing what this body of research collectively says. Connect the papers, don't list them.",
+  "gaps": ["specific gap 1", "specific gap 2", "specific gap 3"],
+  "theoretical_frameworks": ["framework 1 (e.g. Self-Determination Theory)", "framework 2"],
+  "key_findings": [
+    {{"paper": "Author Year", "finding": "one-sentence key finding"}},
+    ...
+  ]
+}}
+
+Rules:
+- synthesis: 60-120 words, written in Hebrew
+- gaps: 2-4 items, each in Hebrew, specific (not "more research needed")
+- theoretical_frameworks: 2-4, English names but explain in Hebrew if needed
+- key_findings: one per paper, English
+
+Return JSON only."""
+
+    try:
+        result = ask_claude_json(prompt, max_budget=0.5, timeout=180)
+    except Exception as e:
+        print(f"  [Agent1] Summary LLM failed: {e}")
+        return None
+
+    if not isinstance(result, dict):
+        return None
+
+    # Build Markdown output
+    summary_md = SUMMARY_DIR_MD = PAPERS_DIR / f"{topic_slug}_summary.md"
+    lines = [
+        f"# Research Summary — {topic}",
+        f"",
+        f"_Generated: {datetime.now().strftime('%Y-%m-%d %H:%M')}_",
+        f"_Topic: {topic}_",
+        f"_Subtopics: {', '.join(subtopics)}_" if subtopics else "",
+        f"",
+        f"## Synthesis",
+        f"",
+        result.get("synthesis", "(synthesis unavailable)"),
+        f"",
+        f"## Top Papers",
+        f"",
+    ]
+
+    for p in slim:
+        # Format APA-ish citation
+        apa = f"{p['authors']} ({p['year']}). {p['title']}"
+        if p.get('venue'):
+            apa += f". {p['venue']}"
+        apa += "."
+        # Find matching key finding from result
+        key_finding = ""
+        for kf in result.get("key_findings", []):
+            if isinstance(kf, dict):
+                paper_ref = kf.get("paper", "")
+                if any(part in paper_ref for part in [str(p['year']), p['authors'].split(',')[0] if p['authors'] else ""]):
+                    key_finding = kf.get("finding", "")
+                    break
+        lines.append(f"### {p['title']}")
+        lines.append(f"- **Citation:** {apa}")
+        lines.append(f"- **Citations:** {p['citations']}")
+        if key_finding:
+            lines.append(f"- **Key finding:** {key_finding}")
+        lines.append("")
+
+    lines.append("## Identified Gaps")
+    lines.append("")
+    for gap in result.get("gaps", [])[:5]:
+        lines.append(f"- {gap}")
+    lines.append("")
+
+    lines.append("## Theoretical Frameworks")
+    lines.append("")
+    for fw in result.get("theoretical_frameworks", [])[:5]:
+        lines.append(f"- {fw}")
+    lines.append("")
+
+    # Also save JSON for machine consumption
+    summary_json = PAPERS_DIR / f"{topic_slug}_summary.json"
+    summary_json.write_text(
+        json.dumps({
+            "topic": topic,
+            "subtopics": subtopics,
+            "papers": slim,
+            "synthesis": result.get("synthesis", ""),
+            "gaps": result.get("gaps", []),
+            "theoretical_frameworks": result.get("theoretical_frameworks", []),
+            "key_findings": result.get("key_findings", []),
+            "generated_at": datetime.now().isoformat(),
+        }, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+
+    SUMMARY_DIR_MD.write_text("\n".join(lines), encoding="utf-8")
+    return SUMMARY_DIR_MD
 
 
 # ─────────────────────────────────────────────

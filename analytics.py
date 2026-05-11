@@ -241,6 +241,124 @@ def _trend(scores: list) -> str:
     return "→ יציב"
 
 
+def sync_topics_to_obsidian() -> tuple[int, int]:
+    """
+    Read analytics.json, group by topic, compute success metrics, and update
+    output/_memory/strong_topics.md + weak_topics.md.
+
+    Returns (strong_count, weak_count).
+    """
+    try:
+        from obsidian_memory import save_memory_note
+    except Exception:
+        return (0, 0)
+
+    db = _load()
+    runs = db.get("runs", [])
+    if not runs:
+        return (0, 0)
+
+    # Group by topic
+    by_topic = {}
+    for r in runs:
+        topic = (r.get("topic") or "").strip()
+        if not topic:
+            continue
+        if topic not in by_topic:
+            by_topic[topic] = {"runs": 0, "success": 0, "qa_scores": [], "last_seen": ""}
+        by_topic[topic]["runs"] += 1
+        if r.get("success"):
+            by_topic[topic]["success"] += 1
+        avg_qa = r.get("avg_qa")
+        if isinstance(avg_qa, (int, float)):
+            by_topic[topic]["qa_scores"].append(avg_qa)
+        started = r.get("started_at", "")[:10]
+        if started > by_topic[topic]["last_seen"]:
+            by_topic[topic]["last_seen"] = started
+
+    # Score each topic: success rate × avg QA (normalized)
+    scored = []
+    for t, d in by_topic.items():
+        runs_n = d.get("runs", 0)
+        if runs_n <= 0:
+            continue
+        success_rate = (d.get("success", 0) / runs_n) if runs_n > 0 else 0
+        qa_list = d.get("qa_scores") or []
+        avg_qa = (sum(qa_list) / len(qa_list)) if qa_list else 0
+        # Composite score: 50% success, 50% QA (capped at 100)
+        composite = (success_rate * 50) + (min(avg_qa, 100) * 0.5)
+        scored.append({
+            "topic": t,
+            "runs": runs_n,
+            "success_rate": round(success_rate, 2),
+            "avg_qa": round(avg_qa, 1),
+            "composite": round(composite, 1),
+            "last_seen": d["last_seen"],
+        })
+
+    scored.sort(key=lambda x: x["composite"], reverse=True)
+    strong = [s for s in scored if s["composite"] >= 60 and s["runs"] >= 2][:15]
+    weak = [s for s in scored if s["composite"] < 40 and s["runs"] >= 2][:15]
+
+    # Render strong_topics.md
+    strong_lines = [
+        "# 🌟 נושאים שעבדו",
+        "",
+        "> מתוך analytics.json — נושאים עם success_rate × avg_QA גבוה.",
+        "> מעודכן אוטומטית. agent0_planner קורא את הקובץ הזה בכל בחירת נושאים.",
+        "",
+        "## 📈 Top 15 — נושאים חזקים",
+        "",
+        "| נושא | ריצות | success | QA ממוצע | composite | לאחרונה |",
+        "|---|---|---|---|---|---|",
+    ]
+    if not strong:
+        strong_lines.append("| _(אין נתונים מספיקים — דרושות 2+ ריצות לכל נושא)_ | | | | | |")
+    for s in strong:
+        strong_lines.append(
+            f"| {s['topic'][:60]} | {s['runs']} | "
+            f"{int(s['success_rate']*100)}% | {s['avg_qa']} | "
+            f"**{s['composite']}** | {s['last_seen']} |"
+        )
+    strong_lines.extend([
+        "",
+        "---",
+        "",
+        f"_עודכן אוטומטית: {datetime.now().strftime('%d/%m/%Y %H:%M')} · {len(scored)} נושאים נסקרו_",
+    ])
+    save_memory_note("strong_topics", "\n".join(strong_lines), note_type="strong_topics")
+
+    # Render weak_topics.md
+    weak_lines = [
+        "# ❌ נושאים שלא עבדו",
+        "",
+        "> מתוך analytics.json — נושאים עם success_rate × avg_QA נמוך.",
+        "> agent0_planner ימנע מנושאים אלה אלא אם המשתמש דוחק בכוונה.",
+        "",
+        "## 📉 Top 15 — נושאים חלשים (≥2 ריצות, composite<40)",
+        "",
+        "| נושא | ריצות | success | QA ממוצע | composite | לאחרונה |",
+        "|---|---|---|---|---|---|",
+    ]
+    if not weak:
+        weak_lines.append("| _(אין נושאים מובהקת חלשים)_ | | | | | |")
+    for w in weak:
+        weak_lines.append(
+            f"| {w['topic'][:60]} | {w['runs']} | "
+            f"{int(w['success_rate']*100)}% | {w['avg_qa']} | "
+            f"**{w['composite']}** | {w['last_seen']} |"
+        )
+    weak_lines.extend([
+        "",
+        "---",
+        "",
+        f"_עודכן אוטומטית: {datetime.now().strftime('%d/%m/%Y %H:%M')}_",
+    ])
+    save_memory_note("weak_topics", "\n".join(weak_lines), note_type="weak_topics")
+
+    return (len(strong), len(weak))
+
+
 def export_csv(output_path: Path = None) -> Path:
     import csv
     db   = _load()
@@ -280,6 +398,9 @@ if __name__ == "__main__":
     import sys
     if "--csv" in sys.argv:
         export_csv()
+    elif "--sync" in sys.argv:
+        s, w = sync_topics_to_obsidian()
+        print(f"✅ עודכן: {s} נושאים חזקים, {w} נושאים חלשים → output/_memory/")
     elif "--last" in sys.argv:
         idx = sys.argv.index("--last")
         n   = int(sys.argv[idx + 1]) if idx + 1 < len(sys.argv) else 20

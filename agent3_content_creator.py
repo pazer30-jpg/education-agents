@@ -15,8 +15,10 @@ from pathlib import Path
 from datetime import datetime
 
 from config import OUTPUT_DIR, POSTS_DIR, LINKEDIN_DIR, BLOG_DIR, PODCAST_DIR
-from claude_cli import ask_claude_json
-from voice_profile import get_voice_prompt
+from claude_cli import ask_claude_json, ask_claude
+from voice_profile import get_voice_prompt, format_examples_for_prompt
+from genre_router import detect_genre, format_genre_for_prompt
+from counter_argument import suggest_counter, format_counter_report
 
 
 # ─────────────────────────────────────────────
@@ -85,6 +87,43 @@ def _build_system(content_types: list[str]) -> str:
     except Exception:
         pass
 
+    # Anti-pattern memory — patterns that failed 2+ times before
+    anti_patterns_block = ""
+    try:
+        from anti_patterns import format_for_prompt as _ap_for_prompt
+        anti_patterns_block = _ap_for_prompt()
+    except Exception:
+        pass
+
+    # Active alerts — observability SLO breaches that should change behavior
+    active_alerts_block = ""
+    try:
+        from active_response import adjustments_for_agent3
+        adj = adjustments_for_agent3()
+        if adj.get("prompt_inject"):
+            active_alerts_block = "━━━ ACTIVE ALERTS (from observability) ━━━\n" + adj["prompt_inject"]
+    except Exception:
+        pass
+
+    # Obsidian memory — voice rules, recurring sources, theoretical anchors
+    obsidian_block = ""
+    try:
+        from obsidian_memory import format_for_prompt as _obs_for_prompt
+        obsidian_block = _obs_for_prompt(
+            ["voice_rules", "recurring_sources", "theoretical_anchors"],
+            max_chars_per_note=1000,
+        )
+    except Exception:
+        pass
+
+    # Scratchpad — QA retry hints + cross-agent warnings
+    scratchpad_block = ""
+    try:
+        from scratchpad import format_for_agent as _scratch_for
+        scratchpad_block = _scratch_for("content")
+    except Exception:
+        pass
+
     ctx_parts = []
     if ctx.get("season"):
         ctx_parts.append(f"עונה נוכחית: {ctx['season']}")
@@ -100,6 +139,14 @@ def _build_system(content_types: list[str]) -> str:
         ctx_parts.append(rej_rules)
     if perf_patterns:
         ctx_parts.append(perf_patterns)
+    if anti_patterns_block:
+        ctx_parts.append(anti_patterns_block)
+    if active_alerts_block:
+        ctx_parts.append(active_alerts_block)
+    if obsidian_block:
+        ctx_parts.append(obsidian_block)
+    if scratchpad_block:
+        ctx_parts.append(scratchpad_block)
 
     # Calendar awareness — upcoming events
     try:
@@ -195,6 +242,27 @@ Show notes בסוף עם 4+ מקורות APA 7.
 # Save functions
 # ─────────────────────────────────────────────
 
+def _ensure_sources(text: str, data: dict) -> str:
+    """If text has no sources section, extract inline citations and append them."""
+    source_markers = ["מקורות:", "📚", "## מקורות", "References:", "sources:"]
+    if any(m in text for m in source_markers):
+        return text  # already has sources
+
+    # Extract (Author, Year) patterns from text
+    import re
+    # Hebrew names with geresh: פורג'ס, אימורדינו-יאנג
+    citations = re.findall(r"[\u0590-\u05FF'\w-]+(?:\s+[\u0590-\u05FF'\w-]+){0,2}\s*\(\d{4}\)", text)
+    # English: Author (Year) or Author et al. (Year)
+    eng_cites = re.findall(r'[A-Z][a-z]+(?:\s+(?:et\s+al\.|&\s+[A-Z][a-z]+))?\s*\(\d{4}\)', text)
+    all_cites = list(dict.fromkeys(citations + eng_cites))  # dedupe, preserve order
+
+    if not all_cites:
+        return text
+
+    sources_block = "\n\n📚 מקורות:\n" + "\n".join(f"• {c.strip()}" for c in all_cites[:6])
+    return text.rstrip() + sources_block
+
+
 def _save_linkedin(data: dict, base: str) -> list[Path]:
     timestamp = datetime.now().strftime("%Y%m%d_%H%M")
     hashtag_str = " ".join(
@@ -206,7 +274,7 @@ def _save_linkedin(data: dict, base: str) -> list[Path]:
     post_en = data.get("post_english", "")
 
     full_path  = POSTS_DIR   / f"{base}_linkedin_{timestamp}.txt"
-    ready_path = LINKEDIN_DIR / f"{base}_linkedin_ready.txt"
+    ready_path = LINKEDIN_DIR / f"{base}_linkedin_ready_{timestamp}.txt"
 
     full_content = f"""╔══════════════════════════════════════════════════════╗
 ║  LinkedIn Post — {datetime.now().strftime('%d/%m/%Y %H:%M')}
@@ -227,7 +295,8 @@ def _save_linkedin(data: dict, base: str) -> list[Path]:
 {hashtag_str}"""
 
     full_path.write_text(full_content.strip(), encoding="utf-8")
-    ready_path.write_text(post_he + "\n\n" + hashtag_str, encoding="utf-8")
+    post_he_with_sources = _ensure_sources(post_he, data)
+    ready_path.write_text(post_he_with_sources + "\n\n" + hashtag_str, encoding="utf-8")
     print(f"  [Agent3] LinkedIn → {full_path.name}")
     return [full_path, ready_path]
 
@@ -255,7 +324,8 @@ description: "{meta}"
 
 {content}"""
 
-    path.write_text(md.strip(), encoding="utf-8")
+    md = _ensure_sources(md.strip(), data)
+    path.write_text(md, encoding="utf-8")
     print(f"  [Agent3] Blog → {path.name}")
     return [path]
 
@@ -317,7 +387,8 @@ def _create_linkedin(article_text: str, base: str, system: str,
 {article_text}
 
 צור JSON עם:
-- post_hebrew: פוסט עברית 1,200-1,600 תווים בקול האישי המוגדר
+- post_hebrew: פוסט עברית בין 1,200 ל-1,600 תווים בלבד (חובה! ספור תווים!)
+  זה בערך 12-16 שורות. אם הפוסט ארוך יותר — קצר אותו. שום פוסט מעל 1,600 תווים.
   • פתח לפי הקשר — לא נוסחה קבועה
   • ללא אימוג'ים. ללא רשימות ממוספרות. ללא "לסיכום".
   • סיים בשאלה אמיתית שמישהו יכול לענות עליה מניסיון
@@ -334,6 +405,28 @@ def _create_linkedin(article_text: str, base: str, system: str,
 
     prompt += "\n\nהחזר JSON בלבד."
     data = ask_claude_json(prompt, system=system, max_budget=1.5)
+
+    # ── Hook tester: pick the strongest opening ──
+    try:
+        from hook_tester import pick_best_hook
+        post_he = data.get("post_hebrew", "")
+        current_opening = post_he.split("\n", 1)[0] if post_he else ""
+        hooks = data.get("hooks", [])
+        result = pick_best_hook(hooks, current_opening=current_opening)
+        print(f"  [Agent3] 🎣 Hook score: {result['score']}/100 ({'switched' if result['switched'] else 'kept original'})")
+        for r in result.get("reasons", [])[:2]:
+            print(f"     ✓ {r}")
+        for w in result.get("warnings", [])[:1]:
+            print(f"     ⚠ {w}")
+        # If a stronger hook was found, swap it into the post
+        if result["switched"] and result["best"]:
+            new_post = result["best"] + "\n" + post_he.split("\n", 1)[-1]
+            data["post_hebrew"] = new_post
+            data["_original_opening"] = current_opening
+            data["_swapped_to"] = result["best"]
+    except Exception as e:
+        print(f"  [Agent3] hook tester skipped ({e})")
+
     paths = _save_linkedin(data, base)
 
     # Save B variant if exists
@@ -375,24 +468,60 @@ def _create_blog(article_text: str, base: str, system: str) -> list[Path]:
 
 
 def _create_podcast(article_text: str, base: str, system: str) -> list[Path]:
-    print("  [Agent3] יוצר סקריפט פודקאסט...")
-    prompt = f"""בהתבסס על המאמר הזה, כתוב סקריפט לפרק פודקאסט בקולו של פז שלמה.
+    print("  [Agent3] יוצר סקריפט פודקאסט (2 phases)...")
+
+    # Phase 1: Script (the long part — 2,500+ words)
+    prompt_script = f"""בהתבסס על המאמר הזה, כתוב סקריפט מלא לפרק פודקאסט בקולו של פז שלמה.
 
 {article_text}
 
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+אורך הסקריפט: 2,500-3,500 מילים (פרק של 20-30 דקות)
+זה חייב להיות סקריפט ארוך ומפורט — לא תקציר!
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
 צור JSON עם:
-- episode_title: שם הפרק — שאלה או טענה חדה
-- episode_number: 1
-- duration_minutes: אורך משוער (מספר שלם)
-- hook: פתיח 30 שניות — סיפור ספציפי מהשטח, לא תיאוריה
-- intro: הקדמה 1-2 דקות — הצג את הנושא בשפה דבורה
-- sections: מערך של 3-4 חלקים, כל אחד עם:
-  - title, duration, script (שפה דבורה, משפטים עד 12 מילה, [הפסקה] אחרי טענות חשובות), notes
-- outro: סיום + קריאה לפעולה (30-60 שניות)
-- show_notes: תקציר 3-4 משפטים + 3 נקודות מפתח
+- episode_title: שם הפרק — שאלה או טענה חדה (עברית)
+- duration_minutes: אורך משוער (20-30)
+- hook: פתיח 30 שניות — סיפור ספציפי מהשטח, גוף ראשון (100-150 מילים)
+- intro: הקדמה 1-2 דקות — הצג את הנושא בשפה דבורה (200-300 מילים)
+- sections: מערך של 4-5 חלקים, כל אחד עם:
+  - title: כותרת החלק
+  - duration: אורך בדקות (4-6 דקות לחלק)
+  - script: סקריפט מלא של החלק (400-600 מילים לחלק!)
+    שפה דבורה, משפטים עד 12 מילה.
+    כלול [הפסקה] אחרי טענות חשובות.
+    כלול [דוגמה מהשטח] כשמתאים.
+    כלול ציטוטים מחוקרים בשפה טבעית ("לפי X שחקר את...")
+- outro: סיום + שאלה פתוחה למאזין (100-150 מילים)
+
+חשוב מאד: כל section.script חייב להיות 400-600 מילים. סקריפט קצר = פרק ריק.
+החזר JSON בלבד."""
+    data = ask_claude_json(prompt_script, system=system, max_budget=2.5, timeout=500)
+
+    # Phase 2: Show notes (short, separate call to avoid truncation)
+    title = data.get("episode_title", "")
+    sections_summary = " | ".join(s.get("title", "") for s in data.get("sections", []))
+    prompt_notes = f"""כתוב show notes לפרק פודקאסט:
+שם הפרק: {title}
+חלקים: {sections_summary}
+
+צור JSON עם:
+- summary: תקציר 3-4 משפטים
+- key_points: מערך של 3-5 נקודות מפתח
+- sources: מערך של 4-6 מקורות (שם, שנה, כותרת)
+- tags: מערך של 5-8 תגיות
 
 החזר JSON בלבד."""
-    data = ask_claude_json(prompt, system=system, max_budget=2.5)
+    try:
+        notes_data = ask_claude_json(prompt_notes, system="", max_budget=0.3, timeout=120)
+        data["show_notes"] = notes_data.get("summary", "")
+        data["key_points"] = notes_data.get("key_points", [])
+        data["sources"] = notes_data.get("sources", [])
+    except Exception as e:
+        print(f"  [Agent3] ⚠️ Show notes failed ({e}) — using basic notes")
+        data.setdefault("show_notes", title)
+
     return _save_podcast(data, base)
 
 
@@ -420,6 +549,21 @@ def run_content_creator(
     print(f"✨ Agent 3 - Content Creator | יוצר: {type_display}")
     print(f"{'='*60}\n")
 
+    # Calibration check — read once at start of run, log if drift > 15%
+    try:
+        from calibration import calibrate as _calibrate
+        _calib = _calibrate()
+        if _calib.get("samples", 0) >= 5 and _calib.get("drift", 0.0) > 0.15:
+            print(
+                f"  [Agent3] ⚠️ Calibration drift {_calib['drift']:.0%} "
+                f"(verdict={_calib['verdict']}, n={_calib['samples']}, "
+                f"corr={_calib['correlation']:+.2f}) — "
+                f"QA threshold for high engagement: "
+                f"{_calib['qa_threshold_for_high_engagement']}/100"
+            )
+    except Exception as _calib_err:
+        print(f"  [Agent3] calibration check skipped: {_calib_err}")
+
     # Prefer briefing (practitioner-facing) over full academic article.
     # Briefing has: proven vs suggested tagging, exact numbers, contradictions,
     # and publication angles — optimized for Agent 3 to write from.
@@ -433,20 +577,242 @@ def run_content_creator(
         raise ValueError("No article file. Run Agent 2 first.")
 
     article_text = _read_article(Path(article_path))
+
+    # Inject field examples based on article themes
+    theme_words = [w for w in article_text[:500].split() if len(w) > 3][:20]
+    examples_block = format_examples_for_prompt(theme_words)
+    if examples_block:
+        article_text += f"\n\n{examples_block}"
+
+    # Inject a curated quote suggestion (avoiding recently-used authors)
+    try:
+        from quote_bank import format_quote_for_prompt
+        quote_block = format_quote_for_prompt(theme_words)
+        if quote_block:
+            article_text += f"\n\n{quote_block}"
+    except Exception:
+        pass
+
+    # Inject cross-corpus pattern brief — what Paz already said about this topic
+    try:
+        from corpus_patterns import format_pattern_brief
+        # Use first 3-5 significant words as topic
+        topic_str = " ".join(theme_words[:5]) if theme_words else ""
+        pattern_brief = format_pattern_brief(topic_str, theme_words)
+        if pattern_brief:
+            article_text += f"\n\n{pattern_brief}"
+    except Exception:
+        pass
+
     if extra_instruction:
         article_text += f"\n\n━━━ הנחיה נוספת ━━━\n{extra_instruction}"
+
+    # ── Long-form Arc Tracker — inject "PREVIOUS POSTS IN ARC" block ──
+    # If there's an unfinished arc in progress, the LLM gets context on what
+    # already came in this multi-post journey — so it can reference prior posts
+    # naturally ("כפי שטענתי בפוסט הקודם על X..."). No new LLM call; just text.
+    try:
+        from arc_tracker import current_arc_status, format_previous_posts_block
+        _arc_status = current_arc_status()
+        if _arc_status.get("active_arc_id") and not _arc_status.get("needs_new_arc"):
+            arc_block = format_previous_posts_block(_arc_status["active_arc_id"])
+            if arc_block:
+                article_text += f"\n\n{arc_block}"
+                print(f"  [Agent3] 🔗 Arc context injected: "
+                      f"{_arc_status['active_arc_id']} "
+                      f"({_arc_status['posts_in_arc']}/12)")
+    except Exception as _arc_err:
+        print(f"  [Agent3] arc context skipped: {_arc_err}")
+
+    # ── Genre-aware voice routing — detect BEFORE writing ──
+    # Different post types (explanation / personal_reflection / news_commentary /
+    # research_summary) need slightly different emphasis. The base voice profile
+    # stays the same; we just nudge which traits to lean into.
+    try:
+        detected_genre = detect_genre(article_text)
+        genre_block = format_genre_for_prompt(detected_genre)
+        article_text += f"\n\n{genre_block}"
+        print(f"  [Agent3] 🎭 Genre detected: {detected_genre}")
+    except Exception as genre_err:
+        detected_genre = None
+        print(f"  [Agent3] genre router skipped: {genre_err}")
+
     base   = Path(article_path).stem
     system = _build_system(content_types)
     saved  = {}
 
     if "linkedin" in content_types:
-        saved["linkedin"] = _create_linkedin(article_text, base, system, ab_test=ab_test)
+        # A/B testing default-on for LinkedIn — generates 2 variants for engagement comparison
+        # Hypothesis: different hook styles → different engagement. We learn over time.
+        ab_test_active = ab_test or True  # default ON for LinkedIn
+        saved["linkedin"] = _create_linkedin(article_text, base, system, ab_test=ab_test_active)
 
     if "blog" in content_types:
         saved["blog"] = _create_blog(article_text, base, system)
 
     if "podcast" in content_types:
         saved["podcast"] = _create_podcast(article_text, base, system)
+
+    # ── Devil's Advocate — ONCE per article (saves 2min + $1.5 vs per-platform) ──
+    _devil_review_cached = None
+    try:
+        from devils_advocate import review_post, save_review
+        # Run once on the briefing/article — reviews underlying ideas, not surface
+        _source_for_review = article_text[:3500] if article_text else ""
+        if _source_for_review:
+            print(f"\n  👹 Devil's Advocate (article-level review)...")
+            _devil_review_cached = review_post(
+                _source_for_review, platform="article",
+                topic_context=" | ".join(theme_words[:5]) if theme_words else "",
+            )
+            verdict = _devil_review_cached.get("verdict", "?")
+            icon = {"strong": "✅", "okay": "⚠️", "weak": "❌"}.get(verdict, "❓")
+            print(f"  {icon} Article verdict: {verdict}")
+            if _devil_review_cached.get("kill_switch"):
+                print(f"  🛑 STOP: {_devil_review_cached.get('kill_reason', '')}")
+            for obj in (_devil_review_cached.get("objections") or [])[:3]:
+                print(f"     ✋ {obj.get('role', '?')}: {obj.get('issue', '')[:80]}")
+            # Save review file once
+            try:
+                save_review(Path(article_path), _devil_review_cached)
+            except Exception:
+                pass
+    except Exception as devil_err:
+        print(f"  👹 Devil's Advocate skipped: {devil_err}")
+
+    # ── Voice QA — check adherence + auto-fix ───
+    from voice_profile import check_voice_adherence
+    voice_system = get_voice_prompt(content_types[0])
+    _seen_content_hashes: set[str] = set()  # dedupe across paths within same platform
+    for ct, paths in saved.items():
+        for p in paths:
+            try:
+                content = Path(p).read_text(encoding="utf-8")
+                # Skip duplicate content (same post saved twice — e.g. linkedin.txt + ready.txt)
+                import hashlib
+                content_hash = hashlib.md5(content[:500].encode("utf-8")).hexdigest()
+                if content_hash in _seen_content_hashes:
+                    continue
+                _seen_content_hashes.add(content_hash)
+                vqa = check_voice_adherence(content, platform=ct)
+                score = vqa["score"]
+                icon = "✅" if score >= 75 else "⚠️" if score >= 50 else "❌"
+                print(f"  {icon} Voice QA [{ct}]: {score}/100")
+                if vqa["issues"]:
+                    for issue in vqa["issues"][:3]:
+                        print(f"     • {issue}")
+                if vqa["strengths"]:
+                    for s in vqa["strengths"][:2]:
+                        print(f"     ✓ {s}")
+
+                # Auto-fix: one pass if score < 75
+                if score < 75 and vqa.get("issues"):
+                    old_score = score
+                    issues_text = "\n".join(f"- {iss}" for iss in vqa["issues"])
+                    fix_prompt = (
+                        f"הפוסט הבא קיבל ציון {score}/100 בבדיקת קול. "
+                        f"תקן את הבעיות הבאות:\n{issues_text}\n\n"
+                        f"הפוסט:\n{content}\n\n"
+                        f"החזר את הפוסט המתוקן בלבד."
+                    )
+                    try:
+                        fixed_content = ask_claude(fix_prompt, system=voice_system, max_budget=0.5, timeout=120)
+                        if fixed_content and fixed_content.strip():
+                            # Re-run QA on the fixed version
+                            vqa_new = check_voice_adherence(fixed_content.strip(), platform=ct)
+                            new_score = vqa_new["score"]
+                            if new_score > old_score:
+                                Path(p).write_text(fixed_content.strip(), encoding="utf-8")
+                                print(f"  🔧 Voice QA auto-fix: {old_score} → {new_score}")
+                            else:
+                                print(f"  🔧 Voice QA auto-fix: no improvement ({old_score} → {new_score}), keeping original")
+                    except Exception as fix_err:
+                        print(f"  🔧 Voice QA auto-fix failed: {fix_err}")
+
+                # ── Anti-pattern memory: record if final score is still low ──
+                try:
+                    final_text = Path(p).read_text(encoding="utf-8")
+                    final_vqa = check_voice_adherence(final_text, platform=ct)
+                    final_score = final_vqa.get("score", score)
+                    if final_score < 60:
+                        from anti_patterns import record_failure
+                        record_failure(
+                            post_path=Path(p),
+                            qa_score=final_score,
+                            voice_score=final_score,
+                            engagement=None,
+                        )
+                        print(f"  📕 Anti-pattern recorded (Voice {final_score}<60)")
+                except Exception as ap_err:
+                    print(f"  📕 Anti-pattern record skipped: {ap_err}")
+
+                # ── PARALLEL heuristic checkers (Similarity + Pacing + Reading) ──
+                # These are pure-Python, no LLM — run concurrently in threads.
+                from concurrent.futures import ThreadPoolExecutor as _TPE
+                final_content = Path(p).read_text(encoding="utf-8")
+
+                def _run_similarity():
+                    from similarity_checker import check_post_similarity
+                    return ("similarity", check_post_similarity(final_content, platform=ct))
+
+                def _run_pacing():
+                    from pacing_analyzer import reading_level, analyze_pacing
+                    return ("pacing", {"rl": reading_level(final_content),
+                                       "pacing": analyze_pacing(final_content)})
+
+                with _TPE(max_workers=2) as _ex:
+                    futures = [_ex.submit(_run_similarity), _ex.submit(_run_pacing)]
+                    for f in futures:
+                        try:
+                            kind, data = f.result(timeout=20)
+                            if kind == "similarity" and data.get("flagged"):
+                                ms = data.get("most_similar") or {}
+                                print(f"  ⚠️ Post similarity: {data['max_similarity']:.0%} "
+                                      f"overlap with {ms.get('file', '?')}")
+                                for w in data.get("warnings", [])[:3]:
+                                    print(f"     • {w}")
+                            elif kind == "pacing":
+                                rl = data["rl"]
+                                pacing = data["pacing"]
+                                print(f"  📖 Reading level [{ct}]: {rl['score']}/100 ({rl['grade']})")
+                                print(f"  📊 Pacing [{ct}]: {pacing['arc']} arc, "
+                                      f"{pacing['flat_zones']} flat zones")
+                        except Exception as e:
+                            print(f"  ⚠️ Checker failed: {e}")
+
+                # ── Counter-argument injector — flag posts with no internal tension ──
+                # Runs between Voice QA and Devil's Advocate. Surfaces opposing
+                # views when the post lacks markers like "אבל" / "מצד שני" / "ובכל זאת".
+                try:
+                    final_content = Path(p).read_text(encoding="utf-8")
+                    counter_themes = list(theme_words[:8]) if theme_words else []
+                    if detected_genre:
+                        counter_themes.append(detected_genre)
+                    counter_result = suggest_counter(final_content, counter_themes)
+                    print(format_counter_report(counter_result))
+                except Exception as counter_err:
+                    print(f"  🪞 Counter-arg skipped: {counter_err}")
+
+                # ── Devil's Advocate verdict (computed ONCE per article — see below) ──
+                # Reuses _devil_review_cached if available; saves $1.5 + 2min/run
+                if _devil_review_cached:
+                    verdict = _devil_review_cached.get("verdict", "?")
+                    icon = {"strong": "✅", "okay": "⚠️", "weak": "❌"}.get(verdict, "❓")
+                    print(f"  {icon} Devil's Advocate [{ct}]: {verdict} (shared)")
+
+                # ── Causal Chain Validator — correlation vs causation ──
+                try:
+                    from causal_validator import validate_causal_claims
+                    final_content = Path(p).read_text(encoding="utf-8")
+                    causal = validate_causal_claims(final_content)
+                    if causal["score"] < 80 and causal["weak_claims"]:
+                        print(f"  🔗 Causal: {causal['score']}/100 ({causal['claims_found']} claims, {len(causal['weak_claims'])} weak)")
+                        for c in causal["weak_claims"][:2]:
+                            print(f"     ⚠ '{c['claim'][:50]}...' — {c['suggestion']}")
+                except Exception as causal_err:
+                    print(f"  🔗 Causal validator skipped: {causal_err}")
+            except Exception:
+                pass
 
     print(f"\n✅ Agent 3 complete — {type_display}\n")
 

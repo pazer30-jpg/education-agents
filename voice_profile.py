@@ -7,7 +7,7 @@ voice_profile.py
   • זיווג תארים בלתי צפוי: "מסוכן ומדויק"
   • היפוך כוח כמבנה: "לא ביקשתי מהם — הם ביקשו"
   • נ.ב שמפיל את הרצינות
-  • מ-7 ל-8 מאפייני שפה
+  • מ-7 ל-10 מאפייני שפה
   • קיבוץ נוסף לרשימת מקומות
 """
 
@@ -38,7 +38,7 @@ VOICE_PROFILE = """
 נ.ב שמפיל את הרצינות (לפעמים)
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-8 מאפייני שפה
+10 מאפייני שפה
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 1. פתיחה אוניברסלית לפני האישית.
    "יש רגע שכל מי שעבד עם בני נוער מכיר."
@@ -64,6 +64,20 @@ VOICE_PROFILE = """
 8. היפוך כוח כמבנה.
    "לא ביקשתי מהם — הם ביקשו."
    ההיפוך מראה מאיפה מגיעה היצירה האמיתית.
+
+9. ריבוי עמדות בסיפור אחד.
+   שני סיפורים מעמדות שונות — מדריך צעיר שבתהליך, ומחנך מנוסה שצופה בחניך.
+   הם לא מנהלים שיחה בפוסט — הם שני חלונות על אותה שאלה.
+   הראשון שלו — הנוכחות הלא-יודעת. השני של חניך — הנוכחות השואלת.
+
+10. ענווה אפיסטמית — אזכור של אי-ודאות.
+    פז מבחין בין proven, suggested ו-theoretical. הקול שלו לא מציג הכל באותה ודאות.
+    דוגמאות:
+    • "מחקר אחד מציע ש..." (לא "המחקר מראה ש...")
+    • "אני נוטה לחשוב — אבל לא בטוח."
+    • "זה עובד אצלי. אצלך? אולי אחרת."
+    • "(אני יודע שאני מסתכן בהכללה כאן.)"
+    יש לפחות marker אחד כזה בכל פוסט שעוסק במחקרים או טוען טענות.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 נ.ב — הסיום שמפיל את הרצינות
@@ -158,6 +172,295 @@ NEVER
 סמן [הפסקה] אחרי רגעים חזקים.
 סיים עם מחשבה פתוחה, לא מסקנה.
 """
+
+
+# ─────────────────────────────────────────────
+# Field examples bank — real moments from Paz's career
+# ─────────────────────────────────────────────
+
+FIELD_EXAMPLES = [
+    {
+        "themes": ["שייכות", "קבוצה", "נוכחות"],
+        "moment": "ב-2019, קבוצת אגוז, 33 נערים. שלושה חודשים אחרי שהתחילו — "
+                  "ילד שלא דיבר בכלל קם באמצע מעגל ואמר 'אני רוצה לספר משהו'. "
+                  "לא תכננו את זה. זה קרה כי הקבוצה בנתה מרחב.",
+    },
+    {
+        "themes": ["כישלון", "תכנון", "מדריכים"],
+        "moment": "הכנתי פעילות שעה וחצי למדריכים בכפר הנוער. "
+                  "הציר הנושאי, השאלות, הסיום — הכל על הדף. "
+                  "לא חשבתי רגע אחד על מה שקרה להם שבוע לפני. "
+                  "הפעילות הייתה טכנית מוצלחת. לא נגעה לאף אחד.",
+    },
+    {
+        "themes": ["מנהיגות", "כוח", "היפוך"],
+        "moment": "דניאל, כיתה י', סירב להוביל פעילות. אמרתי בסדר. "
+                  "שבוע אחרי, הוא ארגן לבד ערב שירה לכל השכבה. "
+                  "לא ביקשתי — הוא ביקש. ההיפוך הזה לימד אותי שמנהיגות "
+                  "לא עובדת דרך הוראה.",
+    },
+    {
+        "themes": ["חירום", "חוסן", "תקווה"],
+        "moment": "אוקטובר 2023. מפונים מעוטף עזה הגיעו לכפר הנוער. "
+                  "33 נערים שלא הכרנו. תוך שלושה ימים הם היו חלק "
+                  "מהמעגל. לא בגלל תוכנית — בגלל שהקבוצה הישנה פתחה מקום.",
+    },
+    {
+        "themes": ["פדגוגיה", "אי-נוחות", "למידה"],
+        "moment": "בוינגייט, סמסטר שני, ביקשו ממני ללמד 'מנהיגות'. "
+                  "לא הכנתי מצגת. הושבתי 40 סטודנטים במעגל ושאלתי: "
+                  "'ספרו על רגע שמישהו הוביל אתכם לא לאן שרציתם.' "
+                  "20 דקות של שקט. ואז פרץ.",
+    },
+    {
+        "themes": ["מעברים", "סף", "מכינה"],
+        "moment": "במכינה, כל שנה אותו דבר: בשבוע הראשון כולם מלאי "
+                  "אנרגיה, בשבוע השלישי משבר ראשון. לא בגלל שמשהו קרה — "
+                  "בגלל שהאשליה נגמרה. הסף הזה הוא המקום שבו הלמידה מתחילה.",
+    },
+    {
+        "themes": ["דיאלוג", "בובר", "מפגש"],
+        "moment": "ישבתי עם מדריך בן 17 אחרי פעילות שנכשלה. "
+                  "במקום לתת לו פידבק אמרתי: 'ספר לי מה ראית.' "
+                  "הוא תיאר משהו שאני לא שמתי לב אליו. "
+                  "בובר כותב על זה — אתה לא מלמד, אתה נפגש.",
+    },
+    {
+        "themes": ["מדידה", "הערכה", "פער"],
+        "moment": "ב-2021 ביקשו ממני 'למדוד את ההשפעה' של תוכנית שנתית "
+                  "בכפר הנוער. הכנתי שאלון. התוצאות היו מצוינות. "
+                  "אבל הנער שהשתנה הכי הרבה — זה שכמעט עזב באמצע — "
+                  "ענה 3 מתוך 5 על הכל. המספרים לא תפסו את מה שקרה.",
+    },
+    {
+        "themes": ["זהות", "תנועת נוער", "שומר הצעיר"],
+        "moment": "גיל 15, שומר הצעיר. מישהו שאל אותי 'למה אתה בא?' "
+                  "עניתי 'בגלל החברים.' היום אני יודע שזו הייתה תשובה מדויקת. "
+                  "שייכות היא לא תוצר של חינוך — היא התנאי לו.",
+    },
+    {
+        "themes": ["צוות", "ניהול", "קונפליקט"],
+        "moment": "ניהלתי צוות של 8 מדריכים בכפר. שניים לא דיברו ביניהם. "
+                  "ניסיתי 'שיחת גישור'. לא עבד. מה שעבד: שמתי אותם "
+                  "לעבוד ביחד על משהו שנכשל. כשלון משותף מקרב יותר מהצלחה.",
+    },
+    {
+        "themes": ["חירום", "טקס", "זיכרון"],
+        "moment": "יום הזיכרון 2024, כפר הנוער. מדריכה בת 19 עמדה "
+                  "מול 40 נערים ושברה. לא בגלל הטקס — בגלל שהיא הכירה "
+                  "מישהו. עצרנו הכל. ישבנו. לא היה תסריט לרגע הזה.",
+    },
+    {
+        "themes": ["דיגיטלי", "מסכים", "נוכחות"],
+        "moment": "2022, ניסינו פעילות היברידית — חצי מהקבוצה בזום, "
+                  "חצי בחדר. אחרי 20 דקות הבנתי: אלה שתי קבוצות נפרדות. "
+                  "המסך לא מעביר את מה שעובר בין אנשים שנושמים באותו חדר.",
+    },
+]
+
+
+def get_field_examples(themes: list[str], max_examples: int = 3) -> list[dict]:
+    """Return relevant field examples based on theme overlap."""
+    scored = []
+    theme_set = set(t.lower() for t in themes)
+    for ex in FIELD_EXAMPLES:
+        ex_themes = set(t.lower() for t in ex["themes"])
+        overlap = len(theme_set & ex_themes)
+        if overlap > 0:
+            scored.append((overlap, ex))
+    scored.sort(key=lambda x: -x[0])
+    return [ex for _, ex in scored[:max_examples]]
+
+
+def format_examples_for_prompt(themes: list[str]) -> str:
+    """Format relevant field examples as prompt injection for Agent 3."""
+    examples = get_field_examples(themes)
+    if not examples:
+        return ""
+    lines = ["\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━",
+             "דוגמאות מהשטח של פז — השתמש באחת לפחות (או התאם לנושא)",
+             "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"]
+    for i, ex in enumerate(examples, 1):
+        lines.append(f"\n[דוגמה {i}] ({', '.join(ex['themes'])})")
+        lines.append(f"  {ex['moment']}")
+    lines.append("\nמותר לשנות פרטים (שמות, מספרים) כל עוד הרוח נשמרת.")
+    lines.append("אל תשתמש בכולן — בחר את הכי רלוונטית לנושא.")
+    return "\n".join(lines)
+
+
+# ─────────────────────────────────────────────
+# Voice QA — checks content adherence to voice profile
+# ─────────────────────────────────────────────
+
+_FORBIDDEN_PATTERNS = [
+    # Hebrew academic-buzz
+    "חשוב לציין", "מעניין לראות", "בשורה התחתונה", "לסיכום",
+    "ניתן לראות", "ראוי להדגיש", "יש לציין", "מן הראוי",
+    # Emojis (פז לא משתמש)
+    "💡", "🔥", "✅", "❌", "👇", "🎯", "📌", "🧵",
+    # English AI-tells (from content-humanizer skill)
+    "delve into", "delve deeper", "delving",
+    "navigate this", "navigating the", "in the landscape of",
+    "leverage", "leveraging",
+    "robust", "comprehensive", "holistic",
+    "foster", "facilitate", "ensure that",
+    "furthermore", "moreover", "in addition to",
+    # Hedging chains (AI hedges constantly)
+    "it's important to note", "it's worth mentioning",
+    "one might argue", "in many cases", "in most scenarios",
+    "it goes without saying", "needless to say",
+    # Hebrew AI-tells
+    "ראוי לציין", "כדאי להדגיש", "במידה רבה", "במידה ניכרת",
+    "יש להבין כי", "יש לקחת בחשבון", "אין ספק כי",
+    "במובן מסוים", "במובן הרחב",
+]
+
+_AUTHENTICATING_NAMES = [
+    "אגוז", "דניאל", "וינגייט", "מכינה", "כפר הנוער", "קיבוץ",
+    "שומר", "גרעין", "נח\"ל", "נוער",
+]
+
+
+def check_voice_adherence(text: str, platform: str = "linkedin") -> dict:
+    """
+    Check how well content adheres to Paz's voice profile.
+    Returns: {"score": 0-100, "issues": [...], "strengths": [...]}
+    """
+    issues = []
+    strengths = []
+    score = 100
+    lines = text.strip().split("\n")
+    first_line = lines[0] if lines else ""
+
+    # 1. Opening — should NOT start with a definition or generic statement
+    definition_starts = ["מה זה", "ההגדרה", "חינוך הוא", "חינוך בלתי",
+                         "לפי הספרות", "מחקרים מראים ש"]
+    if any(first_line.strip().startswith(d) for d in definition_starts):
+        issues.append("פתיחה בהגדרה — פז פותח בזיכרון, שאלה, או רגע אוניברסלי")
+        score -= 15
+
+    # 2. Forbidden patterns
+    for pat in _FORBIDDEN_PATTERNS:
+        if pat in text:
+            issues.append(f"ביטוי אסור: '{pat}'")
+            score -= 5
+
+    # 3. Authenticating details — names, places, numbers, years
+    has_name = any(name in text for name in _AUTHENTICATING_NAMES)
+    has_year = any(str(y) in text for y in range(2015, 2027))
+    has_number = any(f"{n} " in text for n in ["3 ", "8 ", "14 ", "33 ", "40 "])
+
+    if has_name:
+        strengths.append("יש שמות/מקומות מאמתים")
+    else:
+        issues.append("חסרים שמות/מקומות (אגוז, כפר הנוער, וינגייט...)")
+        score -= 10
+
+    if has_year:
+        strengths.append("מעוגן בזמן ספציפי")
+    else:
+        issues.append("חסרה שנה ספציפית")
+        score -= 5
+
+    # 4. Open question near the end
+    last_quarter = "\n".join(lines[-(len(lines)//4 + 1):])
+    if "?" in last_quarter:
+        strengths.append("סיום עם שאלה פתוחה")
+    elif "נ.ב" in last_quarter.lower() or "p.s" in last_quarter.lower():
+        strengths.append("סיום עם נ.ב — מתאים")
+    else:
+        issues.append("סיום ללא שאלה פתוחה ולא נ.ב")
+        score -= 10
+
+    # 5. Duality/tension
+    tension_markers = ["מול ", "לעומת ", "אבל ", "ובכל זאת", "מצד אחד",
+                       "בין ", "דווקא "]
+    has_tension = any(m in text for m in tension_markers)
+    if has_tension:
+        strengths.append("יש מתח/דואליות")
+    else:
+        issues.append("חסר מתח בין קטבים — מאפיין מרכזי של פז")
+        score -= 10
+
+    # 6. Short sentences (Paz's style)
+    sentences = [s.strip() for s in text.replace("\n", " ").split(".") if s.strip()]
+    avg_len = sum(len(s.split()) for s in sentences) / max(len(sentences), 1)
+    if avg_len <= 12:
+        strengths.append(f"משפטים קצרים (ממוצע {avg_len:.0f} מילים)")
+    elif avg_len > 20:
+        issues.append(f"משפטים ארוכים מדי (ממוצע {avg_len:.0f} מילים) — פז כותב קצר")
+        score -= 10
+
+    # 7. First-person presence
+    if "אני " in text or "לי " in text or "שלי " in text:
+        strengths.append("גוף ראשון — אישי")
+    else:
+        issues.append("חסרה כתיבה בגוף ראשון")
+        score -= 10
+
+    # 8. Sources/references at end
+    has_sources = any(marker in text for marker in [
+        "מקורות:", "📚", "## מקורות", "References:", "sources:",
+        "מקורות\n", "מקור:"
+    ])
+    if has_sources:
+        strengths.append("יש רשימת מקורות")
+    else:
+        issues.append("חסרה רשימת מקורות בסוף הפרסום — חובה!")
+        score -= 20
+
+    # 9. Confidence/uncertainty markers — feature 10
+    word_count_local = len(text.split())  # used below; full count repeated in #10
+    confidence_markers = [
+        "מציע ש", "מצא קשר", "ייתכן ש", "אולי", "לא בטוח",
+        "אני נוטה לחשוב", "זה עובד אצלי", "אני מסתכן בהכללה",
+        "מחקר אחד", "מחקרים מסוימים", "הספרות מציעה",
+        "אם אני זוכר", "(לפחות אצלי)", "כך זה נראה לי",
+    ]
+    overconfident_markers = [
+        "המחקר מוכיח", "הוכח ש", "מוכח כי", "אין ספק ש",
+        "ברור ש", "כולם יודעים ש", "תמיד עובד", "בוודאות"
+    ]
+    has_confidence_marker = any(m in text for m in confidence_markers)
+    has_overconfident = any(m in text for m in overconfident_markers)
+
+    if has_confidence_marker:
+        strengths.append("ענווה אפיסטמית — סימני ספק/הסתייגות")
+    elif word_count_local > 100 and ("מחקר" in text or "מצא" in text or "הראה" in text):
+        # Long post with research claims but no uncertainty marker
+        issues.append("חסרים סימני ענווה — הוסף 'מציע', 'אולי', 'לא בטוח'")
+        score -= 8
+
+    if has_overconfident:
+        for m in overconfident_markers:
+            if m in text:
+                issues.append(f"ביטוי תקיף מדי: '{m}'")
+                score -= 5
+                break
+
+    # 10. Platform-specific length
+    char_count = len(text)
+    word_count = len(text.split())
+    if platform == "linkedin":
+        if char_count < 800:
+            issues.append(f"קצר מדי ל-LinkedIn ({char_count} תווים, מינימום 1,200)")
+            score -= 10
+        elif char_count > 2000:
+            issues.append(f"ארוך מדי ל-LinkedIn ({char_count} תווים, מקסימום 1,600)")
+            score -= 5
+    elif platform == "blog":
+        if word_count < 700:
+            issues.append(f"קצר מדי לבלוג ({word_count} מילים, מינימום 900)")
+            score -= 10
+
+    score = max(0, min(100, score))
+
+    return {
+        "score": score,
+        "issues": issues,
+        "strengths": strengths,
+        "platform": platform,
+    }
 
 
 def get_voice_prompt(platform: str) -> str:

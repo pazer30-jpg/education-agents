@@ -11,6 +11,7 @@ telegram_bot.py — חיבור מוקי לטלגרם
 פקודות בוט:
   /start          — הפעלה + הסבר
   /status          — מצב המערכת
+  /pipeline_status — עדכוני pipeline אחרונים (5 שורות)
   /run             — הרצת pipeline מלא
   /run linkedin    — רק LinkedIn
   /summary         — סיכום שבועי
@@ -123,6 +124,7 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "אני מריץ pipeline אקדמי: מחקר → מאמר → תוכן → עיצוב\n\n"
         "*פקודות:*\n"
         "/status — מצב המערכת\n"
+        "/pipeline\\_status — עדכוני pipeline אחרונים\n"
         "/run — הרצת pipeline מלא\n"
         "/run linkedin — רק LinkedIn\n"
         "/run blog — רק בלוג\n"
@@ -213,6 +215,20 @@ async def cmd_dashboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "`python3 dashboard.py --serve`",
         parse_mode="Markdown",
     )
+
+
+async def cmd_pipeline_status(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Show last 5 lines from pipeline_status.txt — live progress."""
+    if not _is_allowed(update.effective_user.id):
+        return
+    status_file = PROJECT_DIR / "output" / "pipeline_status.txt"
+    if not status_file.exists():
+        await update.message.reply_text("📭 אין עדכוני pipeline עדיין.")
+        return
+    lines = status_file.read_text(encoding="utf-8").splitlines()
+    last_lines = lines[-5:] if len(lines) >= 5 else lines
+    text = "📡 *Pipeline Status (last 5):*\n\n" + "\n".join(last_lines)
+    await update.message.reply_text(text, parse_mode="Markdown")
 
 
 async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -317,6 +333,7 @@ def main():
     app.add_handler(CommandHandler("qa", cmd_qa))
     app.add_handler(CommandHandler("dashboard", cmd_dashboard))
     app.add_handler(CommandHandler("help", cmd_help))
+    app.add_handler(CommandHandler("pipeline_status", cmd_pipeline_status))
 
     # Free text
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))

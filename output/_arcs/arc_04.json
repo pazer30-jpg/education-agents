@@ -1,0 +1,56 @@
+{
+  "arc_id": "arc_04",
+  "anchor_theme": "בכפר הנוער שעבדתי בו, נערים מכיתה ט' עשו סרטון על הסיפור של השכונה שלהם.",
+  "thesis": "בכפר הנוער שעבדתי בו, נערים מכיתה ט' עשו סרטון על הסיפור של השכונה שלהם.",
+  "post_count": 5,
+  "target_length": 12,
+  "is_complete": false,
+  "last_updated": "2026-05-07T14:40:46",
+  "posts": [
+    {
+      "post_id": "digital_youth_w_x_digital_youth_w_x_arts-based_non_en_blog_20260408_1242",
+      "title": "מה קורה כשנער מרים מצלמה ולא יודע שהוא מגדיר את עצמו?",
+      "platform": "blog",
+      "date": "2026-04-08",
+      "path": "/Users/ASUS/education-agents/output/posts/blog/digital_youth_w_x_digital_youth_w_x_arts-based_non_en_blog_20260408_1242.md",
+      "stage": "opening",
+      "position": 1
+    },
+    {
+      "post_id": "פרק_04_נוער_דיגיטלי_LINKEDIN",
+      "title": "בכפר הנוער שעבדתי בו, נערים מכיתה ט' עשו סרטון על הסיפור של השכונה שלהם.",
+      "platform": "linkedin",
+      "date": "2026-04-09",
+      "path": "/Users/ASUS/education-agents/output/posts/linkedin/פרק_04_נוער_דיגיטלי_LINKEDIN.txt",
+      "stage": "opening",
+      "position": 2
+    },
+    {
+      "post_id": "פרק_16_תכנון_פדגוגי_LINKEDIN",
+      "title": "יש תחושה שכל מחנך מכיר.",
+      "platform": "linkedin",
+      "date": "2026-05-04",
+      "path": "/Users/ASUS/education-agents/output/posts/linkedin/פרק_16_תכנון_פדגוגי_LINKEDIN.txt",
+      "stage": "building",
+      "position": 3
+    },
+    {
+      "post_id": "מתוך_תוצאת_plan_en_linkedin_ready",
+      "title": "יש תחושה שכל מחנך מכיר.",
+      "platform": "linkedin",
+      "date": "2026-04-13",
+      "path": "/Users/ASUS/education-agents/output/posts/linkedin/מתוך_תוצאת_plan_en_linkedin_ready.txt",
+      "stage": "building",
+      "position": 4
+    },
+    {
+      "post_id": "digital_youth_w_x_digital_youth_w_x_arts-based_non_en_linkedin_ready",
+      "title": "בכפר הנוער שעבדתי בו, נערים מכיתה ט' עשו סרטון על הסיפור של השכונה שלהם.",
+      "platform": "linkedin",
+      "date": "2026-04-08",
+      "path": "/Users/ASUS/education-agents/output/posts/linkedin/digital_youth_w_x_digital_youth_w_x_arts-based_non_en_linkedin_ready.txt",
+      "stage": "complication",
+      "position": 5
+    }
+  ]
+}

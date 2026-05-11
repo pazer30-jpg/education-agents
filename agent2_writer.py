@@ -13,6 +13,12 @@ from docx.enum.text import WD_ALIGN_PARAGRAPH
 from config import ARTICLES_DIR
 from claude_cli import ask_claude
 
+try:
+    from obsidian_memory import format_for_prompt as _obsidian_memory_for_prompt
+except Exception:
+    def _obsidian_memory_for_prompt(_names: list[str], **_kw) -> str:
+        return ""
+
 
 # ─────────────────────────────────────────────
 # DOCX builder
@@ -196,11 +202,15 @@ def _load_papers_from_files(papers_files: list[Path]) -> tuple[list[dict], list[
 
 
 def run_writer(papers_files: Path | list[Path], combined_title: str = "",
-               bilingual: bool = True) -> dict[str, Path]:
+               bilingual: bool = True,
+               research_questions: list[dict] = None,
+               combined_research_question: str = "") -> dict[str, Path]:
     """
     papers_files: single Path or list of Paths (one per researched topic)
     combined_title: optional display title for the combined article
     bilingual: if True (default), write both EN and HE articles
+    research_questions: list of {topic, question, sub_questions} from Agent 0 (NEW)
+    combined_research_question: overarching RQ from Agent 0 (NEW)
     """
     if isinstance(papers_files, Path):
         papers_files = [papers_files]
@@ -324,30 +334,234 @@ Rules:
 
     synthesis_section = f"\n\nSYNTHESIS MAP (use this to structure your article — write about the debates, fill the gaps, reference the consensus):\n{synthesis_block}\n" if synthesis_block else ""
 
-    prompt = f"""Research topics (to be synthesized into ONE article): {topics_str}
+    # ── Slim papers: send only essential fields, not full abstracts ──
+    slim_papers = []
+    for p in all_papers:
+        slim = {
+            "title": (p.get("title") or "")[:120],
+            "authors": (p.get("authors") or "")[:80] if isinstance(p.get("authors"), str)
+                       else ", ".join(str(a) for a in (p.get("authors") or [])[:3])[:80],
+            "year": p.get("year"),
+            "citation_count": p.get("citation_count") or 0,
+            "venue": (p.get("venue") or "")[:60],
+            "abstract": (p.get("abstract") or p.get("fulltext") or "")[:250],
+            "topic": p.get("_source_topic", ""),
+        }
+        slim_papers.append(slim)
+    papers_json = json.dumps(slim_papers, ensure_ascii=False, indent=1)
+
+    base = "_x_".join(t.replace(" ", "_").lower()[:20] for t in topics)[:60]
+
+    # ── Phase 0: Generate outline first (cheap sanity check) ──
+    print("  [Agent2] Phase 0: Building outline...")
+
+    # Use RQs from Agent 0 if provided — they're sharper than what we'd build here
+    rq_block = ""
+    if research_questions:
+        rq_lines = []
+        for i, rq in enumerate(research_questions, 1):
+            rq_lines.append(f"RQ{i} ({rq.get('topic','')}): {rq.get('question','')}")
+            for sq in rq.get('sub_questions', [])[:2]:
+                rq_lines.append(f"   • {sq}")
+        rq_block = "\n\n━━━ RESEARCH QUESTIONS (from Planner) ━━━\n" + "\n".join(rq_lines)
+        if combined_research_question:
+            rq_block += f"\n\nOVERARCHING RQ: {combined_research_question}"
+        rq_block += "\n━━━ Use these as the article's RQs verbatim ━━━\n"
+
+    outline_prompt = f"""Topics: {topics_str}
+Papers available: {len(slim_papers)}
+{synthesis_section}
+{rq_block}
+
+Build a SHORT outline for a synthesized academic review article.
+Return JSON:
+{{
+  "central_thesis": "one-sentence thesis connecting all {len(topics)} topics",
+  "research_questions": {"[use the RQs from above verbatim]" if research_questions else '["RQ1: ...", "RQ2: ...", "RQ3: ..."]'},
+  "lit_review_sections": [
+    {{"name": "...", "key_papers": ["Author 2020", "Author 2021"]}},
+    {{"name": "...", "key_papers": ["..."]}}
+  ],
+  "main_tensions": ["tension or debate the article should address"],
+  "answer_to_rq1": "one-sentence answer based on the literature",
+  "answer_to_rq2": "...",
+  "answer_to_rq3": "..."
+}}
+
+Use ONLY papers from this list — no fabrications:
+{papers_json[:8000]}"""
+
+    try:
+        outline = ask_claude_json(outline_prompt, system=system, max_budget=0.8, timeout=400)
+        rqs = outline.get("research_questions", [])
+        thesis = outline.get("central_thesis", "")
+        sections = outline.get("lit_review_sections", [])
+        tensions = outline.get("main_tensions", [])
+
+        # ── Outline Gate: score quality + retry if weak ──
+        def _outline_score(o: dict) -> tuple[int, list[str]]:
+            """Score 0-100 based on quality criteria. Return (score, issues)."""
+            issues = []
+            score = 100
+            r = o.get("research_questions", [])
+            t = o.get("central_thesis", "")
+            s = o.get("lit_review_sections", [])
+            tn = o.get("main_tensions", [])
+
+            if len(r) < 2:
+                score -= 25
+                issues.append(f"only {len(r)} RQs (need 2-3)")
+            if len(t) < 30:
+                score -= 20
+                issues.append(f"thesis too short ({len(t)} chars)")
+            elif len(t) < 60:
+                score -= 10
+                issues.append(f"thesis underdeveloped ({len(t)} chars)")
+            if len(s) < 3:
+                score -= 25
+                issues.append(f"only {len(s)} lit review sections (need 3+)")
+            if len(tn) < 1:
+                score -= 15
+                issues.append("no tensions identified")
+
+            # Heuristic: thesis should contain a verb (not just nouns)
+            verb_markers = (
+                " הוא ", " היא ", " הם ", " הן ",
+                " is ", " are ", " was ", " were ", " shows ", " indicates ",
+                # active claims
+                " מציע", " טוען", " מראה", " מעיד", " מסביר", " חושף", " מבסס",
+                # passive academic
+                " מוסבר", " מנותח", " נחקר", " נמצא", " נבחן", " מתואר", " מפורש",
+                # relational
+                " מקושר", " קשור", " מתואם", " משפיע", " מושפע", " מעצב",
+            )
+            if t and not any(c in t for c in verb_markers):
+                score -= 15  # raised from 10
+                issues.append("thesis lacks a clear claim/verb")
+
+            # Generic-thesis check
+            if t and any(g in t.lower() for g in ("חשוב", "מעניין", "important", "interesting",
+                                                   "ראוי לציין", "כדאי", "as we know")):
+                score -= 20  # raised from 10 — these are RED flags
+                issues.append("thesis uses generic words (חשוב/מעניין/ראוי לציין)")
+
+            # Underdeveloped thesis is more serious
+            if 0 < len(t) < 80:
+                # additional penalty for very short OR short thesis with no specifics
+                if not any(d in t for d in (":", ",", "—", "אבל", "מצד", "תוך", "באמצעות")):
+                    score -= 10
+                    issues.append("thesis lacks specific structure (no commas/clauses)")
+
+            return max(0, score), issues
+
+        score, issues = _outline_score(outline)
+        max_retries = 2
+        for attempt in range(max_retries):
+            if score >= 60:
+                break
+            print(f"  [Agent2] ⚠️  Outline weak (score={score}) — retry {attempt+1}/{max_retries}")
+            print(f"     issues: {'; '.join(issues)}")
+            retry_prompt = outline_prompt + (
+                f"\n\nIMPORTANT — previous outline attempt scored {score}/100. Fix these issues:\n"
+                + "\n".join(f"- {i}" for i in issues)
+                + "\n\nReturn a STRONGER outline with: clear thesis with verb, 2-3 specific RQs, "
+                  "3+ lit-review sections, 1-2 real tensions."
+            )
+            try:
+                outline = ask_claude_json(retry_prompt, system=system, max_budget=0.5, timeout=300)
+                rqs = outline.get("research_questions", [])
+                thesis = outline.get("central_thesis", "")
+                sections = outline.get("lit_review_sections", [])
+                tensions = outline.get("main_tensions", [])
+                score, issues = _outline_score(outline)
+            except Exception as e:
+                print(f"  [Agent2] ⚠️ Retry failed: {e}")
+                break
+
+        outline_valid = score >= 60
+        if outline_valid:
+            print(f"  [Agent2] ✅ Outline OK ({score}/100): {len(rqs)} RQs, {len(sections)} sections, thesis={thesis[:60]}...")
+        else:
+            print(f"  [Agent2] ⚠️ Outline still weak ({score}/100) after retries — proceeding with caveat")
+            # Push warning to scratchpad for downstream agents
+            try:
+                from scratchpad import note as _scratch_note
+                _scratch_note("outline_gate", "weak_outline_warning", {
+                    "issue": f"outline score {score}/100",
+                    "issues": "; ".join(issues),
+                    "summary": "המאמר נכתב למרות outline חלש — בדוק תוצאה לפני פרסום",
+                })
+            except Exception:
+                pass
+
+        # Build outline guidance for the writing phase
+        outline_block = f"""
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+APPROVED OUTLINE (write according to this):
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+THESIS: {thesis}
+
+{chr(10).join(rqs)}
+
+LITERATURE REVIEW SECTIONS:
+{chr(10).join(f"  • {s.get('name','?')}: {', '.join(s.get('key_papers', [])[:3])}" for s in sections)}
+
+KEY TENSIONS TO ADDRESS:
+{chr(10).join(f"  • {t}" for t in tensions[:3])}
+
+ANSWERS (use in Discussion):
+  RQ1: {outline.get('answer_to_rq1','')}
+  RQ2: {outline.get('answer_to_rq2','')}
+  RQ3: {outline.get('answer_to_rq3','')}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+"""
+    except Exception as e:
+        print(f"  [Agent2] ⚠️ Outline failed ({e}) — proceeding without")
+        outline_block = ""
+
+    # ── Obsidian memory injection ──
+    memory_block = _obsidian_memory_for_prompt([
+        "academic_writing_apa7",
+        "voice_rules",
+        "theoretical_anchors",
+        "recurring_sources",
+    ], max_chars_per_note=1200)
+
+    # ── Scratchpad: retry hints + cross-agent warnings ──
+    scratchpad_block = ""
+    try:
+        from scratchpad import format_for_agent as _scratch_for
+        scratchpad_block = _scratch_for("writer")
+    except Exception:
+        pass
+    if scratchpad_block:
+        memory_block = memory_block + "\n\n" + scratchpad_block
+
+    # ── Phase 1: Write first half (Abstract → Literature Review) ──
+    print("  [Agent2] Phase 1: Writing Abstract → Literature Review...")
+    prompt_p1 = f"""{memory_block}
+
+Research topics (synthesized into ONE article): {topics_str}
 
 Topic breakdown:
 {topic_breakdown}
 {synthesis_section}
-All papers available ({len(all_papers)} total):
-{json.dumps(all_papers, ensure_ascii=False, indent=1)}
+{outline_block}
+Papers ({len(slim_papers)} total — use these for citations):
+{papers_json}
 
-Write a full synthesized academic article (3,000–4,500 words) that argues ONE central thesis
-connecting all {len(topics)} topics.
+Write the FIRST HALF of a synthesized academic article.
+Write ONLY these sections (I will ask for the rest next):
 
-MANDATORY structure — do NOT skip any section:
-
-## Abstract
-(150–200 words — thesis + RQs + key conclusions)
+## Abstract (150-200 words — thesis + RQs + key conclusions)
 
 ## Introduction
 - Broad problem → specific gap → 2-3 Research Questions (RQ1, RQ2, RQ3)
-- Each RQ is answered later in the article
 
 ## Methodology
-- Databases: Semantic Scholar, OpenAlex, ERIC, CORE, Crossref, Unpaywall
-- Search terms used (list the actual keywords)
-- Inclusion: peer-reviewed, 2000-2026, English
+- Databases: Semantic Scholar, OpenAlex, ERIC, CORE, Crossref
+- Search terms, inclusion/exclusion criteria
 - Found: ~{len(all_papers)*4} → Screened: ~{len(all_papers)*2} → Included: {len(all_papers)}
 
 ## Theoretical Framework
@@ -355,36 +569,79 @@ MANDATORY structure — do NOT skip any section:
 
 ## Literature Review
 - Integrated synthesis with 4-6 thematic subsections
-- Include a comparison table (Markdown table with Study | Year | Method | Sample | Key Finding)
+- Include a comparison table (Study | Year | Method | Sample | Key Finding)
 - Critically evaluate sources: state n=, method type, generalizability
 - Do NOT summarize paper by paper — synthesize by theme
 
+Target: ~2,000 words. Every paragraph needs at least one (Author, Year) citation.
+The article argues ONE central thesis connecting all {len(topics)} topics."""
+
+    # Writer time budget — track cumulative to skip optional steps if running long
+    import time as _time
+    _writer_start = _time.time()
+    _writer_deadline = _writer_start + 1500  # 25 min hard cap (within 30 min step_timeout)
+
+    part1 = ask_claude(prompt_p1, system=system, max_budget=3.0, timeout=500)
+
+    # ── Phase 2: Write second half (Discussion → References) ──
+    print("  [Agent2] Phase 2: Writing Discussion → References...")
+    prompt_p2 = f"""{memory_block}
+
+Continue the article below. Write ONLY these remaining sections:
+
 ## Discussion
-- Answer each RQ explicitly
+- Answer each RQ from the Introduction explicitly
 - Tensions between findings, practical implications
 
 ## Limitations of This Review
 - Language bias, database limitations, date range, gaps
 
 ## Conclusions
-(Summary + specific future research directions tied to the gaps)
+(Summary + specific future research directions)
 
 ## References
-(APA 7 — only papers actually cited, alphabetical)
+(APA 7 — ONLY papers actually cited in the text, alphabetical)
 
-Important: The article must feel like ONE coherent piece, not {len(topics)} separate reviews joined together.
-Every paragraph must have at least one citation with critical evaluation."""
+Here is the first half of the article (continue from where it ends):
 
-    base = "_x_".join(t.replace(" ", "_").lower()[:15] for t in topics)[:50]
+{part1}
 
-    # ── English article ──────────────────────────
-    print("  [Agent2] Writing English article (2-3 min)...")
-    article_en = ask_claude(prompt, system=system, max_budget=4.0)
+Papers available for citation:
+{papers_json}
+
+Target: ~1,500 words for Discussion+Limitations+Conclusions. References list all cited works."""
+
+    part2 = ask_claude(prompt_p2, system=system, max_budget=2.5, timeout=500)
+
+    # ── Combine ──
+    article_en = part1.rstrip() + "\n\n" + part2.lstrip()
+    print(f"  [Agent2] Combined article: {len(article_en.split())} words")
     title_en, content_en = _split_title(article_en, f"Synthesized Article: {display_title}")
 
-    # ── Self-review: verify structure + citations ──
-    print("  [Agent2] Self-review: checking structure and citations...")
-    review_prompt = f"""Review this academic article and fix problems. Return the FIXED article only.
+    # ── Pre-check: skip self-review if article is structurally complete ──
+    required_sections = ["## Abstract", "## Introduction", "## Methodology",
+                         "## Theoretical Framework", "## Literature Review",
+                         "## Discussion", "## Limitations", "## Conclusions",
+                         "## References"]
+    missing = [s for s in required_sections if s not in article_en]
+    has_table = "|" in article_en and "---" in article_en
+    has_rqs = "RQ1" in article_en and "RQ2" in article_en
+
+    if not missing and has_table and has_rqs:
+        print(f"  [Agent2] ✅ All sections present — skipping self-review (saves $1.5)")
+        # Still split title for downstream use
+        title_en, content_en = _split_title(article_en, f"Synthesized Article: {display_title}")
+        # Skip the self-review block by setting reviewed=None below path
+        skip_review = True
+    else:
+        skip_review = False
+        if missing:
+            print(f"  [Agent2] Missing: {', '.join(s.replace('## ','') for s in missing)}")
+
+    # ── Self-review: verify structure + citations (only if needed) ──
+    if not skip_review:
+        print("  [Agent2] Self-review: checking structure and citations...")
+        review_prompt = f"""Review this academic article and fix problems. Return the FIXED article only.
 
 CHECK LIST:
 1. Every ## section from the structure exists? (Abstract, Introduction, Methodology, Theoretical Framework, Literature Review, Discussion, Limitations, Conclusions, References)
@@ -405,15 +662,20 @@ Return the COMPLETE fixed article in Markdown. No explanations.
 Article to review:
 {article_en}"""
 
-    try:
-        reviewed = ask_claude(review_prompt, max_budget=3.0)
-        if reviewed and len(reviewed) > len(article_en) * 0.7:
-            title_en, content_en = _split_title(reviewed, title_en)
-            print("  [Agent2] Self-review applied")
+        # Skip self-review if cumulative time tight (already used >18 min)
+        elapsed_so_far = _time.time() - _writer_start
+        if elapsed_so_far > 18 * 60:
+            print(f"  [Agent2] ⏭  Self-review skipped — already at {elapsed_so_far/60:.1f} min")
         else:
-            print("  [Agent2] Self-review skipped (output too short)")
-    except Exception as e:
-        print(f"  [Agent2] Self-review failed ({e}) — using original")
+            try:
+                reviewed = ask_claude(review_prompt, max_budget=1.5, timeout=600)
+                if reviewed and len(reviewed) > len(article_en) * 0.7:
+                    title_en, content_en = _split_title(reviewed, title_en)
+                    print("  [Agent2] Self-review applied")
+                else:
+                    print("  [Agent2] Self-review skipped (output too short)")
+            except Exception as e:
+                print(f"  [Agent2] Self-review failed ({e}) — using original")
 
     md_en   = ARTICLES_DIR / f"{base}_en.md"
     docx_en = ARTICLES_DIR / f"{base}_en.docx"
@@ -422,8 +684,54 @@ Article to review:
     _markdown_to_docx(content_en, title_en, docx_en)
     print(f"  [Agent2] English saved: {md_en.name}, {docx_en.name}")
 
-    # ── Briefing — practitioner-facing distillation for Agent 3 ──
-    briefing_path = _create_briefing(content_en, display_title, base, synthesis_block)
+    # ── Briefing + Hebrew translation in PARALLEL (saves 4-5 min) ──
+    # Both depend only on content_en; both make independent LLM calls.
+    print("  [Agent2] Briefing + HE translation in parallel...")
+    from concurrent.futures import ThreadPoolExecutor as _TPE
+
+    briefing_path = None
+    article_he = None
+
+    def _briefing_task():
+        return _create_briefing(content_en, display_title, base, synthesis_block)
+
+    def _translate_task():
+        if not bilingual:
+            return None
+        # Skip Hebrew translation if cumulative time critical (>22 min)
+        elapsed_now = _time.time() - _writer_start
+        if elapsed_now > 22 * 60:
+            print(f"  [Agent2] ⏭  HE translation skipped — already at {elapsed_now/60:.1f} min")
+            return None
+        try:
+            return ask_claude(prompt_he, system=system_he, max_budget=2.5, timeout=700)
+        except Exception as e:
+            print(f"  [Agent2] HE translation failed: {e}")
+            return None
+
+    # Pre-build HE prompts (used by _translate_task)
+    system_he = """אתה מתרגם אקדמי. תרגם את המאמר הזה מאנגלית לעברית טבעית.
+שמור על:
+  - כל הציטוטים בפורמט המקורי (Smith, 2019)
+  - כל השמות והמספרים
+  - מבנה הסעיפים (## headers)
+  - הטון האקדמי
+זה תרגום, לא כתיבה מחדש."""
+    prompt_he = f"""תרגם את המאמר הבא לעברית טבעית. שמור על המבנה והציטוטים:
+
+{article_en}"""
+
+    with _TPE(max_workers=2) as _ex:
+        f_brief = _ex.submit(_briefing_task)
+        f_trans = _ex.submit(_translate_task)
+        try:
+            briefing_path = f_brief.result(timeout=300)
+        except Exception as e:
+            print(f"  [Agent2] Briefing failed: {e}")
+        try:
+            article_he = f_trans.result(timeout=1200)
+        except Exception as e:
+            print(f"  [Agent2] HE wait timed out: {e}")
 
     if not bilingual:
         saved_paths = {"md": md_en, "docx": docx_en, "briefing": briefing_path}
@@ -433,35 +741,26 @@ Article to review:
     # ── Hebrew article — TRANSLATION (not rewriting) ──
     print("  [Agent2] Translating to Hebrew (חוסך זמן וטוקנים)...")
 
-    system_he = """אתה מתרגם אקדמי. תרגם את המאמר הזה מאנגלית לעברית טבעית.
-שמור על:
-  - כל הציטוטים בפורמט המקורי (Smith, 2019)
-  - כל השמות והמספרים
-  - מבנה הסעיפים (## headers)
-  - הטון האקדמי
-זה תרגום, לא כתיבה מחדש."""
+    # ── article_he was computed in parallel above ──
+    if article_he:
+        try:
+            title_he, content_he = _split_title(article_he, f"מאמר סינתטי: {display_title}")
+            md_he   = ARTICLES_DIR / f"{base}_he.md"
+            docx_he = ARTICLES_DIR / f"{base}_he.docx"
+            with open(md_he, "w", encoding="utf-8") as f:
+                f.write(f"# {title_he}\n\n{content_he}")
+            _markdown_to_docx(content_he, title_he, docx_he)
+            print(f"  [Agent2] Hebrew saved: {md_he.name}, {docx_he.name}")
 
-    prompt_he = f"""תרגם את המאמר הבא לעברית טבעית. שמור על המבנה והציטוטים:
-
-{article_en}"""
-
-    try:
-        article_he = ask_claude(prompt_he, system=system_he, max_budget=2.5)
-        title_he, content_he = _split_title(article_he, f"מאמר סינתטי: {display_title}")
-
-        md_he   = ARTICLES_DIR / f"{base}_he.md"
-        docx_he = ARTICLES_DIR / f"{base}_he.docx"
-        with open(md_he, "w", encoding="utf-8") as f:
-            f.write(f"# {title_he}\n\n{content_he}")
-        _markdown_to_docx(content_he, title_he, docx_he)
-        print(f"  [Agent2] Hebrew saved: {md_he.name}, {docx_he.name}")
-
-        saved_paths = {"md": md_en, "docx": docx_en, "md_he": md_he,
-                       "docx_he": docx_he, "briefing": briefing_path}
-        print(f"\n✅ Agent 2 complete → 5 files saved in {ARTICLES_DIR}\n")
-    except Exception as e:
-        print(f"  ⚠️  [Agent2] Hebrew article failed ({e}) — continuing with English only")
+            saved_paths = {"md": md_en, "docx": docx_en, "md_he": md_he,
+                           "docx_he": docx_he, "briefing": briefing_path}
+            print(f"\n✅ Agent 2 complete → 5 files saved in {ARTICLES_DIR}\n")
+        except Exception as e:
+            print(f"  ⚠️  [Agent2] Hebrew save failed ({e}) — continuing with English only")
+            saved_paths = {"md": md_en, "docx": docx_en, "briefing": briefing_path}
+    else:
         saved_paths = {"md": md_en, "docx": docx_en, "briefing": briefing_path}
+        print(f"\n✅ Agent 2 complete → English only (HE skipped)\n")
         print(f"\n✅ Agent 2 complete → 3 files saved in {ARTICLES_DIR}\n")
 
     return saved_paths

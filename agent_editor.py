@@ -24,6 +24,12 @@ from config import ARTICLES_DIR, LINKEDIN_DIR, BLOG_DIR, PODCAST_DIR
 from claude_cli import ask_claude
 from voice_profile import VOICE_PROFILE
 
+try:
+    from obsidian_memory import format_for_prompt as _obsidian_memory_for_prompt
+except Exception:
+    def _obsidian_memory_for_prompt(_names: list[str], **_kw) -> str:
+        return ""
+
 
 # ─────────────────────────────────────────────
 # System prompts
@@ -112,6 +118,14 @@ def _edit_text(text: str, system_prompt: str,
     שולח טקסט לקלוד לעריכה.
     Returns: (edited_text, changes_list)
     """
+    # Editor-specific Obsidian memory: voice + learned correction patterns
+    memory_block = _obsidian_memory_for_prompt(
+        ["voice_rules", "editor_corrections"],
+        max_chars_per_note=1200,
+    )
+    if memory_block:
+        system_prompt = system_prompt + "\n\n" + memory_block
+
     user_msg = text
     if extra_instruction:
         user_msg = f"הנחיה נוספת: {extra_instruction}\n\n---\n\n{text}"
@@ -344,7 +358,20 @@ def edit_all_content(content_types: list[str],
         platform = list(files.keys())[0]
         return {platform: edit_content(platform, extra=extra)}
 
-    # ── Batch: קריאה אחת לכל הפלטפורמות ──────
+    # ── Skip batch for podcast — too long, causes timeouts ──
+    has_podcast = "podcast" in files
+    if has_podcast and len(files) > 1:
+        print(f"\n  ✏️  [Agent 3.6 — Editor] sequential (podcast detected): {', '.join(files.keys())}")
+        results = {}
+        for platform in files:
+            try:
+                results[platform] = edit_content(platform, extra=extra)
+            except Exception as e:
+                print(f"  ⚠️  {platform} edit failed: {e}")
+                results[platform] = {"file": files[platform], "changes": [], "backup": None}
+        return results
+
+    # ── Batch for shorter platforms only (linkedin + blog) ──
     print(f"\n  ✏️  [Agent 3.6 — Editor] batch: {', '.join(files.keys())}")
 
     sections = []
@@ -365,13 +392,22 @@ def edit_all_content(content_types: list[str],
 [טקסט מתוקן]
 === BLOG_EDITED ===
 [טקסט מתוקן]
-=== PODCAST_EDITED ===
-[טקסט מתוקן]
 
 כלול רק את הפלטפורמות שהתקבלו.
 {extra_note}"""
 
-    result_text = ask_claude(combined, system=system, max_budget=4.0)
+    try:
+        result_text = ask_claude(combined, system=system, max_budget=4.0, timeout=1200)
+    except Exception as e:
+        print(f"  ⚠️  Batch edit failed ({e}) — falling back to sequential")
+        results = {}
+        for platform in files:
+            try:
+                results[platform] = edit_content(platform, extra=extra)
+            except Exception as e2:
+                print(f"  ⚠️  {platform} edit failed: {e2}")
+                results[platform] = {"file": files[platform], "changes": [], "backup": None}
+        return results
 
     # פרסר
     results = {}

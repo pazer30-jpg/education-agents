@@ -1,0 +1,38 @@
+{
+  "arc_id": "arc_06",
+  "anchor_theme": "כשכולם מסכימים, אף אחד לא לומד",
+  "thesis": "כשכולם מסכימים, אף אחד לא לומד",
+  "post_count": 3,
+  "target_length": 12,
+  "is_complete": false,
+  "last_updated": "2026-05-07T14:40:46",
+  "posts": [
+    {
+      "post_id": "כוחו_של_הדיאלוג_he_blog_20260414_0911",
+      "title": "שיחה נימוסית",
+      "platform": "blog",
+      "date": "2026-04-14",
+      "path": "/Users/ASUS/education-agents/output/posts/blog/כוחו_של_הדיאלוג_he_blog_20260414_0911.md",
+      "stage": "opening",
+      "position": 1
+    },
+    {
+      "post_id": "פרק_09_כוחו_של_הדיאלוג_BLOG",
+      "title": "כשכולם מסכימים, אף אחד לא לומד",
+      "platform": "blog",
+      "date": "2026-04-14",
+      "path": "/Users/ASUS/education-agents/output/posts/blog/פרק_09_כוחו_של_הדיאלוג_BLOG.md",
+      "stage": "opening",
+      "position": 2
+    },
+    {
+      "post_id": "כוחו_של_הדיאלוג_he_blog_20260414_1019",
+      "title": "כשכולם מסכימים, אף אחד לא לומד",
+      "platform": "blog",
+      "date": "2026-04-14",
+      "path": "/Users/ASUS/education-agents/output/posts/blog/כוחו_של_הדיאלוג_he_blog_20260414_1019.md",
+      "stage": "building",
+      "position": 3
+    }
+  ]
+}

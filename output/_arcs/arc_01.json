@@ -1,0 +1,146 @@
+{
+  "arc_id": "arc_01",
+  "anchor_theme": "מי מחזיק את בית הספר שמחזיק את הילדים?",
+  "thesis": "מי מחזיק את בית הספר שמחזיק את הילדים?",
+  "post_count": 15,
+  "target_length": 12,
+  "is_complete": true,
+  "last_updated": "2026-05-07T14:40:46",
+  "posts": [
+    {
+      "post_id": "reuven_kahana_n_x_reuven_kahana_y_x_non-formal_edu_en_blog_20260409_2053",
+      "title": "המבנה הוא המסר: מה שבית הספר לא יכול לעשות — ולמה",
+      "platform": "blog",
+      "date": "2026-04-09",
+      "path": "/Users/ASUS/education-agents/output/posts/blog/reuven_kahana_n_x_reuven_kahana_y_x_non-formal_edu_en_blog_20260409_2053.md",
+      "stage": "opening",
+      "position": 1
+    },
+    {
+      "post_id": "פרק_06_ביקורת_מערכתית_BLOG_v2",
+      "title": "החינוך הבלתי פורמלי לא בנוי לפצות — הוא בנוי להכיל",
+      "platform": "blog",
+      "date": "2026-04-09",
+      "path": "/Users/ASUS/education-agents/output/posts/blog/פרק_06_ביקורת_מערכתית_BLOG_v2.md",
+      "stage": "opening",
+      "position": 2
+    },
+    {
+      "post_id": "פרק_07_המבנה_הוא_המסר_BLOG",
+      "title": "המבנה הוא המסר: מה שבית הספר לא יכול לעשות — ולמה",
+      "platform": "blog",
+      "date": "2026-04-09",
+      "path": "/Users/ASUS/education-agents/output/posts/blog/פרק_07_המבנה_הוא_המסר_BLOG.md",
+      "stage": "opening",
+      "position": 3
+    },
+    {
+      "post_id": "militarism_and_educa_x_military_socializati_x_civic_and_mili_en_blog_20260416_2021",
+      "title": "מה הצבא נתן לך שהחינוך לא יכל לתת?",
+      "platform": "blog",
+      "date": "2026-04-16",
+      "path": "/Users/ASUS/education-agents/output/posts/blog/militarism_and_educa_x_military_socializati_x_civic_and_mili_en_blog_20260416_2021.md",
+      "stage": "opening",
+      "position": 4
+    },
+    {
+      "post_id": "פרק_12_מיליטריזם_וחינוך_BLOG",
+      "title": "מה הצבא נתן לך שהחינוך לא יכל לתת?",
+      "platform": "blog",
+      "date": "2026-04-16",
+      "path": "/Users/ASUS/education-agents/output/posts/blog/פרק_12_מיליטריזם_וחינוך_BLOG.md",
+      "stage": "opening",
+      "position": 5
+    },
+    {
+      "post_id": "play-based_learning__x_economic_inequality__x_volunteer_and__en_blog_20260423_1732",
+      "title": "מי מחנך את המדריך?",
+      "platform": "blog",
+      "date": "2026-04-23",
+      "path": "/Users/ASUS/education-agents/output/posts/blog/play-based_learning__x_economic_inequality__x_volunteer_and__en_blog_20260423_1732.md",
+      "stage": "opening",
+      "position": 6
+    },
+    {
+      "post_id": "play-based_learning__x_economic_inequality__x_volunteer_and__en_blog_20260425_2033",
+      "title": "למה הקהילה שהכי צריכה אותנו מקבלת את הגרסה הדקה?",
+      "platform": "blog",
+      "date": "2026-04-25",
+      "path": "/Users/ASUS/education-agents/output/posts/blog/play-based_learning__x_economic_inequality__x_volunteer_and__en_blog_20260425_2033.md",
+      "stage": "building",
+      "position": 7
+    },
+    {
+      "post_id": "פרק_15_מדורות_וזיכרון_LINKEDIN",
+      "title": "2019. כפר הנוער. ל\"ג בעומר. אחד החניכים בכה בלי שאיש שאל למה. ואני, המדריך, ישבתי לידו ופחדתי לפספס — בלי שידעתי בדיוק מ",
+      "platform": "linkedin",
+      "date": "2026-05-04",
+      "path": "/Users/ASUS/education-agents/output/posts/linkedin/פרק_15_מדורות_וזיכרון_LINKEDIN.txt",
+      "stage": "building",
+      "position": 8
+    },
+    {
+      "post_id": "israeli_youth_group__x_ritual_transition_pe_x_handover_cerem_he_blog_20260505_2021",
+      "title": "הטקס שעשה חצי עבודה",
+      "platform": "blog",
+      "date": "2026-05-05",
+      "path": "/Users/ASUS/education-agents/output/posts/blog/israeli_youth_group__x_ritual_transition_pe_x_handover_cerem_he_blog_20260505_2021.md",
+      "stage": "building",
+      "position": 9
+    },
+    {
+      "post_id": "education_durin_x_education_for_h_x_non-formal_edu_he_linkedin_ready",
+      "title": "ביולי 2014, כשהייתי בשנה השלישית בכפר הנוער, הייתה אזעקה בשלוש בלילה.",
+      "platform": "linkedin",
+      "date": "2026-04-07",
+      "path": "/Users/ASUS/education-agents/output/posts/linkedin/education_durin_x_education_for_h_x_non-formal_edu_he_linkedin_ready.txt",
+      "stage": "building",
+      "position": 10
+    },
+    {
+      "post_id": "non-formal_educ_x_social_entrepre_x_non-formal_edu_en_linkedin_ready",
+      "title": "בשנה השנייה בכפר הנוער הגיע אלינו ילד. 14 שנה, לקות למידה, שלוש מסגרות חינוכיות מאחוריו.",
+      "platform": "linkedin",
+      "date": "2026-04-09",
+      "path": "/Users/ASUS/education-agents/output/posts/linkedin/non-formal_educ_x_social_entrepre_x_non-formal_edu_en_linkedin_ready.txt",
+      "stage": "building",
+      "position": 11
+    },
+    {
+      "post_id": "civil_religion__x_secondary_traum_x_existential_me_en_linkedin_ready_20260416_1126",
+      "title": "יש רגע שכל מי שמוביל טכס יום הזיכרון מכיר.",
+      "platform": "linkedin",
+      "date": "2026-04-16",
+      "path": "/Users/ASUS/education-agents/output/posts/linkedin/civil_religion__x_secondary_traum_x_existential_me_en_linkedin_ready_20260416_1126.txt",
+      "stage": "complication",
+      "position": 12
+    },
+    {
+      "post_id": "education_during_war_and_emergency_israe_he_linkedin_ready_20260507_0849",
+      "title": "אוקטובר 2023. מפונים מהעוטף הגיעו לכפר הנוער. 33 נערים בתוך שלושה ימים.",
+      "platform": "linkedin",
+      "date": "2026-05-07",
+      "path": "/Users/ASUS/education-agents/output/posts/linkedin/education_during_war_and_emergency_israe_he_linkedin_ready_20260507_0849.txt",
+      "stage": "complication",
+      "position": 13
+    },
+    {
+      "post_id": "education_during_war_and_emergency_israe_he_blog_20260507_0855",
+      "title": "כשהמורה גם הוא ברח מהאזעקה",
+      "platform": "blog",
+      "date": "2026-05-07",
+      "path": "/Users/ASUS/education-agents/output/posts/blog/education_during_war_and_emergency_israe_he_blog_20260507_0855.md",
+      "stage": "complication",
+      "position": 14
+    },
+    {
+      "post_id": "education_during_war_and_emergency_israe_he_blog_20260507_0856",
+      "title": "מי מחזיק את בית הספר שמחזיק את הילדים?",
+      "platform": "blog",
+      "date": "2026-05-07",
+      "path": "/Users/ASUS/education-agents/output/posts/blog/education_during_war_and_emergency_israe_he_blog_20260507_0856.md",
+      "stage": "conclusion",
+      "position": 15
+    }
+  ]
+}

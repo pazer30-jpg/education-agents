@@ -1,0 +1,50 @@
+/* Hebrew RTL Auto-detect — Moki Vault */
+
+/* Auto-detect Hebrew paragraphs and apply RTL */
+.markdown-rendered p,
+.markdown-rendered li,
+.markdown-rendered h1,
+.markdown-rendered h2,
+.markdown-rendered h3,
+.markdown-rendered h4,
+.markdown-rendered blockquote {
+    unicode-bidi: plaintext;
+}
+
+/* Editor — same auto-detect */
+.cm-line {
+    unicode-bidi: plaintext;
+}
+
+/* Hebrew-friendly fonts */
+:root {
+    --font-text: -apple-system, "SF Hebrew", "David", "Times New Roman", serif;
+    --font-monospace: "SF Mono", "Menlo", monospace;
+}
+
+/* Better Hebrew line height */
+.markdown-rendered {
+    line-height: 1.7;
+}
+
+/* RTL-friendly tables */
+.markdown-rendered table {
+    direction: rtl;
+}
+.markdown-rendered table th,
+.markdown-rendered table td {
+    text-align: right;
+}
+
+/* Wikilinks — slight visual hint */
+.cm-hmd-internal-link, .internal-link {
+    color: var(--text-accent);
+    border-bottom: 1px dashed var(--text-accent);
+    text-decoration: none;
+}
+
+/* Frontmatter — subtle */
+.metadata-container {
+    opacity: 0.85;
+    font-size: 0.9em;
+}

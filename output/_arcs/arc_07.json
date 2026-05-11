@@ -1,0 +1,65 @@
+{
+  "arc_id": "arc_07",
+  "anchor_theme": "╔══════════════════════════════════════════════════════╗",
+  "thesis": "╔══════════════════════════════════════════════════════╗",
+  "post_count": 6,
+  "target_length": 12,
+  "is_complete": false,
+  "last_updated": "2026-05-07T14:40:46",
+  "posts": [
+    {
+      "post_id": "פרק_07_המבנה_הוא_המסר_LINKEDIN",
+      "title": "╔══════════════════════════════════════════════════════╗",
+      "platform": "linkedin",
+      "date": "2026-04-09",
+      "path": "/Users/ASUS/education-agents/output/posts/linkedin/פרק_07_המבנה_הוא_המסר_LINKEDIN.txt",
+      "stage": "opening",
+      "position": 1
+    },
+    {
+      "post_id": "פרק_08_מנהיגות_חינוכית_LINKEDIN",
+      "title": "╔══════════════════════════════════════════════════════╗",
+      "platform": "linkedin",
+      "date": "2026-04-17",
+      "path": "/Users/ASUS/education-agents/output/posts/linkedin/פרק_08_מנהיגות_חינוכית_LINKEDIN.txt",
+      "stage": "opening",
+      "position": 2
+    },
+    {
+      "post_id": "פרק_09_כוחו_של_הדיאלוג_LINKEDIN",
+      "title": "╔══════════════════════════════════════════════════════╗",
+      "platform": "linkedin",
+      "date": "2026-04-17",
+      "path": "/Users/ASUS/education-agents/output/posts/linkedin/פרק_09_כוחו_של_הדיאלוג_LINKEDIN.txt",
+      "stage": "opening",
+      "position": 3
+    },
+    {
+      "post_id": "פרק_10_יום_הזיכרון_LINKEDIN",
+      "title": "╔══════════════════════════════════════════════════════╗",
+      "platform": "linkedin",
+      "date": "2026-04-17",
+      "path": "/Users/ASUS/education-agents/output/posts/linkedin/פרק_10_יום_הזיכרון_LINKEDIN.txt",
+      "stage": "building",
+      "position": 4
+    },
+    {
+      "post_id": "פרק_11_טראומה_משנית_מחנכים_LINKEDIN",
+      "title": "╔══════════════════════════════════════════════════════╗",
+      "platform": "linkedin",
+      "date": "2026-04-17",
+      "path": "/Users/ASUS/education-agents/output/posts/linkedin/פרק_11_טראומה_משנית_מחנכים_LINKEDIN.txt",
+      "stage": "building",
+      "position": 5
+    },
+    {
+      "post_id": "פרק_12_מיליטריזם_וחינוך_LINKEDIN",
+      "title": "╔══════════════════════════════════════════════════════╗",
+      "platform": "linkedin",
+      "date": "2026-04-17",
+      "path": "/Users/ASUS/education-agents/output/posts/linkedin/פרק_12_מיליטריזם_וחינוך_LINKEDIN.txt",
+      "stage": "complication",
+      "position": 6
+    }
+  ]
+}

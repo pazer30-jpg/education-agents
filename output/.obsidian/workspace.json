@@ -1,0 +1,232 @@
+{
+  "main": {
+    "id": "6d04f3c7de1b25a4",
+    "type": "split",
+    "children": [
+      {
+        "id": "fdc16d257ab20ec7",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "d49f6be5397be5ad",
+            "type": "leaf",
+            "state": {
+              "type": "graph",
+              "state": {},
+              "icon": "lucide-git-fork",
+              "title": "תצוגת גרף"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "vertical"
+  },
+  "left": {
+    "id": "ebc0694739bb1d94",
+    "type": "split",
+    "children": [
+      {
+        "id": "ee5e60faf55d9855",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "ff35598273f2f4f8",
+            "type": "leaf",
+            "state": {
+              "type": "file-explorer",
+              "state": {
+                "sortOrder": "alphabetical",
+                "autoReveal": false
+              },
+              "icon": "lucide-folder-closed",
+              "title": "סייר קבצים"
+            }
+          },
+          {
+            "id": "fa6d55874603d802",
+            "type": "leaf",
+            "state": {
+              "type": "search",
+              "state": {
+                "query": "",
+                "matchingCase": false,
+                "explainSearch": false,
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical"
+              },
+              "icon": "lucide-search",
+              "title": "לחפש"
+            }
+          },
+          {
+            "id": "7448a4a9fe7fc714",
+            "type": "leaf",
+            "state": {
+              "type": "bookmarks",
+              "state": {},
+              "icon": "lucide-bookmark",
+              "title": "סימניות"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 236.50247192382812
+  },
+  "right": {
+    "id": "47eb82ba0e452b81",
+    "type": "split",
+    "children": [
+      {
+        "id": "28b3b5704d079197",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "b29ffd668422eb96",
+            "type": "leaf",
+            "state": {
+              "type": "backlink",
+              "state": {
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical",
+                "showSearch": false,
+                "searchQuery": "",
+                "backlinkCollapsed": false,
+                "unlinkedCollapsed": true
+              },
+              "icon": "links-coming-in",
+              "title": "קישורים נכנסים"
+            }
+          },
+          {
+            "id": "7e5a095643157a0d",
+            "type": "leaf",
+            "state": {
+              "type": "outgoing-link",
+              "state": {
+                "linksCollapsed": false,
+                "unlinkedCollapsed": true
+              },
+              "icon": "links-going-out",
+              "title": "קישורים יוצאים"
+            }
+          },
+          {
+            "id": "aa8f2b722bd68f40",
+            "type": "leaf",
+            "state": {
+              "type": "tag",
+              "state": {
+                "sortOrder": "frequency",
+                "useHierarchy": true,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-tags",
+              "title": "תגים"
+            }
+          },
+          {
+            "id": "51ed62e4d1ad423d",
+            "type": "leaf",
+            "state": {
+              "type": "all-properties",
+              "state": {
+                "sortOrder": "frequency",
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-archive",
+              "title": "כל המאפיינים"
+            }
+          },
+          {
+            "id": "c9dfb20fe7586f84",
+            "type": "leaf",
+            "state": {
+              "type": "outline",
+              "state": {
+                "file": "civil_religion_yom_hazikaron_review.md",
+                "followCursor": false,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-list",
+              "title": "מתאר של civil_religion_yom_hazikaron_review"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 351.5,
+    "collapsed": true
+  },
+  "left-ribbon": {
+    "hiddenItems": {
+      "switcher:פתח את המחליף המהיר": false,
+      "graph:פתח תצוגת גרף": false,
+      "canvas:צור קנבס חדש": false,
+      "daily-notes:פתח את ההערה של היום": false,
+      "templates:הכנס תבנית": false,
+      "command-palette:פתח את לוח הפקודות": false,
+      "bases:צור בסיס חדש": false
+    }
+  },
+  "active": "d49f6be5397be5ad",
+  "lastOpenFiles": [
+    "articles/memorial_narrative_genZ_review_part1.md",
+    "articles/education_durin_x_education_for_h_x_non-formal_edu_he.md",
+    "_מוקי-בית.md",
+    "articles/israeli_youth_group__x_ritual_transition_pe_x_handover_cerem_he.md",
+    "_memory/performance_patterns.md",
+    "Nobel 2010.md",
+    "_memory/failure_report.md",
+    "articles/_briefings/psychosocial_transit_x_identity_renegotiati_x_peer_legacy_tr_briefing.md",
+    "_daily/2026-05-11.md",
+    "articles/psychosocial_transit_x_identity_renegotiati_x_peer_legacy_tr_en.md.bak",
+    "fact_check_20260511_073441.json",
+    "_state/scratchpad_usage.json",
+    "_scratchpad.json",
+    "checkpoints/run_20260511_070017.json.bak",
+    "articles/psychosocial_transit_x_identity_renegotiati_x_peer_legacy_tr_he.docx",
+    "articles/psychosocial_transit_x_identity_renegotiati_x_peer_legacy_tr_he.md",
+    "articles/psychosocial_transit_x_identity_renegotiati_x_peer_legacy_tr_briefing.md",
+    "articles/psychosocial_transit_x_identity_renegotiati_x_peer_legacy_tr_en.docx",
+    "articles/psychosocial_transit_x_identity_renegotiati_x_peer_legacy_tr_en.md",
+    "papers/בכפר_הנוער_שעבדתי_בו,_נערים_מכיתה_ט'_עשו_analysis_20260511_0713.json",
+    "checkpoints/run_20260511_070017.json",
+    "papers/בכפר_הנוער_שעבדתי_בו,_נערים_מכיתה_ט'_עשו_enriched_enriched.json",
+    "papers/identity_renegotiation_in_alumni_who_ret_summary.md",
+    "papers/psychosocial_transitions_in_youth_worker_summary.md",
+    "papers/peer_legacy_transmission_practices_in_gr_summary.md",
+    "articles/loneliness_residenti_x_בדידות_של_מנהלי_פנימ_x_role_isolation_en.md",
+    "articles/social_hierarchy_rep_x_contact_hypothesis_a_x_israeli_youth__en.md",
+    "articles/social_hierarchy_rep_x_contact_hypothesis_a_x_israeli_youth__he.md",
+    "articles/spirituality_transmission_civic_review.md",
+    "articles/sport_as_a_tool_x_sport_and_educa_x_sport_pedagogy_en.md",
+    "articles/validated_measuremen_x_somatic_markers_of_b_x_digital_extens_en.md",
+    "articles/youth_movements_x_peer_mentorship_x_assessment_and_he.md",
+    "articles/education_durin_x_education_for_h_x_non-formal_edu_en.md",
+    "articles/digital_youth_w_x_digital_youth_w_x_arts-based_non_he.md",
+    "papers/ייקבע_על_ידי_planner_summary.md",
+    "articles/grit_selfregulation_review_edited.md",
+    "designs/פרק_20_שייכות_חברתית_PODCAST.svg",
+    "designs/פרק_20_שייכות_חברתית_LINKEDIN.svg",
+    "designs/פרק_20_שייכות_חברתית_BLOG.svg",
+    "designs/פרק_19_חינוך_בחירום_PODCAST.svg",
+    "designs/פרק_19_חינוך_בחירום_LINKEDIN.svg",
+    "designs/פרק_19_חינוך_בחירום_BLOG.svg",
+    "designs/פרק_18_טקסי_פרידה_PODCAST.svg",
+    "designs/פרק_18_טקסי_פרידה_LINKEDIN.svg",
+    "designs/פרק_18_טקסי_פרידה_BLOG.svg",
+    "_thesis-canvas.canvas",
+    "_theme-canvas.canvas",
+    "designs/social_hierarchy_rep_x_contact_linkedin_20260508_1241.svg",
+    "ללא כותרת.canvas"
+  ]
+}

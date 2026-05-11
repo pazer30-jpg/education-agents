@@ -28,18 +28,38 @@ def _empty_memory() -> dict:
     }
 
 
+# In-memory cache: invalidated when file mtime changes or save_memory is called
+_cache: dict | None = None
+_cache_mtime: float = 0
+
+
 def load_memory() -> dict:
-    if MEMORY_FILE.exists():
-        with open(MEMORY_FILE, encoding="utf-8") as f:
-            return json.load(f)
-    return _empty_memory()
+    """Load memory from disk with mtime-based caching."""
+    global _cache, _cache_mtime
+    if not MEMORY_FILE.exists():
+        return _empty_memory()
+    current_mtime = MEMORY_FILE.stat().st_mtime
+    if _cache is not None and current_mtime == _cache_mtime:
+        # Return a copy so callers can mutate without affecting cache
+        import copy
+        return copy.deepcopy(_cache)
+    with open(MEMORY_FILE, encoding="utf-8") as f:
+        data = json.load(f)
+    _cache = data
+    _cache_mtime = current_mtime
+    import copy
+    return copy.deepcopy(data)
 
 
 def save_memory(mem: dict):
+    global _cache, _cache_mtime
     mem["updated_at"] = datetime.now().isoformat()
     MEMORY_FILE.parent.mkdir(parents=True, exist_ok=True)
     with open(MEMORY_FILE, "w", encoding="utf-8") as f:
         json.dump(mem, f, ensure_ascii=False, indent=2)
+    # Update cache to match what we wrote
+    _cache = mem
+    _cache_mtime = MEMORY_FILE.stat().st_mtime
 
 
 def record_research(topic: str, subtopics: list[str], papers_file: Path):

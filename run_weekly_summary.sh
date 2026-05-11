@@ -1,6 +1,6 @@
 #!/bin/bash
 # run_weekly_summary.sh — סיכום שבועי דרך cron
-# cron: 0 10 * * 0 /Users/ASUS/Desktop/education-agents/run_weekly_summary.sh
+# cron: 0 10 * * 0 /Users/ASUS/education-agents/run_weekly_summary.sh
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"

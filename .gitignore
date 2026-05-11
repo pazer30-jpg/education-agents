@@ -15,24 +15,66 @@ output/posts/
 output/designs/
 output/checkpoints/
 output/summaries/
+output/reflections/
+output/edits/
+output/ideas/
+output/devil/
+output/thesis/
+output/newsletters/
+output/published/
+output/archive/
+output/book_outlines/
+output/images/
+output/_state/
+output/_daily/
+output/_snapshots/
+output/_memory/
+output/_graph/
+output/_trash/
+
+# Output: logs
+output/*.log
 output/cron_*.log
-output/telegram_bot.log
+output/moki*.log
+output/seminar_*.log
+output/thesis_*.log
+output/launchd_*.log
+
+# Output: generated data files
 output/dashboard.html
 output/references.bib
 output/references.csv
 output/analytics.json
 output/memory.json
+output/session_memory.json
+output/trending_cache.json
+output/active_alerts.json
 output/references.json
 output/review_log.json
 output/scheduler_log.json
+output/pipeline_status.txt
+output/fact_check_*.json
 output/.checkpoint.json
 output/.telegram_bot.pid
+
+# Output: generated assets (SVGs, canvas, markdown)
+output/*.svg
+output/*.canvas
+output/*.md
+output/*.html
+
+# linkedin candidates (generated images — not code)
+linkedin_candidates/
+
+# Temp drive downloads
+.tmp.drivedownload/
 
 # Keep output dirs structure
 !output/papers/.gitkeep
 !output/articles/.gitkeep
 !output/posts/.gitkeep
 !output/designs/.gitkeep
+!output/ready/.gitkeep
 
 # OS
 .DS_Store

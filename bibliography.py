@@ -44,7 +44,8 @@ def _bibtex_key(paper: dict) -> str:
             a.get("name", str(a)) if isinstance(a, dict) else str(a)
             for a in authors
         )
-    first_author = authors.split(",")[0].split()[-1] if authors else "Unknown"
+    first_parts = (authors or "").split(",")[0].split()
+    first_author = first_parts[-1] if first_parts else "Unknown"
     # הסר תווים לא-ASCII
     first_author = unicodedata.normalize("NFKD", first_author)
     first_author = "".join(c for c in first_author if c.isascii() and c.isalpha())
@@ -224,7 +225,13 @@ def _export_csv(db: dict):
     with open(CSV_FILE, "w", newline="", encoding="utf-8-sig") as f:
         w = csv.DictWriter(f, fieldnames=fields, extrasaction="ignore")
         w.writeheader()
-        for key, paper in sorted(db.items(), key=lambda x: -(x[1].get("year") or 0)):
+        def _year_int(p):
+            y = p.get("year") or 0
+            try:
+                return int(y)
+            except (ValueError, TypeError):
+                return 0
+        for key, paper in sorted(db.items(), key=lambda x: -_year_int(x[1])):
             row = {**paper, "key": key,
                    "topics": ", ".join(paper.get("topics", []))}
             w.writerow(row)
@@ -266,7 +273,15 @@ def stats(db: dict = None) -> str:
     if not db:
         return "ביבליוגרפיה ריקה — הרץ: python bibliography.py"
 
-    years   = [p.get("year") for p in db.values() if p.get("year")]
+    years   = []
+    for p in db.values():
+        y = p.get("year")
+        if y is None:
+            continue
+        try:
+            years.append(int(y))
+        except (ValueError, TypeError):
+            pass
     sources = Counter(p.get("source","unknown") for p in db.values())
     topics  = Counter(t for p in db.values() for t in p.get("topics",[]))
     cited   = sorted(db.values(), key=lambda x: -(x.get("citation_count") or 0))

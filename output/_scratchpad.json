@@ -1,0 +1,33 @@
+{
+  "fact_checker": {
+    "missing_sources": {
+      "value": {
+        "issue": "11 ציטוטים יתומים — חסרים בקורפוס",
+        "suggested_searches": [
+          "(Sefton-Green, 2012)",
+          "(Côté, 2002)",
+          "(Schmidt & Muehlfeld, 2017)",
+          "(Rahmawati et al., 2014)",
+          "Gennep's (1960)",
+          "Turner (1969)",
+          "Freire's (1970)",
+          "Hewertson and Tissa (2022)",
+          "Blomgren and Arora-Jonsson (2022)",
+          "Gennep (1960)"
+        ],
+        "summary": "researcher should fetch: (Sefton-Green, 2012), (Côté, 2002), (Schmidt & Muehlfeld, 2017), (Rahmawati et al., 2014), Gennep's (1960)"
+      },
+      "ts": "2026-05-11T07:34:41.981949"
+    }
+  },
+  "failure_analyzer": {
+    "common_failures": {
+      "value": {
+        "issue": "success rate 18% ב-30 ימים",
+        "top_failures": "⏱  Timeout (step >30 דק'): 21×, ❓ אחר: 13×, 💰 חרגנו מ-budget: 8×",
+        "summary": "success rate נמוך (18%) ב-60 ריצות — סיבה דומיננטית: timeout — סוכן בעייתי: writer; 10 ריצות runaway (>3x median, >30 דק')"
+      },
+      "ts": "2026-05-11T11:46:01.907757"
+    }
+  }
+}

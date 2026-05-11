@@ -1,0 +1,65 @@
+{
+  "arc_id": "arc_05",
+  "anchor_theme": "בשנה הרביעית בכפר הנוער ניסיתי להבין למה חלק מהנערים זזו ממקומם ורוב הנערים לא.",
+  "thesis": "בשנה הרביעית בכפר הנוער ניסיתי להבין למה חלק מהנערים זזו ממקומם ורוב הנערים לא.",
+  "post_count": 6,
+  "target_length": 12,
+  "is_complete": false,
+  "last_updated": "2026-05-07T14:40:46",
+  "posts": [
+    {
+      "post_id": "outdoor_and_adv_x_arts-based_non-_x_digital_youth__en_linkedin_ready",
+      "title": "---",
+      "platform": "linkedin",
+      "date": "2026-04-07",
+      "path": "/Users/ASUS/education-agents/output/posts/linkedin/outdoor_and_adv_x_arts-based_non-_x_digital_youth__en_linkedin_ready.txt",
+      "stage": "opening",
+      "position": 1
+    },
+    {
+      "post_id": "פרק_03_מרחב_שמשנה_LINKEDIN",
+      "title": "---",
+      "platform": "linkedin",
+      "date": "2026-04-09",
+      "path": "/Users/ASUS/education-agents/output/posts/linkedin/פרק_03_מרחב_שמשנה_LINKEDIN.txt",
+      "stage": "opening",
+      "position": 2
+    },
+    {
+      "post_id": "פרק_05_מעברים_וסף_LINKEDIN",
+      "title": "בשנה הרביעית בכפר הנוער, ישבתי עם נער בן שש-עשרה שאמר לי שהוא לא מרגיש \"כמו עצמו\".",
+      "platform": "linkedin",
+      "date": "2026-04-09",
+      "path": "/Users/ASUS/education-agents/output/posts/linkedin/פרק_05_מעברים_וסף_LINKEDIN.txt",
+      "stage": "opening",
+      "position": 3
+    },
+    {
+      "post_id": "בונוס_יזמות_חברתית_LINKEDIN",
+      "title": "בשנה הרביעית בכפר הנוער ניסיתי להבין למה חלק מהנערים זזו ממקומם ורוב הנערים לא.",
+      "platform": "linkedin",
+      "date": "2026-04-09",
+      "path": "/Users/ASUS/education-agents/output/posts/linkedin/בונוס_יזמות_חברתית_LINKEDIN.txt",
+      "stage": "building",
+      "position": 4
+    },
+    {
+      "post_id": "new_beginnings__x_fresh_start_eff_x_threshold_conc_en_linkedin_ready",
+      "title": "בשנה הרביעית בכפר הנוער, ישבתי עם נער בן שש-עשרה שאמר לי שהוא לא מרגיש \"כמו עצמו\".",
+      "platform": "linkedin",
+      "date": "2026-04-07",
+      "path": "/Users/ASUS/education-agents/output/posts/linkedin/new_beginnings__x_fresh_start_eff_x_threshold_conc_en_linkedin_ready.txt",
+      "stage": "building",
+      "position": 5
+    },
+    {
+      "post_id": "outdoor_and_adv_x_non-formal_educ_x_social_entrepr_en_linkedin_ready",
+      "title": "בשנה הרביעית בכפר הנוער ניסיתי להבין למה חלק מהנערים זזו ממקומם ורוב הנערים לא.",
+      "platform": "linkedin",
+      "date": "2026-04-07",
+      "path": "/Users/ASUS/education-agents/output/posts/linkedin/outdoor_and_adv_x_non-formal_educ_x_social_entrepr_en_linkedin_ready.txt",
+      "stage": "complication",
+      "position": 6
+    }
+  ]
+}
