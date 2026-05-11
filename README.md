@@ -1,139 +1,167 @@
 # 🦊 Moki — Education Agents Pipeline
 
-מערכת סוכנים אוטונומית לכתיבה, מחקר ויצירת תוכן בתחום החינוך.  
-מ-**נושא** → **מחקר אקדמי** → **מאמר** → **פוסט LinkedIn + בלוג + פודקאסט**.
+Autonomous multi-agent system for academic research and content creation in education.
+From **topic** → **academic research** → **article** → **LinkedIn post + blog + podcast**.
+
+Generates Hebrew content with English academic sources. Built for non-formal education research.
 
 ---
 
-## ⚡ התחלה מהירה
+## ⚡ Quick Start
 
 ```bash
-# 1. התקנת תלויות
+# 1. Install dependencies
 pip install -r requirements.txt
 
-# 2. בדיקת תקינות
+# 2. Configure environment + voice
+cp .env.example .env                       # add your API keys
+cp voice_profile.example.py voice_profile.py   # customize for your voice
+
+# 3. Health check
 bash scripts/health_check.sh
 
-# 3. הרצה
+# 4. Run
 python agent5_project_manager.py
-# או ישירות:
-python orchestrator.py "חינוך בלתי פורמלי" --content linkedin blog
+# or directly:
+python orchestrator.py "informal education" --content linkedin blog
 ```
+
+> **Voice profile is required.** The system reads `voice_profile.py` to shape
+> generated content. A template is provided in `voice_profile.example.py` —
+> copy and customize before running. The real `voice_profile.py` is gitignored
+> to keep personal style/bio out of the repo.
 
 ---
 
-## 🏗 ארכיטקטורה
+## 🏗 Architecture
 
-```
-נושא
+```text
+Topic
   │
   ▼
-Agent 0 — Planner        (תכנון מחקר + הצעת גישה)
+Agent 0 — Planner          (research planning + proposal)
   │
   ▼
-Agent 1 — Researcher     (Semantic Scholar · OpenAlex · CrossRef · ERIC · PubMed)
-  │  └── Agent 1.5 — PDF Reader   (חילוץ טקסט ממאמרים)
-  │  └── Agent 1.7 — Paper Analyzer
+Agent 1 — Researcher       (Semantic Scholar · OpenAlex · CrossRef · ERIC · PubMed · CORE · DOAJ)
+  │  └── Agent 1.5 — PDF Reader      (text extraction from papers)
+  │  └── Agent 1.7 — Paper Analyzer  (methodology + evidence_strength classification)
   │
   ▼
-Agent 2 — Writer         (מאמר אקדמי EN + HE)
-  │  └── Agent 2.5 — Editor
-  │  └── Agent 2.7 — Fact Checker
+Agent 2 — Writer           (academic article EN + HE)
+  │  └── Agent 2.5 — Editor          (APA 7 polish)
+  │  └── Agent 2.7 — Fact Checker    (citation validation against abstracts)
   │
   ▼
 Agent 3 — Content Creator  (LinkedIn · Blog · Podcast)
-  │  └── Agent 3.5 — Human Review
-  │  └── Agent 3.6 — Editor
+  │  └── Agent 3.5 — Human Review    (optional approval gate)
+  │  └── Agent 3.6 — Editor          (per-platform polish)
   │
   ▼
-Agent 4 — Designer       (SVG illustrations)
+Agent 4 — Designer         (SVG covers and banners)
   │
   ▼
-Agent 5 — Project Manager  (QA · Loop Detector · Orchestration)
+Agent 5 — Project Manager  (QA gates · Loop Detector · Orchestration)
 ```
 
-**שכבות תומכות:**
-- 🧠 **זיכרון** — `memory.py`, `obsidian_memory.py`, `scratchpad.py`
-- 🛡 **איכות** — `qa_checker.py`, `causal_validator.py`, `conflict_resolver.py`
-- 📊 **Observability** — `analytics.py`, `observability.py`, `dashboard.py`
-- 🎓 **אקדמי** — `seminar_writer.py`, `thesis_prep.py`, `bibliography.py`
+**Supporting layers:**
+- 🧠 **Memory** — `memory.py`, `obsidian_memory.py`, `scratchpad.py`
+- 🛡 **Quality** — `qa_checker.py`, `causal_validator.py`, `conflict_resolver.py`, `fact_checker.py`
+- 📊 **Observability** — `analytics.py`, `observability.py`, `dashboard.py`, `agent_health.py`
+- 🎓 **Academic** — `seminar_writer.py`, `thesis_prep.py`, `thesis_lit_collector.py`, `bibliography.py`
+- 🔁 **Learning** — `performance_learner.py`, `failure_analyzer.py`, `voice_match.py`, `reflective_loop.py`
 
 ---
 
-## ⚙️ הגדרות
+## 🤝 Inter-Agent Communication
+
+Agents talk to each other through `scratchpad.py` (transient, per-run) and Obsidian memory notes (persistent).
+
+```text
+fact_checker        → researcher        (missing citations → next searches)
+causal_validator    → writer            (strong claims → soften)
+conflict_resolver   → writer            (surface contradictions)
+qa_checker          → next agent        (failure reason in retry prompt)
+analytics           → agent0_planner    (strong/weak topics)
+edit_tracker        → agent2_5_editor   (learned correction patterns from user edits)
+active_response     → agent3            (observability alerts → behavior change)
+```
+
+---
+
+## ⚙️ Configuration
 
 ```bash
 cp .env.example .env
 ```
 
-| משתנה | חובה | תיאור |
+| Variable | Required | Description |
 |---|---|---|
-| `ANTHROPIC_API_KEY` | רק ללא Claude CLI | מפתח API ישיר |
-| `TELEGRAM_BOT_TOKEN` | לא | התראות על כשלות/הצלחות |
-| `TELEGRAM_CHAT_ID` | לא | צ'אט לשליחת התראות |
-| `SEMANTIC_SCHOLAR_API_KEY` | לא | שיפור rate limits |
-| `UNPAYWALL_EMAIL` | כן | גישה ל-PDFs פתוחים |
+| `ANTHROPIC_API_KEY` | Only without Claude CLI | Direct API access |
+| `TELEGRAM_BOT_TOKEN` | No | Failure/success notifications |
+| `TELEGRAM_CHAT_ID` | No | Notification destination |
+| `SEMANTIC_SCHOLAR_API_KEY` | No | Improved rate limits |
+| `UNPAYWALL_EMAIL` | Yes | Access to open-access PDFs |
+| `MOKI_AUTONOMY_LEVEL` | No (default: 1) | 0=ask all gates, 1=trust me, 2=full |
+| `MOKI_DAILY_BUDGET` | No (default: 30) | Daily Claude budget cap in USD |
 
-> **Claude CLI vs API Key:** המערכת מתועדפת לרוץ דרך `claude` CLI (מנוי Claude).  
-> אם ה-CLI לא זמין — דורשת `ANTHROPIC_API_KEY`.
+> **Claude CLI vs API Key:** The system prefers `claude` CLI (subscription).
+> Falls back to `ANTHROPIC_API_KEY` if CLI is unavailable.
 
 ---
 
-## 🚀 מצבי הרצה
+## 🚀 Running Modes
 
 ```bash
-# פייפליין מלא (דרך Agent 5 — מומלץ)
+# Full pipeline (recommended — via Agent 5)
 python agent5_project_manager.py
 
-# פייפליין ישיר
-python orchestrator.py "נושא" --content linkedin blog podcast
+# Force full pipeline with all 5 agents (MAX mode)
+python agent5_project_manager.py "full pipeline — topic X"
 
-# רק מחקר
+# Direct pipeline
+python orchestrator.py "topic" --content linkedin blog podcast
+
+# Research only
 python agent1_researcher.py
 
-# רק תוכן ממאמר קיים
+# Content from existing article
 python agent3_content_creator.py --from-article output/articles/my_article.md
 
-# כתיבה אקדמית
-python seminar_writer.py "נושא" --length 10000
-python thesis_prep.py "נושא"
+# Academic writing (long form)
+python seminar_writer.py --topic "X" --papers output/thesis/<stamp>/papers_full.json --target-words 12000
+python thesis_prep.py "topic"
+python thesis_lit_collector.py "topic" --target 300
 
-# Autopilot (ריצה אוטונומית)
+# Autopilot (autonomous)
 python autopilot.py
 ```
 
 ---
 
-## 📁 מבנה תיקיות
+## 📁 Folder Structure
 
-```
+```text
 education-agents/
-├── agent0_planner.py          # Agent 0 — תכנון
-├── agent1_researcher.py       # Agent 1 — מחקר
-├── agent2_writer.py           # Agent 2 — כתיבה
-├── agent3_content_creator.py  # Agent 3 — יצירת תוכן
-├── agent4_designer.py         # Agent 4 — עיצוב
-├── agent5_project_manager.py  # Agent 5 — מנהל + QA
-├── orchestrator.py            # Pipeline runner
-├── claude_cli.py              # Wrapper ל-Claude
+├── agent0_planner.py            # Agent 0 — research planning
+├── agent1_researcher.py         # Agent 1 — academic search
+├── agent2_writer.py             # Agent 2 — article writing
+├── agent3_content_creator.py    # Agent 3 — multi-platform content
+├── agent4_designer.py           # Agent 4 — visual design
+├── agent5_project_manager.py    # Agent 5 — orchestrator + QA
+├── orchestrator.py              # Direct pipeline runner
+├── claude_cli.py                # Claude wrapper (CLI + API fallback)
 │
 ├── scripts/
-│   ├── health_check.sh        # בדיקת תקינות לפני הרצה
-│   ├── clean_cache.sh         # ניקוי pycache
-│   └── pipeline_stats.sh      # סטטיסטיקות ביצועים
+│   ├── health_check.sh          # Pre-run health gate
+│   ├── clean_cache.sh           # Cache cleanup
+│   └── pipeline_stats.sh        # Performance stats
 │
-├── moki/                      # Obsidian Vault — מחקר
-│   ├── _arcs/                 # קשתות נרטיב
-│   ├── _daily/                # יומן יומי
-│   └── *.md                   # מאמרים ותיאוריות
-│
-├── output/                    # Obsidian Vault — תוצרים
-│   ├── ready/
-│   │   ├── blog/              # ✅ בלוגים מוכנים לפרסום
-│   │   ├── linkedin/          # ✅ פוסטים מוכנים
-│   │   └── podcast/           # ✅ פרקי פודקאסט
-│   ├── articles/              # מאמרים אקדמיים
-│   └── papers/                # PDFs שנאספו
+├── output/                      # Obsidian Vault — generated content
+│   ├── ready/{linkedin,blog,podcast}/   # Approved for publishing
+│   ├── articles/                # Academic articles
+│   ├── papers/                  # Collected PDFs (gitignored)
+│   ├── _memory/                 # Moki's active memory (gitignored)
+│   └── thesis/<stamp>/          # Thesis preparation outputs
 │
 ├── requirements.txt
 ├── .env.example
@@ -142,40 +170,58 @@ education-agents/
 
 ---
 
-## 🔧 סקריפטים שימושיים
+## 🔧 Useful Scripts
 
 ```bash
-# בדיקת תקינות לפני הרצה
+# Pre-run health check
 bash scripts/health_check.sh
 
-# סטטיסטיקות על הפייפליין
+# Pipeline performance stats
 bash scripts/pipeline_stats.sh
 
-# ניקוי pycache + DS_Store
+# Cache cleanup
 bash scripts/clean_cache.sh
 ```
 
 ---
 
-## 🐛 בעיות נפוצות
+## 🐛 Common Issues
 
-| שגיאה | פתרון |
+| Error | Solution |
 |---|---|
-| `Claude CLI not available and no ANTHROPIC_API_KEY` | הגדר `ANTHROPIC_API_KEY` ב-`.env` |
-| `writer hard timeout — exceeded 60 min` | הנושא מורכב מדי — נסה לצמצם את מספר ה-subtopics |
-| `'>=' not supported between instances of 'str' and 'int'` | תוקן — עדכן לגרסה עדכנית |
-| פייפליין תקוע מעל שעה | הרץ `bash scripts/health_check.sh` ובדוק את ה-CLI |
+| `Claude CLI not available and no ANTHROPIC_API_KEY` | Set `ANTHROPIC_API_KEY` in `.env` |
+| `writer hard timeout — exceeded N min` | Topic too complex — reduce subtopics or use `--smart` mode |
+| `'>=' not supported between instances of 'str' and 'int'` | Fixed in current version |
+| Pipeline stuck for over an hour | Run `bash scripts/health_check.sh` to verify CLI |
+| `DailyBudgetExceeded` | Raise with `export MOKI_DAILY_BUDGET=50` |
 
 ---
 
-## 📊 מצב נוכחי
+## 📊 Current State
 
 ```bash
 bash scripts/pipeline_stats.sh
+python agent_health.py            # Per-agent health card
+python failure_analyzer.py        # Failure pattern detection
+python performance_learner.py     # Top vs bottom content patterns
 ```
 
 ---
 
-## 🗺 מפת הקוד המלאה
+## 🗺 Complete Code Map
 
-ראה [`output/_INDEX.md`](output/_INDEX.md) — נוצרת אוטומטית ע"י `regenerate_index.py`.
+See [`output/_INDEX.md`](output/_INDEX.md) — auto-regenerated by `regenerate_index.py`.
+
+---
+
+## 🌍 Note on Language
+
+The system generates content **in Hebrew** (the user's primary language), citing **English academic sources**.
+This README, code comments, and docstrings are in English for accessibility.
+The voice profile, system prompts, and Obsidian memory remain in Hebrew — they encode user preferences.
+
+---
+
+## 📄 License
+
+Personal research project. Not currently licensed for redistribution.

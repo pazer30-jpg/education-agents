@@ -78,3 +78,9 @@ linkedin_candidates/
 
 # OS
 .DS_Store
+
+# Personal — not for portfolio
+voice_profile.py
+_archive/
+moki/
+output/.success_*
