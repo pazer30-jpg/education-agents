@@ -117,6 +117,11 @@ AGENTS = {
         "desc": "מעצב ויזואלים: cover / banner / podcast cover / quote card",
         "emoji": "🎨",
     },
+    "video": {
+        "id": "6", "name": "Agent 6 — Video Creator",
+        "desc": "מייצר וידאו קצר (5-10 שניות) לפוסט LinkedIn דרך fal.ai (Seedance/Kling/Veo)",
+        "emoji": "🎬",
+    },
 }
 
 
@@ -265,6 +270,13 @@ def _build_max_plan(request: str) -> dict:
                 "action": "מעצב 3 ויזואלים: LinkedIn cover + blog banner + podcast cover",
                 "design_types": ["linkedin_cover", "blog_banner", "podcast_cover"],
                 "optional": False,
+            },
+            {
+                "agent": "video",
+                "action": "מייצר וידאו קצר (5s, vertical) לפוסט LinkedIn האחרון",
+                "model": "seedance_lite",
+                "platform": "linkedin",
+                "optional": True,  # video only if FAL_KEY exists
             },
         ],
     }
@@ -756,6 +768,34 @@ def _execute_step(step: dict, execution_state: dict) -> str:
             execution_state["design_paths"] = {k: str(v) for k, v in saved.items()}
             return f"✅ עיצובים נוצרו: {list(saved.keys())}"
 
+        elif agent == "video":
+            try:
+                from agent6_video_creator import (
+                    create_video_for_post, _latest_post, FalError
+                )
+            except ImportError as e:
+                return f"⚠️  Agent 6 (Video) לא זמין: {e}"
+
+            platform = step.get("platform", "linkedin")
+            model = step.get("model", "seedance_lite")
+            post_path = _latest_post(platform)
+            if not post_path:
+                return f"⚠️  אין פוסט {platform} ליצור עליו וידאו — מדלג"
+
+            try:
+                result = create_video_for_post(post_path, model_key=model)
+            except FalError as fe:
+                if "No FAL_KEY" in str(fe):
+                    return "⚠️  Agent 6 דלג — אין FAL_KEY מוגדר (.env)"
+                return f"❌ Agent 6 fal.ai error: {fe}"
+
+            if result.get("status") == "ok":
+                execution_state.setdefault("video_paths", {})[platform] = result["video_path"]
+                return f"✅ וידאו נוצר: {Path(result['video_path']).name} (${result.get('cost_usd', '?')})"
+            if result.get("status") == "skipped_budget":
+                return "⚠️  Agent 6 דלג — daily budget cap"
+            return f"❌ Agent 6 נכשל: {result.get('error', 'unknown')}"
+
         else:
             return f"❌ Agent לא מוכר: {agent}"
 
@@ -945,6 +985,24 @@ def run_project_manager(request: str, auto_approve: bool = False) -> dict:
 
     # Reset budget for new pipeline run
     reset_budget()
+
+    # ── Budget pre-check: refuse to start if we can't afford a full run ──
+    # A full pipeline costs ~$15-20. Checking only mid-step kills runs halfway.
+    EST_FULL_RUN_USD = 18.0
+    try:
+        from claude_cli import daily_budget_status
+        bs = daily_budget_status()
+        if bs["remaining_usd"] < EST_FULL_RUN_USD:
+            print(f"\n  ⚠️  Budget pre-check: ${bs['remaining_usd']:.2f} left today, "
+                  f"a full run needs ~${EST_FULL_RUN_USD}.")
+            if bs["remaining_usd"] < 3.0:
+                print(f"  ⛔ Too little budget to start ({bs['spent_usd']:.2f}/{bs['cap_usd']} used).")
+                print(f"     Raise with: export MOKI_DAILY_BUDGET={int(bs['cap_usd'])+30}")
+                return {"status": "blocked_budget", "budget": bs}
+            print(f"  ⚠️  Starting anyway — run may stop mid-way. "
+                  f"Consider: export MOKI_DAILY_BUDGET={int(bs['cap_usd'])+30}")
+    except Exception:
+        pass
 
     print(f"\n{'='*60}")
     print(f"📊 Project Manager | {datetime.now().strftime('%d/%m/%Y %H:%M')}")

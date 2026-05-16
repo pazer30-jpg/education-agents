@@ -404,7 +404,7 @@ def _create_linkedin(article_text: str, base: str, system: str,
   • אורך דומה, hashtags זהים"""
 
     prompt += "\n\nהחזר JSON בלבד."
-    data = ask_claude_json(prompt, system=system, max_budget=1.5)
+    data = ask_claude_json(prompt, system=system, max_budget=1.5, timeout=400)
 
     # ── Hook tester: pick the strongest opening ──
     try:
@@ -463,7 +463,7 @@ def _create_blog(article_text: str, base: str, system: str) -> list[Path]:
 - tags: מערך של 5-7 תגיות
 
 החזר JSON בלבד."""
-    data = ask_claude_json(prompt, system=system, max_budget=2.0)
+    data = ask_claude_json(prompt, system=system, max_budget=2.0, timeout=450)
     return _save_blog(data, base)
 
 
@@ -641,17 +641,31 @@ def run_content_creator(
     system = _build_system(content_types)
     saved  = {}
 
+    # Cumulative-time guard — 3 platforms × Claude calls can exceed the 30-min
+    # step timeout. Track elapsed; skip remaining platforms if running long.
+    import time as _time
+    _content_start = _time.time()
+    _CONTENT_BUDGET_S = 24 * 60  # 24 min — leaves margin within 30-min step cap
+
+    def _time_left() -> float:
+        return _CONTENT_BUDGET_S - (_time.time() - _content_start)
+
     if "linkedin" in content_types:
         # A/B testing default-on for LinkedIn — generates 2 variants for engagement comparison
-        # Hypothesis: different hook styles → different engagement. We learn over time.
-        ab_test_active = ab_test or True  # default ON for LinkedIn
+        ab_test_active = ab_test or True
         saved["linkedin"] = _create_linkedin(article_text, base, system, ab_test=ab_test_active)
 
     if "blog" in content_types:
-        saved["blog"] = _create_blog(article_text, base, system)
+        if _time_left() < 6 * 60:
+            print(f"  [Agent3] ⏭  Blog skipped — only {_time_left()/60:.1f} min left in budget")
+        else:
+            saved["blog"] = _create_blog(article_text, base, system)
 
     if "podcast" in content_types:
-        saved["podcast"] = _create_podcast(article_text, base, system)
+        if _time_left() < 6 * 60:
+            print(f"  [Agent3] ⏭  Podcast skipped — only {_time_left()/60:.1f} min left in budget")
+        else:
+            saved["podcast"] = _create_podcast(article_text, base, system)
 
     # ── Devil's Advocate — ONCE per article (saves 2min + $1.5 vs per-platform) ──
     _devil_review_cached = None

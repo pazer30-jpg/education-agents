@@ -113,14 +113,19 @@ def _today() -> str:
 
 
 def _daily_cap_usd() -> float:
-    """Daily cap from env (MOKI_DAILY_BUDGET) or 30."""
+    """Daily cap from env (MOKI_DAILY_BUDGET) or default.
+
+    Default is $50 — a full pipeline run costs ~$15-20, so $50 leaves room
+    for two runs plus ad-hoc work in a single day. $30 was too tight and
+    killed runs mid-pipeline.
+    """
     env = _os.environ.get("MOKI_DAILY_BUDGET")
     if env:
         try:
             return float(env)
         except Exception:
             pass
-    return 30.0
+    return 50.0
 
 
 class DailyBudgetExceeded(Exception):

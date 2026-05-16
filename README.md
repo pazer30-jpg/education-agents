@@ -2,10 +2,10 @@
 
 [![Python 3.13+](https://img.shields.io/badge/python-3.13+-blue.svg)](https://www.python.org/)
 [![Claude API](https://img.shields.io/badge/Claude-Opus%204.7-orange.svg)](https://anthropic.com/)
-[![Status](https://img.shields.io/badge/status-active-success.svg)]()
-[![Agents](https://img.shields.io/badge/agents-13-purple.svg)]()
-[![APA 7](https://img.shields.io/badge/citations-APA%207-informational.svg)]()
-[![License](https://img.shields.io/badge/license-personal-lightgrey.svg)]()
+[![Status](https://img.shields.io/badge/status-active-success.svg)](https://github.com/pazer30-jpg/education-agents)
+[![Agents](https://img.shields.io/badge/agents-13-purple.svg)](https://github.com/pazer30-jpg/education-agents)
+[![APA 7](https://img.shields.io/badge/citations-APA%207-informational.svg)](https://github.com/pazer30-jpg/education-agents)
+[![License](https://img.shields.io/badge/license-personal-lightgrey.svg)](https://github.com/pazer30-jpg/education-agents)
 
 Autonomous multi-agent system for academic research and content creation in education.
 From **topic** → **academic research** → **article** → **LinkedIn post + blog + podcast**.
@@ -66,9 +66,11 @@ flowchart TD
     A36 --> A4
 
     A4["🎨 Agent 4 — Designer<br/><i>SVG covers + banners</i>"]
-    A4 --> A5
+    A4 --> A6
+    A6["🎬 Agent 6 — Video Creator<br/><i>fal.ai: Seedance · Kling · Veo · Hailuo (5-10s, 9:16)</i>"]
+    A6 --> A5
 
-    A5["🎯 Agent 5 — Project Manager<br/><i>QA gates · Loop Detector · Orchestration</i>"] --> Output([📚 Hebrew content + EN paper])
+    A5["🎯 Agent 5 — Project Manager<br/><i>QA gates · Loop Detector · Orchestration</i>"] --> Output([📚 Hebrew content + EN paper + Video])
 
     %% Reciprocal feedback channels
     A27 -.->|"missing citations"| A1
@@ -126,6 +128,7 @@ cp .env.example .env
 | `UNPAYWALL_EMAIL` | Yes | Access to open-access PDFs |
 | `MOKI_AUTONOMY_LEVEL` | No (default: 1) | 0=ask all gates, 1=trust me, 2=full |
 | `MOKI_DAILY_BUDGET` | No (default: 30) | Daily Claude budget cap in USD |
+| `FAL_KEY` | No (skip Agent 6 without it) | fal.ai key for video generation |
 
 > **Claude CLI vs API Key:** The system prefers `claude` CLI (subscription).
 > Falls back to `ANTHROPIC_API_KEY` if CLI is unavailable.
@@ -154,6 +157,9 @@ python agent3_content_creator.py --from-article output/articles/my_article.md
 python seminar_writer.py --topic "X" --papers output/thesis/<stamp>/papers_full.json --target-words 12000
 python thesis_prep.py "topic"
 python thesis_lit_collector.py "topic" --target 300
+
+# Video generation (Agent 6 — requires FAL_KEY)
+python agent6_video_creator.py --auto-latest linkedin --model=seedance_lite
 
 # Autopilot (autonomous)
 python autopilot.py
