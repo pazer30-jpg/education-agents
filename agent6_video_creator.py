@@ -59,7 +59,15 @@ VIDEO_MODELS = {
     "veo3":           ("fal-ai/veo3",                                    8, 0.80, "Google Veo 3 (premium)"),
 }
 
+# Image models: fal.ai endpoint → (est_cost_usd, label)
+IMAGE_MODELS = {
+    "flux_schnell":   ("fal-ai/flux/schnell",           0.003, "FLUX schnell (fast, cheap)"),
+    "flux_dev":       ("fal-ai/flux/dev",               0.025, "FLUX dev (quality)"),
+    "nano_banana":    ("fal-ai/nano-banana",            0.039, "Nano Banana (premium)"),
+}
+
 DEFAULT_MODEL = "seedance_lite"
+DEFAULT_IMAGE_MODEL = "flux_dev"
 HARD_TIMEOUT_S = 300  # 5 min max per video
 POLL_INTERVAL_S = 5
 
@@ -300,6 +308,103 @@ def create_video_for_post(post_path: Path, model_key: str = DEFAULT_MODEL,
 
 
 # ─────────────────────────────────────────────
+# Image generation — real AI images (replaces SVG from Agent 4)
+# ─────────────────────────────────────────────
+
+IMAGES_DIR = OUTPUT_DIR / "images"
+
+_IMAGE_PROMPT_TEMPLATE = """Read this Hebrew post and write a SHORT image prompt (English) for a cover image.
+
+Post:
+{post_text}
+
+Rules:
+- 1-2 sentences (max 35 words)
+- Editorial / documentary photography style — NOT illustration, NOT 3D render
+- Education context: classrooms, dorm corridors, paths, hands, objects — no identifiable faces
+- Specify lighting + mood
+- NO text in the image
+
+Return JSON: {{"image_prompt": "<prompt>", "mood": "<one word>"}}
+JSON only."""
+
+
+def generate_image_for_post(post_path: Path, model_key: str = DEFAULT_IMAGE_MODEL,
+                            aspect: str = "16:9") -> dict:
+    """Generate a real AI cover image for a post via fal.ai."""
+    if model_key not in IMAGE_MODELS:
+        return {"status": "error", "error": f"unknown image model: {model_key}"}
+    endpoint, cost, label = IMAGE_MODELS[model_key]
+
+    print(f"\n  🖼  Agent 6 — Image Creator")
+    print(f"     Post: {post_path.name}  ·  Model: {label}  ·  est ${cost}")
+
+    if not post_path.exists():
+        return {"status": "error", "error": f"post not found: {post_path}"}
+    if not _budget_allows(cost):
+        return {"status": "skipped_budget"}
+
+    text = post_path.read_text(encoding="utf-8", errors="replace")
+
+    # Generate image prompt via Claude
+    prompt_data = None
+    if ask_claude_json:
+        try:
+            prompt_data = ask_claude_json(
+                _IMAGE_PROMPT_TEMPLATE.format(post_text=text.strip()[:1200]),
+                max_budget=0.05, timeout=60,
+            )
+        except Exception:
+            pass
+    if not prompt_data or not prompt_data.get("image_prompt"):
+        return {"status": "error", "error": "could not generate image prompt"}
+
+    print(f"  [Agent6] Image prompt: {prompt_data['image_prompt'][:100]}")
+
+    # Submit (images are usually fast — but use queue for consistency)
+    size_map = {"16:9": "landscape_16_9", "9:16": "portrait_16_9", "1:1": "square"}
+    try:
+        url = f"{FAL_QUEUE_BASE}/{endpoint}"
+        payload = {"prompt": prompt_data["image_prompt"],
+                   "image_size": size_map.get(aspect, "landscape_16_9")}
+        r = requests.post(url, json=payload, headers=_fal_headers(), timeout=30)
+        if r.status_code not in (200, 202):
+            return {"status": "error", "error": f"fal {r.status_code}: {r.text[:150]}"}
+        request_id = r.json().get("request_id") or \
+            r.json().get("response_url", "").rsplit("/", 1)[-1]
+        result = fal_poll(endpoint, request_id, max_wait_s=120)
+    except (FalError, requests.RequestException) as e:
+        return {"status": "error", "error": str(e)}
+
+    # Extract image URL
+    img_url = None
+    if isinstance(result.get("images"), list) and result["images"]:
+        img_url = result["images"][0].get("url")
+    elif isinstance(result.get("image"), dict):
+        img_url = result["image"].get("url")
+    if not img_url:
+        return {"status": "error", "error": f"no image URL: {str(result)[:150]}"}
+
+    # Download
+    IMAGES_DIR.mkdir(parents=True, exist_ok=True)
+    stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    dest = IMAGES_DIR / f"{post_path.stem}_{model_key}_{stamp}.jpg"
+    try:
+        fal_download(img_url, dest)
+    except Exception as e:
+        return {"status": "error", "error": f"download failed: {e}"}
+
+    _record_spend(cost)
+    return {
+        "status": "ok",
+        "image_path": str(dest),
+        "prompt": prompt_data["image_prompt"],
+        "model": label,
+        "cost_usd": cost,
+    }
+
+
+# ─────────────────────────────────────────────
 # Latest-post helpers
 # ─────────────────────────────────────────────
 
@@ -330,8 +435,12 @@ def main():
     skip_on_missing = "--skip-on-missing-key" in args
     args = [a for a in args if a != "--skip-on-missing-key"]
 
+    # Image mode vs video mode
+    image_mode = "--image" in args
+    args = [a for a in args if a != "--image"]
+
     # Pick model
-    model = DEFAULT_MODEL
+    model = DEFAULT_IMAGE_MODEL if image_mode else DEFAULT_MODEL
     for a in list(args):
         if a.startswith("--model="):
             model = a.split("=", 1)[1]
@@ -350,12 +459,15 @@ def main():
         post_path = Path(args[0])
 
     if not post_path:
-        print("Usage: python3 agent6_video_creator.py <post-file> [--model=seedance_lite]")
-        print("   or: python3 agent6_video_creator.py --auto-latest linkedin")
+        print("Usage: python3 agent6_video_creator.py <post-file> [--image] [--model=X]")
+        print("   or: python3 agent6_video_creator.py --auto-latest linkedin [--image]")
         return
 
     try:
-        result = create_video_for_post(post_path, model_key=model)
+        if image_mode:
+            result = generate_image_for_post(post_path, model_key=model)
+        else:
+            result = create_video_for_post(post_path, model_key=model)
     except FalError as e:
         if skip_on_missing and "No FAL_KEY" in str(e):
             print(f"  [Agent6] ⏭  Skipped — {e}")
@@ -366,7 +478,8 @@ def main():
     print()
     print(f"  Status: {result['status']}")
     if result["status"] == "ok":
-        print(f"  ✅ Video: {result['video_path']}")
+        artifact = result.get("video_path") or result.get("image_path")
+        print(f"  ✅ {'Image' if image_mode else 'Video'}: {artifact}")
         print(f"  Cost: ${result['cost_usd']}")
 
 

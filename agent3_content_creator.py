@@ -110,7 +110,8 @@ def _build_system(content_types: list[str]) -> str:
     try:
         from obsidian_memory import format_for_prompt as _obs_for_prompt
         obsidian_block = _obs_for_prompt(
-            ["voice_rules", "recurring_sources", "theoretical_anchors"],
+            ["voice_rules", "recurring_sources", "theoretical_anchors",
+             "engagement", "performance_patterns"],
             max_chars_per_note=1000,
         )
     except Exception:

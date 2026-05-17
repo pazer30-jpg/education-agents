@@ -118,10 +118,10 @@ def _edit_text(text: str, system_prompt: str,
     שולח טקסט לקלוד לעריכה.
     Returns: (edited_text, changes_list)
     """
-    # Editor-specific Obsidian memory: voice + learned correction patterns
+    # Editor-specific Obsidian memory: voice + learned corrections + humanization
     memory_block = _obsidian_memory_for_prompt(
-        ["voice_rules", "editor_corrections"],
-        max_chars_per_note=1200,
+        ["voice_rules", "editor_corrections", "humanize_rules"],
+        max_chars_per_note=1400,
     )
     if memory_block:
         system_prompt = system_prompt + "\n\n" + memory_block
