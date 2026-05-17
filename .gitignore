@@ -86,3 +86,5 @@ moki/
 output/.success_*
 output/videos/
 output/images/
+output/_publish/
+output/podcasts_audio/

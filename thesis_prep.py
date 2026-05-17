@@ -129,6 +129,84 @@ def generate_rqs(topic_he: str, papers: list[dict]) -> dict:
     return ask_claude_json(prompt, max_budget=1.0)
 
 
+def generate_synthesis_matrix(topic_he: str, papers: list[dict]) -> dict:
+    """
+    Build a synthesis matrix — the academic-research backbone.
+    Cross-tabulates key papers × themes, then identifies gaps.
+    """
+    papers_brief = []
+    for p in papers[:25]:
+        authors = p.get("authors", "")
+        if isinstance(authors, list):
+            authors = ", ".join(str(a) for a in authors[:2])
+        papers_brief.append({
+            "title": (p.get("title") or "")[:140],
+            "authors": str(authors)[:80],
+            "year": p.get("year"),
+            "abstract": (p.get("abstract") or "")[:280],
+        })
+
+    prompt = f"""אתה חוקר בכיר. בנה מטריצת סינתזה לסקירת ספרות בנושא: {topic_he}
+
+מקורות ({len(papers_brief)}):
+{json.dumps(papers_brief, ensure_ascii=False, indent=1)}
+
+המשימה — 3 חלקים:
+
+1. THEMES — זהה 4-6 תמות מרכזיות שחוצות את הספרות.
+2. MATRIX — לכל מקור מפתח (8-12 הכי חשובים), מפה: אילו תמות הוא נוגע בהן, השיטה (איכותני/כמותי/תיאורטי), והממצא המרכזי.
+3. GAPS — זהה 3-5 פערים: תמות עם מעט מחקר, סתירות בין מקורות, אוכלוסיות/הקשרים שלא נחקרו.
+
+החזר JSON:
+{{
+  "themes": ["תמה 1", "תמה 2", ...],
+  "matrix": [
+    {{"source": "Author Year", "themes": ["תמה 1", "תמה 3"],
+      "method": "qualitative|quantitative|theoretical|review",
+      "key_finding": "ממצא מרכזי במשפט"}}
+  ],
+  "gaps": [
+    {{"gap": "תיאור הפער", "type": "under-researched|contradiction|unexplored-context",
+      "thesis_opportunity": "איך התזה יכולה למלא את הפער"}}
+  ]
+}}
+
+החזר JSON בלבד."""
+
+    return ask_claude_json(prompt, max_budget=1.5)
+
+
+def render_synthesis_md(syn: dict, topic_he: str) -> str:
+    """Render synthesis matrix as Markdown."""
+    parts = [
+        f"# מטריצת סינתזה — {topic_he}",
+        "",
+        f"_Generated: {datetime.now().strftime('%d/%m/%Y %H:%M')} · 🦊 Moki_",
+        "",
+        "## 🎯 תמות מרכזיות",
+        "",
+    ]
+    for t in syn.get("themes", []):
+        parts.append(f"- {t}")
+
+    parts.extend(["", "## 📊 מטריצת מקורות × תמות × שיטה", "",
+                  "| מקור | תמות | שיטה | ממצא מרכזי |", "|---|---|---|---|"])
+    for row in syn.get("matrix", []):
+        themes = ", ".join(row.get("themes", []))
+        parts.append(f"| {row.get('source','?')} | {themes} | "
+                     f"{row.get('method','?')} | {row.get('key_finding','')[:100]} |")
+
+    parts.extend(["", "## 🕳 פערים בספרות — הזדמנויות לתזה", ""])
+    for i, g in enumerate(syn.get("gaps", []), 1):
+        parts.append(f"### פער {i}: {g.get('gap', '')}")
+        parts.append("")
+        parts.append(f"**סוג:** {g.get('type', '?')}")
+        parts.append("")
+        parts.append(f"**הזדמנות לתזה:** {g.get('thesis_opportunity', '')}")
+        parts.append("")
+    return "\n".join(parts)
+
+
 def render_proposal_md(prop: dict, topic_he: str, papers_count: int) -> str:
     rqs = prop.get("research_questions", {})
     method = prop.get("methodology", {})
@@ -382,6 +460,18 @@ def main():
     (work_dir / "03_lit_review_skeleton.md").write_text(lit_md, encoding="utf-8")
     print(f"   → 03_lit_review_skeleton.md\n")
 
+    # 5. Synthesis matrix + gap analysis (academic-research methodology)
+    print("🔬 [bonus] מטריצת סינתזה + ניתוח פערים...")
+    try:
+        syn = generate_synthesis_matrix(topic_he, papers)
+        syn_md = render_synthesis_md(syn, topic_he)
+        (work_dir / "04_synthesis_matrix.md").write_text(syn_md, encoding="utf-8")
+        (work_dir / "04_synthesis_matrix.json").write_text(
+            json.dumps(syn, ensure_ascii=False, indent=2), encoding="utf-8")
+        print(f"   → 04_synthesis_matrix.md ({len(syn.get('gaps', []))} פערים זוהו)\n")
+    except Exception as e:
+        print(f"   ⚠️ Synthesis matrix failed: {e}\n")
+
     print(f"{'='*60}")
     print(f"✅ Thesis prep complete → {work_dir}")
     print(f"{'='*60}\n")
@@ -389,6 +479,7 @@ def main():
     print(f"  📋 01_proposal.md             — הצעת מחקר 10 חלקים")
     print(f"  🔬 02_research_questions.md   — 15 RQs + המלצה")
     print(f"  📚 03_lit_review_skeleton.md  — {len(papers)} מקורות עם תקצירים")
+    print(f"  🧬 04_synthesis_matrix.md     — תמות × מקורות + פערים")
     print(f"\nפתח באובסידיאן: thesis/{work_dir.name}/")
 
     # Sync to Obsidian
