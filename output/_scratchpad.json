@@ -23,11 +23,11 @@
   "failure_analyzer": {
     "common_failures": {
       "value": {
-        "issue": "success rate 11% ב-30 ימים",
-        "top_failures": "⏱  Timeout (step >30 דק'): 22×, ❓ אחר: 12×, 💰 חרגנו מ-budget: 8×",
-        "summary": "success rate נמוך (11%) ב-53 ריצות — סיבה דומיננטית: timeout — סוכן בעייתי: writer; 11 ריצות runaway (>3x median, >30 דק')"
+        "issue": "success rate 5% ב-30 ימים",
+        "top_failures": "⏱  Timeout (step >30 דק'): 20×, 💰 חרגנו מ-budget: 8×, ❓ אחר: 5×",
+        "summary": "success rate נמוך (5%) ב-40 ריצות — סיבה דומיננטית: timeout — סוכן בעייתי: writer; 8 ריצות runaway (>3x median, >30 דק')"
       },
-      "ts": "2026-05-14T07:24:25.619611"
+      "ts": "2026-05-17T20:48:37.204795"
     }
   }
 }

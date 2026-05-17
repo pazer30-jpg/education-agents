@@ -1385,7 +1385,15 @@ def _chat_response(user_input: str, history: list[dict]) -> str:
         for m in history[-6:]
     )
     prompt = f"{context}\nמשתמש: {user_input}\n\nענה בקצרה כמוקי:"
-    return ask_claude(prompt, system=system, max_budget=0.3, timeout=120)
+    try:
+        return ask_claude(prompt, system=system, max_budget=0.3, timeout=120)
+    except Exception as e:
+        # CLIUnavailable or any CLI failure — don't crash the chat
+        from claude_cli import CLIUnavailable
+        if isinstance(e, CLIUnavailable) or "CLIUnavailable" in str(type(e)):
+            return ("⚠️  Claude CLI לא זמין כרגע (תקלה רגעית). "
+                    "נסה שוב בעוד רגע, או הוסף ANTHROPIC_API_KEY ל-.env ל-fallback.")
+        return f"⚠️  שגיאה זמנית: {str(e)[:120]}"
 
 
 def _chat_process(user_input: str, session: dict, auto: bool) -> str:
@@ -1441,7 +1449,20 @@ def run_chat(auto: bool = False):
         if not user_input:
             continue
 
-        response = _chat_process(user_input, session, auto)
+        try:
+            response = _chat_process(user_input, session, auto)
+        except KeyboardInterrupt:
+            print("\n  🤖 מוקי: להתראות!")
+            _save_session(session_mem)
+            break
+        except Exception as e:
+            # Never let a single message crash the whole chat session
+            from claude_cli import CLIUnavailable
+            if isinstance(e, CLIUnavailable) or "CLIUnavailable" in str(type(e)):
+                response = ("⚠️  Claude CLI לא זמין כרגע — תקלה רגעית. "
+                            "נסה שוב, או הוסף ANTHROPIC_API_KEY ל-.env.")
+            else:
+                response = f"⚠️  שגיאה: {str(e)[:150]} — הצ'אט ממשיך."
 
         if response == "__EXIT__":
             print("  🤖 מוקי: להתראות!")

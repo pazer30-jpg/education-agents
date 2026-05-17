@@ -190,20 +190,27 @@ def fal_download(video_url: str, dest: Path) -> Path:
 # Budget guard
 # ─────────────────────────────────────────────
 
-def _check_budget(est_cost: float) -> bool:
-    """Check if this video fits within daily budget cap."""
+def _budget_allows(est_cost: float) -> bool:
+    """Check if this video fits within daily budget cap. Does NOT record spend."""
     try:
-        from claude_cli import daily_budget_status, _limiter
+        from claude_cli import daily_budget_status
         status = daily_budget_status()
         if status["spent_usd"] + est_cost > status["cap_usd"]:
             print(f"  [Agent6] ❌ Skipping — would exceed daily cap "
                   f"(${status['spent_usd']:.2f} + ${est_cost} > ${status['cap_usd']})")
             return False
-        # Record the spend so it counts toward daily cap
-        _limiter._record_daily(est_cost)
         return True
     except Exception:
         return True  # Fail open if budget tracking unavailable
+
+
+def _record_spend(cost: float):
+    """Record actual spend AFTER a video is successfully produced."""
+    try:
+        from claude_cli import _limiter
+        _limiter._record_daily(cost)
+    except Exception:
+        pass
 
 
 # ─────────────────────────────────────────────
@@ -225,8 +232,8 @@ def create_video_for_post(post_path: Path, model_key: str = DEFAULT_MODEL,
     if not post_path.exists():
         return {"status": "error", "error": f"post not found: {post_path}"}
 
-    # Budget check
-    if not _check_budget(cost):
+    # Budget check — only CHECKS here, spend recorded after success
+    if not _budget_allows(cost):
         return {"status": "skipped_budget"}
 
     # 1. Read post + generate prompt
@@ -268,6 +275,9 @@ def create_video_for_post(post_path: Path, model_key: str = DEFAULT_MODEL,
         fal_download(video_url, dest)
     except Exception as e:
         return {"status": "error", "error": f"download failed: {e}"}
+
+    # Video succeeded — NOW record the spend against daily budget
+    _record_spend(cost)
 
     # 5. Add wikilink to source post (Obsidian-friendly)
     try:
