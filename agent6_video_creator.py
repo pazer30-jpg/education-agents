@@ -481,6 +481,10 @@ def main():
         artifact = result.get("video_path") or result.get("image_path")
         print(f"  ✅ {'Image' if image_mode else 'Video'}: {artifact}")
         print(f"  Cost: ${result['cost_usd']}")
+    elif result.get("error"):
+        print(f"  ❌ {result['error']}")
+        if "balance" in result["error"].lower() or "locked" in result["error"].lower():
+            print(f"  💳 Top up: https://fal.ai/dashboard/billing")
 
 
 if __name__ == "__main__":
