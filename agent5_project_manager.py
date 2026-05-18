@@ -1095,6 +1095,35 @@ def run_project_manager(request: str, auto_approve: bool = False) -> dict:
         _progress(i, len(steps), agent_display, total_start)
         _notify(f"⏳ [{i}/{len(steps)}] {agent_display} started")
 
+        # ── Pre-flight CLI check for heavy Claude agents ──
+        # Before a heavy step, verify the CLI still responds (it may have hit
+        # a rate limit since the run started). If dead — defer NOW, don't burn
+        # 20+ min on doomed retries. (Insight from the research journal.)
+        if agent in ("writer", "content"):
+            try:
+                from claude_cli import health_check as _hc
+                hc = _hc()
+                if not hc.get("ok"):
+                    print(f"\n  ⏸  {agent_display} — pre-flight: CLI לא מגיב "
+                          f"({hc.get('error', '?')[:80]}). דוחה מיד.")
+                    _ckpt = execution_state.get("_ckpt")
+                    if _ckpt:
+                        try:
+                            _ckpt.save(f"{agent}_deferred", {
+                                "reason": f"pre-flight CLI check failed: {hc.get('error','')[:150]}",
+                                "deferred_at": datetime.now().isoformat(),
+                                "topic": execution_state.get("last_plan", {}).get("topic", ""),
+                            })
+                        except Exception:
+                            pass
+                    errors.append(f"⏸  {agent} deferred (pre-flight CLI check failed)")
+                    _notify(f"⏸  {agent_display} deferred — CLI unresponsive")
+                    if agent in CRITICAL_AGENTS:
+                        break
+                    continue
+            except Exception:
+                pass  # health check itself failed — proceed, the step's own retry handles it
+
         step_start = time.time()
         # Hard timeout enforcement: don't wait for thread to finish on timeout
         import concurrent.futures as _cf
