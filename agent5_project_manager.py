@@ -1156,6 +1156,25 @@ def run_project_manager(request: str, auto_approve: bool = False) -> dict:
             tracker.record_error(agent, result)
             log.error(agent, result)
             _notify(f"❌ {agent_display} failed: {result[:100]}")
+
+            # CLI-unavailable / rate-limit → save a defer checkpoint so the
+            # next run can pick this step up (the exception was swallowed
+            # inside the agent and returned as an error string).
+            if any(sig in result for sig in
+                   ("Claude CLI unavailable", "defer this step", "CLIUnavailable")):
+                _ckpt = execution_state.get("_ckpt")
+                if _ckpt:
+                    try:
+                        _ckpt.save(f"{agent}_deferred", {
+                            "reason": result[:200],
+                            "deferred_at": datetime.now().isoformat(),
+                            "topic": execution_state.get("last_plan", {}).get("topic", ""),
+                        })
+                        print(f"  ⏸  {agent_display} deferred — checkpoint saved, "
+                              f"next run will retry this step first.")
+                    except Exception:
+                        pass
+
             # Graceful degradation: only stop for critical agents
             if agent in CRITICAL_AGENTS:
                 print(f"\n  ⛔ {agent_display} failed — pipeline cannot continue without this step.")

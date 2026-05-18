@@ -581,7 +581,7 @@ The article argues ONE central thesis connecting all {len(topics)} topics."""
     _writer_start = _time.time()
     _writer_deadline = _writer_start + 1500  # 25 min hard cap (within 30 min step_timeout)
 
-    part1 = ask_claude(prompt_p1, system=system, max_budget=3.0, timeout=500)
+    part1 = ask_claude(prompt_p1, system=system, max_budget=3.0, timeout=360)
 
     # ── Phase 2: Write second half (Discussion → References) ──
     print("  [Agent2] Phase 2: Writing Discussion → References...")
@@ -611,7 +611,7 @@ Papers available for citation:
 
 Target: ~1,500 words for Discussion+Limitations+Conclusions. References list all cited works."""
 
-    part2 = ask_claude(prompt_p2, system=system, max_budget=2.5, timeout=500)
+    part2 = ask_claude(prompt_p2, system=system, max_budget=2.5, timeout=360)
 
     # ── Combine ──
     article_en = part1.rstrip() + "\n\n" + part2.lstrip()

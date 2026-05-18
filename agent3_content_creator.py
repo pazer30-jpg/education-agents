@@ -405,7 +405,7 @@ def _create_linkedin(article_text: str, base: str, system: str,
   • אורך דומה, hashtags זהים"""
 
     prompt += "\n\nהחזר JSON בלבד."
-    data = ask_claude_json(prompt, system=system, max_budget=1.5, timeout=400)
+    data = ask_claude_json(prompt, system=system, max_budget=1.5, timeout=240)
 
     # ── Hook tester: pick the strongest opening ──
     try:
@@ -464,7 +464,7 @@ def _create_blog(article_text: str, base: str, system: str) -> list[Path]:
 - tags: מערך של 5-7 תגיות
 
 החזר JSON בלבד."""
-    data = ask_claude_json(prompt, system=system, max_budget=2.0, timeout=450)
+    data = ask_claude_json(prompt, system=system, max_budget=2.0, timeout=280)
     return _save_blog(data, base)
 
 
@@ -498,7 +498,7 @@ def _create_podcast(article_text: str, base: str, system: str) -> list[Path]:
 
 חשוב מאד: כל section.script חייב להיות 400-600 מילים. סקריפט קצר = פרק ריק.
 החזר JSON בלבד."""
-    data = ask_claude_json(prompt_script, system=system, max_budget=2.5, timeout=500)
+    data = ask_claude_json(prompt_script, system=system, max_budget=2.5, timeout=300)
 
     # Phase 2: Show notes (short, separate call to avoid truncation)
     title = data.get("episode_title", "")
