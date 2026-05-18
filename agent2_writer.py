@@ -538,9 +538,9 @@ ANSWERS (use in Discussion):
     if scratchpad_block:
         memory_block = memory_block + "\n\n" + scratchpad_block
 
-    # ── Phase 1: Write first half (Abstract → Literature Review) ──
-    print("  [Agent2] Phase 1: Writing Abstract → Literature Review...")
-    prompt_p1 = f"""{memory_block}
+    # ── Single-call article generation (was 2 phases → now 1, saves a call) ──
+    print("  [Agent2] Writing full article in one call...")
+    prompt_full = f"""{memory_block}
 
 Research topics (synthesized into ONE article): {topics_str}
 
@@ -551,8 +551,7 @@ Topic breakdown:
 Papers ({len(slim_papers)} total — use these for citations):
 {papers_json}
 
-Write the FIRST HALF of a synthesized academic article.
-Write ONLY these sections (I will ask for the rest next):
+Write a COMPLETE synthesized academic review article — ALL sections, in order:
 
 ## Abstract (150-200 words — thesis + RQs + key conclusions)
 
@@ -573,22 +572,6 @@ Write ONLY these sections (I will ask for the rest next):
 - Critically evaluate sources: state n=, method type, generalizability
 - Do NOT summarize paper by paper — synthesize by theme
 
-Target: ~2,000 words. Every paragraph needs at least one (Author, Year) citation.
-The article argues ONE central thesis connecting all {len(topics)} topics."""
-
-    # Writer time budget — track cumulative to skip optional steps if running long
-    import time as _time
-    _writer_start = _time.time()
-    _writer_deadline = _writer_start + 1500  # 25 min hard cap (within 30 min step_timeout)
-
-    part1 = ask_claude(prompt_p1, system=system, max_budget=3.0, timeout=360)
-
-    # ── Phase 2: Write second half (Discussion → References) ──
-    print("  [Agent2] Phase 2: Writing Discussion → References...")
-    prompt_p2 = f"""{memory_block}
-
-Continue the article below. Write ONLY these remaining sections:
-
 ## Discussion
 - Answer each RQ from the Introduction explicitly
 - Tensions between findings, practical implications
@@ -602,20 +585,17 @@ Continue the article below. Write ONLY these remaining sections:
 ## References
 (APA 7 — ONLY papers actually cited in the text, alphabetical)
 
-Here is the first half of the article (continue from where it ends):
+Target: ~3,500 words total. Every paragraph needs at least one (Author, Year) citation.
+The article argues ONE central thesis connecting all {len(topics)} topics.
+Write the ENTIRE article — do not stop partway."""
 
-{part1}
+    # Writer time budget — track cumulative to skip optional steps if running long
+    import time as _time
+    _writer_start = _time.time()
+    _writer_deadline = _writer_start + 1500  # 25 min hard cap (within 30 min step_timeout)
 
-Papers available for citation:
-{papers_json}
-
-Target: ~1,500 words for Discussion+Limitations+Conclusions. References list all cited works."""
-
-    part2 = ask_claude(prompt_p2, system=system, max_budget=2.5, timeout=360)
-
-    # ── Combine ──
-    article_en = part1.rstrip() + "\n\n" + part2.lstrip()
-    print(f"  [Agent2] Combined article: {len(article_en.split())} words")
+    article_en = ask_claude(prompt_full, system=system, max_budget=5.0, timeout=600)
+    print(f"  [Agent2] Article: {len(article_en.split())} words")
     title_en, content_en = _split_title(article_en, f"Synthesized Article: {display_title}")
 
     # ── Pre-check: skip self-review if article is structurally complete ──

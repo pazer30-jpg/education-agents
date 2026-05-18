@@ -703,12 +703,17 @@ def _execute_step(step: dict, execution_state: dict) -> str:
                 execution_state["post_paths"][ct] = [str(p) for p in paths]
                 for p in paths:
                     record_content(ct, topic_label, str(p))
-            # Agent 3.6: Content editor
-            try:
-                from agent_editor import edit_all_content
-                edit_all_content(content_types)
-            except Exception as e:
-                print(f"    ⚠️  Content editor: {e}")
+            # Agent 3.6: Content editor — opt-in (MOKI_EDIT=1) to keep pipeline lean.
+            # Each platform = 1 Claude call; skipping saves N calls under rate limit.
+            import os as _os
+            if _os.environ.get("MOKI_EDIT", "0") == "1":
+                try:
+                    from agent_editor import edit_all_content
+                    edit_all_content(content_types)
+                except Exception as e:
+                    print(f"    ⚠️  Content editor: {e}")
+            else:
+                print(f"    ⏭  Agent 3.6 editor skipped (opt-in: MOKI_EDIT=1)")
 
             created = [f"{ct}: {Path(paths[0]).name}" for ct, paths in saved.items() if paths]
 

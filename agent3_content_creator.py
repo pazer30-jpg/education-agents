@@ -495,33 +495,16 @@ def _create_podcast(article_text: str, base: str, system: str) -> list[Path]:
     כלול [דוגמה מהשטח] כשמתאים.
     כלול ציטוטים מחוקרים בשפה טבעית ("לפי X שחקר את...")
 - outro: סיום + שאלה פתוחה למאזין (100-150 מילים)
-
-חשוב מאד: כל section.script חייב להיות 400-600 מילים. סקריפט קצר = פרק ריק.
-החזר JSON בלבד."""
-    data = ask_claude_json(prompt_script, system=system, max_budget=2.5, timeout=300)
-
-    # Phase 2: Show notes (short, separate call to avoid truncation)
-    title = data.get("episode_title", "")
-    sections_summary = " | ".join(s.get("title", "") for s in data.get("sections", []))
-    prompt_notes = f"""כתוב show notes לפרק פודקאסט:
-שם הפרק: {title}
-חלקים: {sections_summary}
-
-צור JSON עם:
-- summary: תקציר 3-4 משפטים
+- show_notes: תקציר 3-4 משפטים לפרק
 - key_points: מערך של 3-5 נקודות מפתח
 - sources: מערך של 4-6 מקורות (שם, שנה, כותרת)
 - tags: מערך של 5-8 תגיות
 
+חשוב מאד: כל section.script חייב להיות 400-600 מילים. סקריפט קצר = פרק ריק.
 החזר JSON בלבד."""
-    try:
-        notes_data = ask_claude_json(prompt_notes, system="", max_budget=0.3, timeout=120)
-        data["show_notes"] = notes_data.get("summary", "")
-        data["key_points"] = notes_data.get("key_points", [])
-        data["sources"] = notes_data.get("sources", [])
-    except Exception as e:
-        print(f"  [Agent3] ⚠️ Show notes failed ({e}) — using basic notes")
-        data.setdefault("show_notes", title)
+    # Single call — script + show notes together (was 2 calls)
+    data = ask_claude_json(prompt_script, system=system, max_budget=2.8, timeout=320)
+    data.setdefault("show_notes", data.get("episode_title", ""))
 
     return _save_podcast(data, base)
 
@@ -668,11 +651,15 @@ def run_content_creator(
         else:
             saved["podcast"] = _create_podcast(article_text, base, system)
 
-    # ── Devil's Advocate — ONCE per article (saves 2min + $1.5 vs per-platform) ──
+    # ── Devil's Advocate — opt-in (MOKI_DEVIL=1) to save a Claude call ──
+    # Skipped by default: keeps the pipeline lean for rate-limited CLI runs.
     _devil_review_cached = None
+    import os as _os
+    _devil_enabled = _os.environ.get("MOKI_DEVIL", "0") == "1"
     try:
+        if not _devil_enabled:
+            raise StopIteration  # skip cleanly
         from devils_advocate import review_post, save_review
-        # Run once on the briefing/article — reviews underlying ideas, not surface
         _source_for_review = article_text[:3500] if article_text else ""
         if _source_for_review:
             print(f"\n  👹 Devil's Advocate (article-level review)...")
@@ -692,6 +679,8 @@ def run_content_creator(
                 save_review(Path(article_path), _devil_review_cached)
             except Exception:
                 pass
+    except StopIteration:
+        print(f"  👹 Devil's Advocate skipped (opt-in: MOKI_DEVIL=1)")
     except Exception as devil_err:
         print(f"  👹 Devil's Advocate skipped: {devil_err}")
 

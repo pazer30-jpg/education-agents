@@ -497,15 +497,29 @@ def generate_dashboard() -> str:
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>מוקי · Operator</title>
 <style>
+/* ─── Design tokens — slate-based OLED dark (UI/UX Pro Max) ─── */
 :root {{
-  --bg:#0a0b10; --surface:#12141c; --card:#171a24; --card2:#1a1e2a;
-  --border:#232838; --border-lite:#2a3041;
-  --t:#e4e4e7; --td:#71717a; --tb:#fafafa; --tdim:#52525b;
-  --purple:#a78bfa; --purple-dim:#4c3a7a;
-  --green:#4ade80; --green-dim:#1a3a24;
-  --yellow:#f5c85e; --yellow-dim:#3a2f14;
-  --red:#f87171; --red-dim:#3a1418;
-  --blue:#60a5fa;
+  --bg:#020617;          /* slate-950 */
+  --surface:#0b1222;     /* deep panel */
+  --card:#0f172a;        /* slate-900 */
+  --card2:#1e293b;       /* slate-800 */
+  --border:#1e293b;      /* slate-800 */
+  --border-lite:#334155; /* slate-700 */
+  --t:#e2e8f0;           /* slate-200 — body */
+  --td:#94a3b8;          /* slate-400 — muted */
+  --tb:#f8fafc;          /* slate-50 — bright */
+  --tdim:#64748b;        /* slate-500 — dim */
+  --purple:#a78bfa;      /* brand accent */
+  --purple-dim:#312a55;
+  --green:#22c55e;       /* positive */
+  --green-dim:#0d2c1a;
+  --yellow:#eab308;
+  --yellow-dim:#352c0a;
+  --red:#ef4444;
+  --red-dim:#3a1418;
+  --blue:#3b82f6;
+  --shadow:0 1px 3px rgba(0,0,0,0.4), 0 8px 24px rgba(0,0,0,0.25);
+  --radius:14px;
   --mono: 'JetBrains Mono','SF Mono',Menlo,Consolas,monospace;
   --sans: 'Inter',-apple-system,'Segoe UI',system-ui,sans-serif;
 }}
@@ -513,12 +527,31 @@ def generate_dashboard() -> str:
 html {{ scroll-behavior:smooth; }}
 body {{
   font-family: var(--sans);
-  background: var(--bg);
+  background:
+    radial-gradient(900px 500px at 85% -10%, rgba(167,139,250,0.07), transparent 70%),
+    radial-gradient(700px 400px at 0% 0%, rgba(34,197,94,0.04), transparent 60%),
+    var(--bg);
+  background-attachment: fixed;
   color: var(--t);
   font-size: 14px;
-  line-height: 1.5;
+  line-height: 1.6;
   min-height: 100vh;
   padding: 0;
+  -webkit-font-smoothing: antialiased;
+}}
+/* ─── Accessibility polish (UI/UX Pro Max checklist) ─── */
+*:focus-visible {{
+  outline: 2px solid var(--purple);
+  outline-offset: 2px;
+  border-radius: 4px;
+}}
+button, .tab, .card, [onclick] {{ cursor: pointer; }}
+@media (prefers-reduced-motion: reduce) {{
+  *, *::before, *::after {{
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }}
 }}
 
 /* ─── Page header (snapshot bar) ─── */
@@ -564,15 +597,20 @@ body {{
   background: none;
   border: none;
   color: var(--td);
-  padding: 10px 24px;
+  padding: 10px 22px;
   cursor: pointer;
   font-family: var(--mono);
   font-size: 12px;
   border-bottom: 2px solid transparent;
-  transition: all 0.15s;
+  transition: color 0.2s ease, border-color 0.2s ease, background 0.2s ease;
+  border-radius: 8px 8px 0 0;
 }}
-.tab:hover {{ color: var(--t); }}
-.tab.active {{ color: var(--tb); border-bottom-color: var(--purple); }}
+.tab:hover {{ color: var(--t); background: var(--card); }}
+.tab.active {{
+  color: var(--tb);
+  border-bottom-color: var(--purple);
+  background: var(--card);
+}}
 
 /* ─── Container ─── */
 .container {{
@@ -585,9 +623,10 @@ body {{
 
 /* ─── Hero section ─── */
 .hero {{
-  background: var(--card);
+  background: linear-gradient(180deg, var(--card) 0%, var(--surface) 100%);
   border: 1px solid var(--border);
-  border-radius: 16px;
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
   padding: 32px;
   margin-bottom: 24px;
 }}
@@ -645,7 +684,7 @@ body {{
 .btn:hover {{ border-color: var(--purple); }}
 .btn-primary {{
   background: var(--purple);
-  color: #0a0b10;
+  color: #020617;
   border-color: var(--purple);
   font-weight: 700;
 }}
@@ -659,13 +698,17 @@ body {{
 }}
 @media (max-width: 900px) {{ .ready-cards {{ grid-template-columns: 1fr; }} }}
 .card {{
-  background: var(--card2);
+  background: var(--card);
   border: 1px solid var(--border);
   border-radius: 12px;
   overflow: hidden;
-  transition: transform 0.15s, border-color 0.15s;
+  transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
 }}
-.card:hover {{ transform: translateY(-2px); border-color: var(--purple-dim); }}
+.card:hover {{
+  transform: translateY(-3px);
+  border-color: var(--border-lite);
+  box-shadow: var(--shadow);
+}}
 .card-thumb {{
   height: 140px;
   background: linear-gradient(135deg, #1a2340 0%, #2d1a40 100%);
@@ -733,9 +776,10 @@ body {{
 
 /* ─── Stat strip ─── */
 .stat-strip {{
-  background: var(--card);
+  background: linear-gradient(180deg, var(--card) 0%, var(--surface) 100%);
   border: 1px solid var(--border);
-  border-radius: 16px;
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
   padding: 24px;
   display: grid;
   grid-template-columns: repeat(5, 1fr);
@@ -794,11 +838,13 @@ body {{
 }}
 @media (max-width: 1000px) {{ .grid-3 {{ grid-template-columns: 1fr; }} }}
 .sec {{
-  background: var(--card);
+  background: linear-gradient(180deg, var(--card) 0%, var(--surface) 100%);
   border: 1px solid var(--border);
   border-radius: 12px;
   padding: 20px;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }}
+.sec:hover {{ border-color: var(--border-lite); box-shadow: var(--shadow); }}
 .sec-header {{
   display: flex;
   justify-content: space-between;
@@ -847,8 +893,9 @@ body {{
 }}
 .agent-row .bar {{
   height: 100%;
-  background: linear-gradient(90deg, var(--green) 0%, var(--green) 100%);
-  transition: width 0.3s;
+  background: linear-gradient(90deg, #16a34a 0%, var(--green) 100%);
+  border-radius: 4px;
+  transition: width 0.4s ease;
 }}
 .agent-row .num {{ color: var(--tb); text-align: left; font-weight: 600; }}
 .agent-row .fail {{ color: var(--red); text-align: right; }}
@@ -1123,10 +1170,10 @@ body {{
   border-radius: 4px;
   overflow: hidden;
 }}
-.slo-bar {{ height: 100%; transition: width 0.3s; }}
-.slo-bar.green {{ background: var(--green); }}
-.slo-bar.yellow {{ background: var(--yellow); }}
-.slo-bar.red {{ background: var(--red); }}
+.slo-bar {{ height: 100%; border-radius: 4px; transition: width 0.4s ease; }}
+.slo-bar.green {{ background: linear-gradient(90deg, #16a34a, var(--green)); }}
+.slo-bar.yellow {{ background: linear-gradient(90deg, #ca8a04, var(--yellow)); }}
+.slo-bar.red {{ background: linear-gradient(90deg, #dc2626, var(--red)); }}
 .slo-desc {{
   font-family: var(--mono);
   font-size: 10px;
@@ -1301,6 +1348,38 @@ body {{
   content: '→ ';
   color: var(--purple);
   font-weight: 700;
+}}
+
+/* ─── Custom scrollbar — dark, subtle (UI/UX Pro Max) ─── */
+::-webkit-scrollbar {{ width: 10px; height: 10px; }}
+::-webkit-scrollbar-track {{ background: var(--bg); }}
+::-webkit-scrollbar-thumb {{
+  background: var(--card2);
+  border-radius: 6px;
+  border: 2px solid var(--bg);
+}}
+::-webkit-scrollbar-thumb:hover {{ background: var(--border-lite); }}
+* {{ scrollbar-width: thin; scrollbar-color: var(--card2) var(--bg); }}
+
+/* ─── Bar chart polish — gradient fills ─── */
+.bar-chart .b.blue {{ background: linear-gradient(180deg, var(--blue), #1e40af); }}
+.bar-chart .b.purple {{ background: linear-gradient(180deg, var(--purple), #6d28d9); }}
+
+/* ─── Badge + tag hover states ─── */
+.author-tag {{ transition: border-color 0.2s ease, color 0.2s ease; }}
+.author-tag:hover {{ border-color: var(--purple); color: var(--tb); }}
+.kind-tag, .qa-badge, .priority, .sec-badge {{ transition: all 0.2s ease; }}
+
+/* ─── Section header polish ─── */
+.sec-header h2 {{ letter-spacing: -0.2px; }}
+
+/* ─── Responsive — mobile readability ─── */
+@media (max-width: 640px) {{
+  .container {{ padding: 0 16px 40px; }}
+  .page-header {{ padding: 16px; }}
+  .tabs {{ padding: 0 8px 12px; overflow-x: auto; }}
+  .hero {{ padding: 20px; }}
+  .hero-title h1 {{ font-size: 24px; }}
 }}
 </style>
 </head>
