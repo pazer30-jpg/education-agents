@@ -122,6 +122,11 @@ AGENTS = {
         "desc": "מייצר וידאו קצר (5-10 שניות) לפוסט LinkedIn דרך fal.ai (Seedance/Kling/Veo)",
         "emoji": "🎬",
     },
+    "journal": {
+        "id": "7", "name": "Agent 7 — Research Journal",
+        "desc": "מתעד יומן מחקר נרטיבי אחרי כל ריצה — תהליך, שאלות, החלטות, כשלים",
+        "emoji": "📓",
+    },
 }
 
 
@@ -1238,6 +1243,15 @@ def run_project_manager(request: str, auto_approve: bool = False) -> dict:
         print(f"  🩺 Agent health card updated")
     except Exception as _health_err:
         print(f"  ⚠️ Health card skipped: {_health_err}")
+
+    # ── Agent 7: Research Journal — narrative behind-the-scenes record ──
+    try:
+        from research_journal import journal_latest_run as _journal
+        jpath = _journal()
+        if jpath:
+            print(f"  📓 Research journal: {jpath.name}")
+    except Exception as _journal_err:
+        print(f"  ⚠️ Journal skipped: {_journal_err}")
 
     # ── Auto-organize misplaced files in vault (rules-based, conservative) ──
     try:

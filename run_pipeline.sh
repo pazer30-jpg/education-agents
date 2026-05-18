@@ -112,6 +112,9 @@ if [ $STATUS -eq 0 ]; then
     # ── Failure analysis + performance learning (free, runs on existing data) ──
     /Library/Frameworks/Python.framework/Versions/3.13/bin/python3 failure_analyzer.py 2>&1 | tail -2 || true
     /Library/Frameworks/Python.framework/Versions/3.13/bin/python3 performance_learner.py 2>&1 | tail -2 || true
+
+    # ── Agent 7: Research journal entry for this run ──
+    /Library/Frameworks/Python.framework/Versions/3.13/bin/python3 research_journal.py 2>&1 | tail -1 || true
 else
     echo ""
     echo "  ❌ Failed (exit $STATUS) — $(date '+%H:%M')"
