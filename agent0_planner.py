@@ -561,7 +561,15 @@ def _save_proposal(proposal: dict, combined_title: str,
         f"_To approve: edit checkbox to [x] or run: `moki > אשר`_",
     ])
 
-    out_path.write_text("\n".join(lines), encoding="utf-8")
+    # Defensive flatten — Claude sometimes returns a field as a list, not str.
+    # A raw "\n".join(lines) then crashes ("expected str, list found").
+    safe_lines = []
+    for ln in lines:
+        if isinstance(ln, (list, tuple)):
+            safe_lines.extend(str(x) for x in ln)
+        else:
+            safe_lines.append(str(ln))
+    out_path.write_text("\n".join(safe_lines), encoding="utf-8")
     return out_path
 
 

@@ -164,9 +164,11 @@
             "type": "leaf",
             "state": {
               "type": "file-properties",
-              "state": {},
+              "state": {
+                "file": "articles/dialogue_in_education_review.md"
+              },
               "icon": "lucide-info",
-              "title": "מאפייני קובץ"
+              "title": "מאפייני קובץ עבור dialogue_in_education_review"
             }
           }
         ],
@@ -190,7 +192,19 @@
   },
   "active": "46b00848dd6ae321",
   "lastOpenFiles": [
+    "_daily/2026-05-18_1921.md",
+    "_journal/2026-05-18_1921.md",
+    "checkpoints/run_20260518_192129.json.bak",
+    "checkpoints/run_20260518_192129.json",
+    "papers/alumni_re-engagement_and_intergeneration_enriched_enriched.json",
+    "_daily/2026-05-18_1924.md",
+    "_INDEX.md",
+    "_journal/2026-05-18_1924.md",
+    "_daily/2026-05-10.md",
+    "checkpoints/run_20260518_192457.json",
+    "verify4_20260518_1921.log",
     "articles/critique_of_non_x_emotional_and_s_x_arts-based_non_en.md",
+    "articles/dialogue_in_education_review.md",
     "linkedin_body_decided.svg",
     "linkedin_campfire_unprepared.svg",
     "linkedin_identity_belonging.svg",
@@ -219,20 +233,8 @@
     "_מוקי-בית.md",
     "articles/israeli_youth_group__x_ritual_transition_pe_x_handover_cerem_he.md",
     "_memory/performance_patterns.md",
-    "Nobel 2010.md",
-    "_memory/failure_report.md",
-    "articles/_briefings/psychosocial_transit_x_identity_renegotiati_x_peer_legacy_tr_briefing.md",
-    "_daily/2026-05-11.md",
     "articles/psychosocial_transit_x_identity_renegotiati_x_peer_legacy_tr_en.md.bak",
     "fact_check_20260511_073441.json",
-    "_state/scratchpad_usage.json",
-    "_scratchpad.json",
-    "checkpoints/run_20260511_070017.json.bak",
-    "articles/psychosocial_transit_x_identity_renegotiati_x_peer_legacy_tr_he.docx",
-    "articles/psychosocial_transit_x_identity_renegotiati_x_peer_legacy_tr_he.md",
-    "articles/psychosocial_transit_x_identity_renegotiati_x_peer_legacy_tr_briefing.md",
-    "articles/psychosocial_transit_x_identity_renegotiati_x_peer_legacy_tr_en.docx",
-    "articles/psychosocial_transit_x_identity_renegotiati_x_peer_legacy_tr_en.md",
     "designs/פרק_20_שייכות_חברתית_PODCAST.svg",
     "designs/פרק_20_שייכות_חברתית_LINKEDIN.svg",
     "designs/פרק_20_שייכות_חברתית_BLOG.svg",
