@@ -165,6 +165,52 @@ class Checkpoint:
         return ckpt
 
     @classmethod
+    def find_deferred(cls, max_age_hours: int = 48) -> list[dict]:
+        """
+        Scan recent checkpoints for *_deferred steps not yet consumed.
+        Returns [{agent, run_id, deferred_at, value}, ...] — the next run
+        can prepend these so deferred work isn't orphaned.
+        """
+        from datetime import timedelta
+        cutoff = datetime.now() - timedelta(hours=max_age_hours)
+        found = []
+        for f in sorted(CHECKPOINTS_DIR.glob("run_*.json"),
+                        key=lambda p: p.stat().st_mtime, reverse=True):
+            try:
+                data = json.loads(f.read_text(encoding="utf-8"))
+            except Exception:
+                continue
+            steps = data.get("steps", {})
+            for key, entry in steps.items():
+                if not key.endswith("_deferred"):
+                    continue
+                # skip if already consumed
+                if key.replace("_deferred", "_resumed") in steps:
+                    continue
+                try:
+                    saved = datetime.fromisoformat(entry.get("saved_at", ""))
+                    if saved < cutoff:
+                        continue
+                except Exception:
+                    pass
+                found.append({
+                    "agent": key.replace("_deferred", ""),
+                    "run_id": f.stem,
+                    "deferred_at": entry.get("saved_at", ""),
+                    "value": entry.get("value", {}),
+                })
+        return found
+
+    @classmethod
+    def mark_resumed(cls, run_id: str, agent: str):
+        """Mark a deferred step as consumed so it's not picked up again."""
+        try:
+            ckpt = cls(run_id)
+            ckpt.save(f"{agent}_resumed", {"resumed_at": datetime.now().isoformat()})
+        except Exception:
+            pass
+
+    @classmethod
     def list_all(cls) -> list["Checkpoint"]:
         files = sorted(
             CHECKPOINTS_DIR.glob("run_*.json"),

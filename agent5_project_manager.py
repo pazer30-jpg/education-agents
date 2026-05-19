@@ -1059,6 +1059,27 @@ def run_project_manager(request: str, auto_approve: bool = False) -> dict:
         print("  [PM] לא הוחלט על שום פעולה.")
         return {}
 
+    # ── Resume deferred work: prepend steps that earlier runs deferred ──
+    # Without this, a deferred content/writer step is orphaned forever.
+    try:
+        deferred = Checkpoint.find_deferred(max_age_hours=48)
+        for d in deferred:
+            agent = d["agent"]
+            if agent not in AGENTS:
+                continue
+            # Prepend a step for the deferred agent, using existing artifacts
+            steps.insert(0, {
+                "agent": agent,
+                "action": f"השלמת {AGENTS[agent]['name']} שנדחה בריצה קודמת",
+                "use_existing": True,
+                "content_types": ["linkedin", "blog", "podcast"] if agent == "content" else [],
+                "_resumed_from": d["run_id"],
+            })
+            Checkpoint.mark_resumed(d["run_id"], agent)
+            print(f"  ♻️  משחזר שלב שנדחה: {AGENTS[agent]['name']} (מ-{d['run_id']})")
+    except Exception as _resume_err:
+        print(f"  ⚠️ Deferred-resume check skipped: {_resume_err}")
+
     # 3. Show plan & get approval
     _show_plan(plan)
 
