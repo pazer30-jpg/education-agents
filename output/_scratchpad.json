@@ -2,25 +2,23 @@
   "fact_checker": {
     "missing_sources": {
       "value": {
-        "issue": "3 ציטוטים יתומים — חסרים בקורפוס",
+        "issue": "1 ציטוטים יתומים — חסרים בקורפוס",
         "suggested_searches": [
-          "(van Houten, 2023)",
-          "You (2017)",
-          "Schmidt and Muehlfeld (2017)"
+          "(Papaioannou et al., 2008)"
         ],
-        "summary": "researcher should fetch: (van Houten, 2023), You (2017), Schmidt and Muehlfeld (2017)"
+        "summary": "researcher should fetch: (Papaioannou et al., 2008)"
       },
-      "ts": "2026-05-18T16:54:20.152251"
+      "ts": "2026-05-20T11:32:28.624573"
     }
   },
   "failure_analyzer": {
     "common_failures": {
       "value": {
         "issue": "success rate 4% ב-30 ימים",
-        "top_failures": "⏱  Timeout (step >30 דק'): 21×, ❓ אחר: 9×, 💰 חרגנו מ-budget: 9×",
-        "summary": "success rate נמוך (4%) ב-47 ריצות — סיבה דומיננטית: timeout — סוכן בעייתי: writer; 9 ריצות runaway (>3x median, >30 דק')"
+        "top_failures": "⏱  Timeout (step >30 דק'): 21×, ❓ אחר: 12×, 💰 חרגנו מ-budget: 10×",
+        "summary": "success rate נמוך (4%) ב-49 ריצות — סיבה דומיננטית: timeout — סוכן בעייתי: content; 10 ריצות runaway (>3x median, >30 דק')"
       },
-      "ts": "2026-05-18T21:37:47.807172"
+      "ts": "2026-05-20T14:13:59.209260"
     }
   }
 }

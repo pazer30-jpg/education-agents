@@ -378,7 +378,7 @@ def _show_plan(plan: dict):
 # Step executor
 # ─────────────────────────────────────────────
 
-STEP_TIMEOUT = 3600  # 60 minutes max per step (writer+content can take 40-55 min)
+STEP_TIMEOUT = 1800  # 30 minutes max per step (was 60 — too lax, writer ran 246 min)
 
 # ─────────────────────────────────────────────
 # Research Proposal Approval Gate
@@ -1059,24 +1059,29 @@ def run_project_manager(request: str, auto_approve: bool = False) -> dict:
         print("  [PM] לא הוחלט על שום פעולה.")
         return {}
 
-    # ── Resume deferred work: prepend steps that earlier runs deferred ──
-    # Without this, a deferred content/writer step is orphaned forever.
+    # ── Resume deferred work: prepend AT MOST ONE deferred step ──
+    # Earlier version prepended all → cascading failures (1 fail × 4 = 4 fails).
+    # Now: at most one (the most recent), and mark all others consumed too so
+    # they don't keep showing up forever.
     try:
         deferred = Checkpoint.find_deferred(max_age_hours=48)
-        for d in deferred:
+        if deferred:
+            d = deferred[0]  # most recent only
             agent = d["agent"]
-            if agent not in AGENTS:
-                continue
-            # Prepend a step for the deferred agent, using existing artifacts
-            steps.insert(0, {
-                "agent": agent,
-                "action": f"השלמת {AGENTS[agent]['name']} שנדחה בריצה קודמת",
-                "use_existing": True,
-                "content_types": ["linkedin", "blog", "podcast"] if agent == "content" else [],
-                "_resumed_from": d["run_id"],
-            })
-            Checkpoint.mark_resumed(d["run_id"], agent)
-            print(f"  ♻️  משחזר שלב שנדחה: {AGENTS[agent]['name']} (מ-{d['run_id']})")
+            if agent in AGENTS:
+                steps.insert(0, {
+                    "agent": agent,
+                    "action": f"השלמת {AGENTS[agent]['name']} שנדחה בריצה קודמת",
+                    "use_existing": True,
+                    "content_types": ["linkedin", "blog", "podcast"] if agent == "content" else [],
+                    "_resumed_from": d["run_id"],
+                })
+                print(f"  ♻️  משחזר שלב אחד שנדחה: {AGENTS[agent]['name']} (מ-{d['run_id']})")
+            # Mark ALL deferred as consumed (clears stale backlog)
+            for old in deferred:
+                Checkpoint.mark_resumed(old["run_id"], old["agent"])
+            if len(deferred) > 1:
+                print(f"  ⏭  {len(deferred)-1} deferred נוספים סומנו כצרוכים (ללא cascade)")
     except Exception as _resume_err:
         print(f"  ⚠️ Deferred-resume check skipped: {_resume_err}")
 
@@ -1097,7 +1102,17 @@ def run_project_manager(request: str, auto_approve: bool = False) -> dict:
     errors    = []
     total_start = time.time()
 
-    PIPELINE_TIMEOUT = 5400  # 90 minutes max for entire pipeline
+    PIPELINE_TIMEOUT = 3600  # 60 minutes max for entire pipeline (was 90 — too lax)
+
+    # ── Hard watchdog: brutally kill the process if it runs PIPELINE_TIMEOUT × 1.5 ──
+    # ThreadPoolExecutor can't actually kill stuck threads; this is the last resort.
+    import threading as _th, os as _ws_os
+    def _watchdog():
+        import time as _t
+        _t.sleep(int(PIPELINE_TIMEOUT * 1.5))
+        print(f"\n  🛑 WATCHDOG: pipeline exceeded {int(PIPELINE_TIMEOUT*1.5/60)} min — killing process.")
+        _ws_os._exit(2)
+    _th.Thread(target=_watchdog, daemon=True).start()
 
     for i, step in enumerate(steps, 1):
         # Pipeline timeout check

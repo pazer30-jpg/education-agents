@@ -11,10 +11,14 @@
             "id": "9f15c58a19d4364e",
             "type": "leaf",
             "state": {
-              "type": "graph",
-              "state": {},
-              "icon": "lucide-git-fork",
-              "title": "תצוגת גרף"
+              "type": "markdown",
+              "state": {
+                "file": "articles/psychosocial_transit_x_identity_renegotiati_x_peer_legacy_tr_he.md",
+                "mode": "source",
+                "source": false
+              },
+              "icon": "lucide-file",
+              "title": "psychosocial_transit_x_identity_renegotiati_x_peer_legacy_tr_he"
             }
           }
         ]
@@ -192,6 +196,7 @@
   },
   "active": "9f15c58a19d4364e",
   "lastOpenFiles": [
+    "Baum 2010.md",
     "_daily/2026-05-18_2119.md",
     "_journal/2026-05-18_2119.md",
     "checkpoints/run_20260518_211936.json",
@@ -233,7 +238,6 @@
     "articles/non-formal_educ_x_social_entrepre_x_non-formal_edu_he.md",
     "articles/effectiveness_of_mem_x_narrative_identity_v_x_narrative_iden_en.md",
     "_thesis-canvas.canvas",
-    "_ארכיטקטורה.md",
     "articles/psychosocial_transit_x_identity_renegotiati_x_peer_legacy_tr_en.md.bak",
     "designs/פרק_20_שייכות_חברתית_PODCAST.svg",
     "designs/פרק_20_שייכות_חברתית_LINKEDIN.svg",
