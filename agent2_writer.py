@@ -526,6 +526,7 @@ ANSWERS (use in Discussion):
         "voice_rules",
         "theoretical_anchors",
         "recurring_sources",
+        "humanize_rules",
     ], max_chars_per_note=1200)
 
     # ── Scratchpad: retry hints + cross-agent warnings ──

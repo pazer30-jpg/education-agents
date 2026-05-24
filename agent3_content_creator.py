@@ -21,6 +21,15 @@ from genre_router import detect_genre, format_genre_for_prompt
 from counter_argument import suggest_counter, format_counter_report
 
 
+def _log_hook(platform: str, result: dict) -> None:
+    """Safe wrapper — log winning hooks (≥75) to hook_log for memory regen."""
+    try:
+        from hook_log import log_hook
+        log_hook(platform, result)
+    except Exception:
+        pass
+
+
 # ─────────────────────────────────────────────
 # Content type definitions
 # ─────────────────────────────────────────────
@@ -111,7 +120,8 @@ def _build_system(content_types: list[str]) -> str:
         from obsidian_memory import format_for_prompt as _obs_for_prompt
         obsidian_block = _obs_for_prompt(
             ["voice_rules", "recurring_sources", "theoretical_anchors",
-             "engagement", "performance_patterns"],
+             "engagement", "performance_patterns", "humanize_rules",
+             "hook_winners"],
             max_chars_per_note=1000,
         )
     except Exception:
@@ -394,7 +404,13 @@ def _create_linkedin(article_text: str, base: str, system: str,
   • ללא אימוג'ים. ללא רשימות ממוספרות. ללא "לסיכום".
   • סיים בשאלה אמיתית שמישהו יכול לענות עליה מניסיון
 - post_english: גרסה אנגלית 500-800 תווים, אותו קול
-- hooks: מערך של 3 פתיחות חלופיות בעברית (כל אחת בסגנון אחר)
+- hooks: מערך של 5 פתיחות חלופיות בעברית, כל אחת בסגנון שונה ומובהק:
+    1. עיגון זמני/מספרי קונקרטי ("אוקטובר 2023. 33 מפונים...")
+    2. דמות+פעולה ספציפית ("דניאל, כיתה י', סירב להוביל...")
+    3. הודאה אישית או טעות ("טעיתי בזה שנתיים. עד ש...")
+    4. ציטוט/דיאלוג ("'אני לא יודע מה לעשות איתו', אמרה המורה...")
+    5. שאלה שמישהו יכול לענות עליה מניסיון ("מתי בפעם האחרונה החלטת...?")
+  אסור: "יש רגע ש...", "כל מי ש...", "אני חושב ש...", "האם אי פעם...", "מחקרים מראים..."
 - hashtags: מערך של 12 hashtags בעברית + אנגלית (ללא #)"""
 
     if ab_test:
@@ -425,6 +441,7 @@ def _create_linkedin(article_text: str, base: str, system: str,
             data["post_hebrew"] = new_post
             data["_original_opening"] = current_opening
             data["_swapped_to"] = result["best"]
+        _log_hook("linkedin", result)
     except Exception as e:
         print(f"  [Agent3] hook tester skipped ({e})")
 
@@ -460,11 +477,30 @@ def _create_blog(article_text: str, base: str, system: str) -> list[Path]:
   • כל פסקה עד 4 שורות
   • ללא "לסיכום". ללא רשימות ממוספרות.
   • סיום פתוח — שאלה שנשארת
+- hooks: מערך של 5 פתיחות חלופיות לפסקה הראשונה של הבלוג, כל אחת בסגנון שונה
+  (עיגון זמני, דמות+פעולה, הודאה אישית, ציטוט, שאלה ספציפית).
+  אסור: "יש רגע ש...", "כל מי ש...", "מחקרים מראים..."
 - meta_description: תיאור SEO קצר (עד 150 תווים)
 - tags: מערך של 5-7 תגיות
 
 החזר JSON בלבד."""
     data = ask_claude_json(prompt, system=system, max_budget=2.0, timeout=280)
+
+    # ── Hook tester: replace first paragraph if a stronger hook exists ──
+    try:
+        from hook_tester import pick_best_hook
+        content = data.get("content", "")
+        first_para = content.split("\n\n", 1)[0].lstrip("# ").strip() if content else ""
+        result = pick_best_hook(data.get("hooks", []), current_opening=first_para)
+        print(f"  [Agent3] 🎣 Blog hook: {result['score']}/100 ({'switched' if result['switched'] else 'kept'})")
+        if result["switched"] and result["best"]:
+            rest = content.split("\n\n", 1)[-1] if "\n\n" in content else ""
+            data["content"] = result["best"] + "\n\n" + rest
+            data["_blog_hook_swapped"] = result["best"]
+        _log_hook("blog", result)
+    except Exception as e:
+        print(f"  [Agent3] blog hook tester skipped ({e})")
+
     return _save_blog(data, base)
 
 
@@ -485,6 +521,9 @@ def _create_podcast(article_text: str, base: str, system: str) -> list[Path]:
 - episode_title: שם הפרק — שאלה או טענה חדה (עברית)
 - duration_minutes: אורך משוער (20-30)
 - hook: פתיח 30 שניות — סיפור ספציפי מהשטח, גוף ראשון (100-150 מילים)
+- hook_alternatives: מערך של 5 משפטי פתיחה חלופיים ל-hook (משפט אחד כל אחד),
+  בסגנונות שונים: עיגון זמני, דמות+פעולה, הודאה, ציטוט, שאלה.
+  אסור: "יש רגע ש...", "כל מי ש...", "האם אי פעם..."
 - intro: הקדמה 1-2 דקות — הצג את הנושא בשפה דבורה (200-300 מילים)
 - sections: מערך של 4-5 חלקים, כל אחד עם:
   - title: כותרת החלק
@@ -505,6 +544,22 @@ def _create_podcast(article_text: str, base: str, system: str) -> list[Path]:
     # Single call — script + show notes together (was 2 calls)
     data = ask_claude_json(prompt_script, system=system, max_budget=2.8, timeout=320)
     data.setdefault("show_notes", data.get("episode_title", ""))
+
+    # ── Hook tester: replace first sentence of hook paragraph if stronger exists ──
+    try:
+        from hook_tester import pick_best_hook
+        hook_text = data.get("hook", "")
+        first_sentence = hook_text.split(".", 1)[0].strip() if hook_text else ""
+        result = pick_best_hook(data.get("hook_alternatives", []),
+                                current_opening=first_sentence)
+        print(f"  [Agent3] 🎣 Podcast hook: {result['score']}/100 ({'switched' if result['switched'] else 'kept'})")
+        if result["switched"] and result["best"]:
+            rest = hook_text.split(".", 1)[-1] if "." in hook_text else ""
+            data["hook"] = result["best"] + "." + rest
+            data["_podcast_hook_swapped"] = result["best"]
+        _log_hook("podcast", result)
+    except Exception as e:
+        print(f"  [Agent3] podcast hook tester skipped ({e})")
 
     return _save_podcast(data, base)
 

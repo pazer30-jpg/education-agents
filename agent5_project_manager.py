@@ -107,6 +107,16 @@ AGENTS = {
         "desc": "כותב מאמר אקדמי מלא (.md + .docx)",
         "emoji": "✍️",
     },
+    "factcheck": {
+        "id": "2.7", "name": "Agent 2.7 — Fact Checker",
+        "desc": "מאמת ציטוטים במאמר מול מאגר ה-papers (read-only, ציון בלבד)",
+        "emoji": "🔍",
+    },
+    "editor": {
+        "id": "2.5", "name": "Agent 2.5 — Article Editor",
+        "desc": "מבריק את המאמר אחרי כתיבה (anti-AI-tells, הברקה לשונית)",
+        "emoji": "✏️",
+    },
     "content": {
         "id": "3", "name": "Agent 3 — Content Creator",
         "desc": "יוצר LinkedIn / בלוג / פודקאסט בקולו של פז",
@@ -262,6 +272,16 @@ def _build_max_plan(request: str) -> dict:
                 "action": "כותב מאמר אקדמי משולב APA 7 (2,000-3,000 מילים)",
                 "use_existing": False,
                 "optional": False,
+            },
+            {
+                "agent": "factcheck",
+                "action": "מאמת ציטוטים מול מאגר ה-papers (read-only)",
+                "optional": True,
+            },
+            {
+                "agent": "editor",
+                "action": "מבריק את המאמר (anti-AI-tells, הברקה לשונית)",
+                "optional": True,
             },
             {
                 "agent": "content",
@@ -643,45 +663,55 @@ def _execute_step(step: dict, execution_state: dict) -> str:
             _ckpt = execution_state.get("_ckpt")
             if _ckpt:
                 _ckpt.save("writer", {k: str(v) for k, v in article_paths.items()})
-            # Agent 2.7: Fact-checker — validate citations against paper corpus.
-            # Runs AFTER Agent 2 completes, BEFORE Agent 3 starts. Side-effect only —
-            # never modifies Agent 2's output, just prints a score and persists
-            # the suspicious list to output/fact_check_<timestamp>.json.
+            names = [Path(v).name for v in article_paths.values()]
+            return f"✅ מאמר נכתב: {', '.join(names[:2])}"
+
+        elif agent == "factcheck":
+            # Agent 2.7 — validate citations against paper corpus.
+            # Side-effect only; never modifies the article.
+            ap = execution_state.get("article_paths")
+            pfs = execution_state.get("papers_files") or []
+            if not ap or not pfs:
+                return "⏭  אין מאמר/papers — דולג על fact-check"
             try:
                 from agent2_7_fact_checker import run_fact_checker
-                md_for_check = article_paths.get("md") or next(
-                    (v for k, v in article_paths.items() if str(v).endswith(".md")),
+                md_for_check = ap.get("md") or next(
+                    (v for k, v in ap.items() if str(v).endswith(".md")),
                     None,
                 )
-                if md_for_check:
-                    fc = run_fact_checker(Path(md_for_check), [Path(p) for p in pfs])
-                    print(f"    📊 Fact-check score: {fc['score']}/100 "
-                          f"({fc['verified']}/{fc['total_citations']} verified, "
-                          f"{len(fc['suspicious'])} suspicious)")
-                    ts = datetime.now().strftime("%Y%m%d_%H%M%S")
-                    fc_path = OUTPUT_DIR / f"fact_check_{ts}.json"
-                    fc_path.parent.mkdir(parents=True, exist_ok=True)
-                    fc_path.write_text(
-                        json.dumps({
-                            "article": str(md_for_check),
-                            "score": fc["score"],
-                            "total_citations": fc["total_citations"],
-                            "verified": fc["verified"],
-                            "suspicious": fc["suspicious"],
-                        }, ensure_ascii=False, indent=2),
-                        encoding="utf-8",
-                    )
-                    print(f"    📝 Fact-check report: {fc_path.name}")
+                if not md_for_check:
+                    return "⏭  אין קובץ .md — דולג"
+                fc = run_fact_checker(Path(md_for_check), [Path(p) for p in pfs])
+                ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+                fc_path = OUTPUT_DIR / f"fact_check_{ts}.json"
+                fc_path.parent.mkdir(parents=True, exist_ok=True)
+                fc_path.write_text(
+                    json.dumps({
+                        "article": str(md_for_check),
+                        "score": fc["score"],
+                        "total_citations": fc["total_citations"],
+                        "verified": fc["verified"],
+                        "suspicious": fc["suspicious"],
+                    }, ensure_ascii=False, indent=2),
+                    encoding="utf-8",
+                )
+                return (f"📊 Fact-check: {fc['score']}/100 "
+                        f"({fc['verified']}/{fc['total_citations']} verified, "
+                        f"{len(fc['suspicious'])} suspicious) → {fc_path.name}")
             except Exception as e:
-                print(f"    ⚠️  Fact-checker: {e}")
-            # Agent 2.5: Article editor
+                return f"⚠️  Fact-checker: {e}"
+
+        elif agent == "editor":
+            # Agent 2.5 — polish article (separate step so it can time out independently).
+            ap = execution_state.get("article_paths")
+            if not ap:
+                return "⏭  אין מאמר — דולג על editor"
             try:
                 from agent_editor import edit_article
-                edit_article(article_paths)
+                edit_article({k: Path(v) for k, v in ap.items()})
+                return "✏️  Editor: המאמר הוברק"
             except Exception as e:
-                print(f"    ⚠️  Article editor: {e}")
-            names = [Path(v).name for v in article_paths.values()]
-            return f"✅ מאמר משולב נכתב ונערך: {', '.join(names[:2])}"
+                return f"⚠️  Article editor: {e}"
 
         elif agent == "content":
             ap = execution_state.get("article_paths")

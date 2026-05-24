@@ -618,8 +618,28 @@ button, .tab, .card, [onclick] {{ cursor: pointer; }}
   margin: 0 auto;
   padding: 0 32px 60px;
 }}
-.page {{ display: none; }}
-.page.active {{ display: block; }}
+.page {{ display: block; scroll-margin-top: 80px; }}
+.page + .page {{ margin-top: 48px; padding-top: 32px; border-top: 1px dashed var(--border); }}
+.page-divider {{ display: flex; align-items: center; gap: 12px; margin: 0 0 20px; color: var(--td); font-size: 11px; text-transform: uppercase; letter-spacing: 1.2px; font-weight: 700; }}
+.page-divider::before, .page-divider::after {{ content: ''; flex: 1; height: 1px; background: var(--border); }}
+.tabs {{ position: sticky; top: 0; z-index: 50; background: var(--bg); backdrop-filter: blur(8px); }}
+.pipe-strip {{ display: flex; align-items: center; justify-content: center; gap: 4px; flex-wrap: wrap; padding: 12px 16px; background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 16px; }}
+.pipe-strip .ps {{ padding: 4px 12px; background: var(--surface); border: 1px solid var(--border); border-radius: 14px; font-size: 11px; color: var(--t); }}
+.pipe-strip .ps-a {{ color: var(--tdim); font-size: 12px; padding: 0 2px; }}
+.last-run-card {{ display: grid; grid-template-columns: repeat(6, 1fr); gap: 1px; background: var(--border); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; margin: 16px 0; position: relative; }}
+.last-run-card.success {{ box-shadow: inset 4px 0 0 var(--green); }}
+.last-run-card.fail {{ box-shadow: inset 4px 0 0 var(--red); }}
+.last-run-card .lr {{ background: var(--card); padding: 14px 16px; }}
+.last-run-card .lr .lbl {{ font-size: 10px; color: var(--td); text-transform: uppercase; letter-spacing: .8px; font-weight: 600; }}
+.last-run-card .lr .vl {{ font-size: 18px; font-weight: 700; color: var(--tb); margin-top: 4px; }}
+.last-run-card .lr .vl.sm {{ font-size: 13px; font-weight: 600; }}
+@media (max-width: 900px) {{ .last-run-card {{ grid-template-columns: repeat(2, 1fr); }} }}
+.cheat-sheet {{ background: linear-gradient(180deg, var(--card) 0%, var(--surface) 100%); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px 24px; margin-top: 16px; }}
+.cheat-sheet h2 {{ font-size: 12px; font-weight: 700; color: var(--td); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 14px; }}
+.cheat-sheet .row {{ display: flex; align-items: center; gap: 12px; padding: 8px 0; border-bottom: 1px dashed var(--border); font-size: 13px; }}
+.cheat-sheet .row:last-child {{ border-bottom: none; }}
+.cheat-sheet .row b {{ color: var(--tb); font-weight: 600; min-width: 160px; }}
+.cheat-sheet .row code {{ background: var(--bg); padding: 4px 10px; border-radius: 6px; font-family: 'SF Mono', Menlo, monospace; font-size: 12px; color: var(--green); border: 1px solid var(--border); }}
 
 /* ─── Hero section ─── */
 .hero {{
@@ -1406,7 +1426,20 @@ button, .tab, .card, [onclick] {{ cursor: pointer; }}
 <div class="container">
 
 <!-- ═══════ PAGE 1 — OVERVIEW ═══════ -->
-<div class="page active" id="page1">
+<div class="page" id="page1">
+  <div class="page-divider">סקירה · Overview</div>
+
+  <!-- Pipeline flow strip (7 agents) -->
+  <div class="pipe-strip">
+    <span class="ps">🧠 Planner</span><span class="ps-a">›</span>
+    <span class="ps">🔍 Research×3</span><span class="ps-a">›</span>
+    <span class="ps">📄 PDF</span><span class="ps-a">›</span>
+    <span class="ps">✍️ Writer</span><span class="ps-a">›</span>
+    <span class="ps">✏️ Editor</span><span class="ps-a">›</span>
+    <span class="ps">✨ Content</span><span class="ps-a">›</span>
+    <span class="ps">🎨 Design</span>
+  </div>
+
   <div class="hero">
     <div class="hero-top">
       <div class="hero-actions">
@@ -1462,7 +1495,17 @@ button, .tab, .card, [onclick] {{ cursor: pointer; }}
       <div class="label">QA</div>
       <div class="sub">{len(qas)} · 3ד׳</div>
     </div>
+    <div class="stat-cell">
+      <span class="letter">C</span>
+      <span class="arrow">›</span>
+      <div class="val">{n_articles + n_linkedin + n_blog + n_podcast}</div>
+      <div class="label">תוכן</div>
+      <div class="sub">📝{n_articles} 💼{n_linkedin} 📰{n_blog} 🎙️{n_podcast}</div>
+    </div>
   </div>
+
+  <!-- Last-run card with 6 cells (topic / time / QA / steps / cost / errors) -->
+  <div id="lastRunCard"></div>
 
   <div class="grid-3">
     <div class="sec">
@@ -1504,6 +1547,7 @@ button, .tab, .card, [onclick] {{ cursor: pointer; }}
 
 <!-- ═══════ PAGE 2 — PIPELINE LIVE ═══════ -->
 <div class="page" id="page2">
+  <div class="page-divider">Pipeline · Live</div>
   <div class="grid-2">
     <div class="sec">
       <div class="sec-header">
@@ -1555,6 +1599,7 @@ button, .tab, .card, [onclick] {{ cursor: pointer; }}
 
 <!-- ═══════ PAGE 3 — CONTENT QUALITY ═══════ -->
 <div class="page" id="page3">
+  <div class="page-divider">איכות תוכן · Content Quality</div>
   <div class="sec" style="margin-bottom:16px;">
     <div class="sec-header">
       <div>
@@ -1604,6 +1649,7 @@ button, .tab, .card, [onclick] {{ cursor: pointer; }}
 
 <!-- ═══════ PAGE 4 — TOPICS · RUNS · QUEUE ═══════ -->
 <div class="page" id="page4">
+  <div class="page-divider">Topics · Runs · Queue</div>
   <div class="grid-3">
     <div class="sec">
       <div class="sec-header">
@@ -1643,6 +1689,7 @@ button, .tab, .card, [onclick] {{ cursor: pointer; }}
 
 <!-- ═══════ PAGE 5 — GAPS · ARTIFACTS · ERRORS ═══════ -->
 <div class="page" id="page5">
+  <div class="page-divider">Gaps · Artifacts · Errors</div>
   <div class="grid-3">
     <div class="sec">
       <div class="sec-header">
@@ -1676,6 +1723,19 @@ button, .tab, .card, [onclick] {{ cursor: pointer; }}
       </div>
       <div id="errorsList"></div>
     </div>
+  </div>
+
+  <!-- Code cheat sheet (quick-access commands) -->
+  <div class="cheat-sheet">
+    <h2>🚀 גישה מהירה למוקי</h2>
+    <div class="row"><b>צ'אט אינטראקטיבי</b><code>python3 agent5_project_manager.py --chat</code></div>
+    <div class="row"><b>הרצה אוטומטית</b><code>python3 agent5_project_manager.py "הרץ הכל" --auto</code></div>
+    <div class="row"><b>Pipeline ישיר</b><code>./run_pipeline.sh research</code></div>
+    <div class="row"><b>פודקאסט בלבד</b><code>./run_pipeline.sh podcast</code></div>
+    <div class="row"><b>סיכום שבועי</b><code>python3 weekly_summary.py --save</code></div>
+    <div class="row"><b>ביבליוגרפיה</b><code>python3 bibliography.py --stats</code></div>
+    <div class="row"><b>דאשבורד חי</b><code>python3 dashboard.py --serve</code></div>
+    <div class="row"><b>תיקייה</b><code>~/education-agents/</code></div>
   </div>
 </div>
 
@@ -1711,8 +1771,7 @@ const AUTHORS = {authors_json};
 const REFLECTION = {reflection_json};
 
 function showPage(n) {{
-  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-  document.getElementById('page' + n).classList.add('active');
+  document.getElementById('page' + n).scrollIntoView({{ behavior: 'smooth', block: 'start' }});
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
   document.querySelector(`.tab[data-page="${{n}}"]`).classList.add('active');
   document.getElementById('pageNum').textContent = n;
@@ -1725,6 +1784,21 @@ function showPage(n) {{
   }};
   document.getElementById('pageLabel').textContent = labels[n];
 }}
+
+// Update active tab as user scrolls
+window.addEventListener('scroll', () => {{
+  const pages = ['page1','page2','page3','page4','page5'];
+  const offset = 100;
+  let active = 1;
+  for (let i = 0; i < pages.length; i++) {{
+    const el = document.getElementById(pages[i]);
+    if (el && el.getBoundingClientRect().top <= offset) active = i + 1;
+  }}
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  const tab = document.querySelector(`.tab[data-page="${{active}}"]`);
+  if (tab) tab.classList.add('active');
+  document.getElementById('pageNum').textContent = active;
+}}, {{ passive: true }});
 
 function renderReadyCards() {{
   const el = document.getElementById('readyCards');
@@ -2101,8 +2175,34 @@ function runNow() {{
     }});
 }}
 
+function renderLastRunCard() {{
+  const el = document.getElementById('lastRunCard');
+  if (!el || !RUNS.length) return;
+  const r = RUNS[RUNS.length - 1];
+  const ok = r.success;
+  const dur = r.duration_s ? (r.duration_s / 60).toFixed(1) + ' ד׳' : '—';
+  const date = (r.started_at || '').slice(0, 16).replace('T', ' ');
+  const topic = (r.topic || '—').slice(0, 36);
+  const steps = (r.steps || []).length;
+  const cost = r.est_cost ? '$' + r.est_cost : '—';
+  const errs = (r.errors || []).length;
+  const qa = r.avg_qa || '—';
+  const qaColor = qa >= 80 ? 'var(--green)' : qa >= 60 ? 'var(--orange)' : 'var(--red)';
+  const errColor = errs ? 'var(--red)' : 'var(--green)';
+  el.innerHTML = `
+    <div class="last-run-card ${{ok ? 'success' : 'fail'}}">
+      <div class="lr"><div class="lbl">${{ok ? '✅' : '❌'}} נושא</div><div class="vl sm">${{topic}}</div></div>
+      <div class="lr"><div class="lbl">זמן</div><div class="vl">${{dur}}</div></div>
+      <div class="lr"><div class="lbl">QA</div><div class="vl" style="color:${{qaColor}}">${{qa}}</div></div>
+      <div class="lr"><div class="lbl">שלבים</div><div class="vl">${{steps}}</div></div>
+      <div class="lr"><div class="lbl">עלות</div><div class="vl">${{cost}}</div></div>
+      <div class="lr"><div class="lbl">שגיאות</div><div class="vl" style="color:${{errColor}}">${{errs}}</div></div>
+    </div>`;
+}}
+
 // ── Initial render ──
 renderReadyCards();
+renderLastRunCard();
 renderAgentPerf();
 renderBarChart('durChart', RUNS.map(r => (r.duration_s || 0) / 60).filter(Boolean), 'blue');
 renderBarChart('qaChart', RUNS.map(r => r.avg_qa).filter(Boolean), 'purple');

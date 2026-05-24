@@ -229,6 +229,23 @@ def _build_verify_prompt(items: list[dict]) -> tuple[str, str]:
         "specific finding asserted in the sentence, answer 'false' or 'partial'."
     )
 
+    # ── Recurring sources context: authors the project already cites get a slight
+    # benefit-of-the-doubt on borderline 'partial' calls. Strictness unchanged. ──
+    try:
+        from obsidian_memory import format_for_prompt as _obs_for_prompt
+        recurring = _obs_for_prompt(["recurring_sources"], max_chars_per_note=700)
+        if recurring:
+            system += (
+                "\n\n--- Authors/sources already used in this project ---\n"
+                + recurring +
+                "\n--- end ---\n"
+                "Context only: these are familiar to the project. Verification rules "
+                "stay strict — do NOT lower the bar for these authors. The list helps "
+                "you parse abbreviated citations correctly when authors are well-known here."
+            )
+    except Exception:
+        pass
+
     lines = []
     for i, it in enumerate(items, start=1):
         lines.append(

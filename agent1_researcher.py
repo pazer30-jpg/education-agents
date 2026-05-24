@@ -941,12 +941,26 @@ def run_researcher(topic: str, subtopics: list[str], force: bool = False) -> Pat
     except Exception:
         pass
 
-    queries_prompt = f"""Topic: "{topic}", Subtopics: {json.dumps(subtopics)}{extra_hints}
+    # ── Obsidian memory: bias toward known-good sources, avoid weak-topic patterns ──
+    mem_block = ""
+    try:
+        from obsidian_memory import format_for_prompt as _obs_for_prompt
+        mem_block = _obs_for_prompt(["recurring_sources", "weak_topics"],
+                                    max_chars_per_note=800)
+    except Exception:
+        pass
+    if mem_block:
+        mem_block = (f"\n\n--- Context from past research (use to bias queries) ---\n"
+                     f"{mem_block}\n--- end context ---\n")
+
+    queries_prompt = f"""Topic: "{topic}", Subtopics: {json.dumps(subtopics)}{extra_hints}{mem_block}
 Generate 5 diverse search queries for finding education research papers.
 Rules:
   - 4 queries in English (academic terms)
   - 1 query in Hebrew (for Israeli research: e.g. "חינוך בלתי פורמלי נוער")
   - Each query uses different terms/angles
+  - If recurring_sources lists authors/journals — include at least one query targeting them by name
+  - If weak_topics shows query patterns that failed — use different angles
 Return ONLY a JSON array of strings."""
 
     try:

@@ -165,11 +165,25 @@ def synthesize_entry(ctx: dict) -> str:
     if ask_claude is None:
         return _fallback_entry(ctx)
     run_data = json.dumps(ctx, ensure_ascii=False, indent=1)[:6000]
+
+    # ── Inject system memory: strong/weak topics + failure trends ──
+    mem_block = ""
     try:
-        return ask_claude(
-            _JOURNAL_PROMPT.format(run_data=run_data),
-            max_budget=0.4, timeout=180,
-        ).strip()
+        from obsidian_memory import format_for_prompt as _obs_for_prompt
+        mem_block = _obs_for_prompt(
+            ["strong_topics", "weak_topics", "failure_report"],
+            max_chars_per_note=800,
+        )
+    except Exception:
+        pass
+    context_section = ""
+    if mem_block:
+        context_section = (f"\n\n--- מגמות מהריצות הקודמות (לשימוש בקטע 'תובנה') ---\n"
+                           f"{mem_block}\n--- end ---\n")
+
+    prompt = _JOURNAL_PROMPT.format(run_data=run_data) + context_section
+    try:
+        return ask_claude(prompt, max_budget=0.4, timeout=180).strip()
     except Exception as e:
         print(f"  [Journal] synthesis failed ({e}) — using structured fallback")
         return _fallback_entry(ctx)

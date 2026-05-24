@@ -57,6 +57,18 @@ ARTICLE_EDITOR_SYSTEM = """אתה עורך אקדמי מקצועי המתמחה 
   - ודא עקביות מינוח לאורך המאמר
   - מינימום 2,000 מילים — אם קצר מדי, הרחב את הדיון
 
+נגד דפוסי AI (Wikipedia: Signs of AI writing):
+  - הימנע מהמילים: מהווה, ממלא תפקיד מרכזי, משמעותי, עדות לחשיבות,
+    בעידן הנוכחי, בנוף המשתנה, ניווט מטאפורי, עשיר, תוסס, חיוני, מכריע
+  - הימנע ממבנים: "לא רק X אלא Y", "מ-X עד Y" (כשלא ציר), שלשות,
+    "במילים אחרות", "לסיכום", שאלות רטוריות פתיחה, רשימות `Bold: הסבר`
+  - העדף is/has: "המכון הוא X" — לא "המכון משמש בתור X"
+  - קצב מעורב: שילוב משפטים קצרים וארוכים, לא אורך אחיד
+  - קונקרטי: "20% מהמורים" — לא "הרבה מורים"; שם + שנה — לא "מחקרים מראים"
+  - דעה ועמדה: לא רק עובדות — תגובה אמיתית
+  - קו מפריד (—): מקסימום 2 במסמך
+  - emoji בכותרות וב-bullets: אסור
+
 קוהרנטיות:
   - האם הארגומנט המרכזי ברור מהמבוא עד המסקנות?
   - האם הסינתזה בין הנושאים השונים ברורה?
@@ -219,6 +231,39 @@ def edit_article(article_paths: dict[str, Path],
     if not edited or len(edited) < 200:
         print("  ⚠️  עריכה ריקה — שומר מקור")
         return {"paths": article_paths, "changes": [], "backup": None}
+
+    # ── Self-audit loop (anti-AI-tells, opt-in via MOKI_DEEP_HUMANIZE=1) ──
+    # Pattern: Wikipedia "Signs of AI writing" — pass 1 audits, pass 2 fixes.
+    # Adds 2 Claude calls but produces noticeably less AI-tells output.
+    import os as _os
+    if _os.environ.get("MOKI_DEEP_HUMANIZE", "0") == "1":
+        try:
+            from claude_cli import ask_claude
+            audit_prompt = (
+                "קרא את המאמר הבא ותגיד בקיצור: מה במאמר הזה עדיין נשמע AI?\n"
+                "תן 3-5 bullets ספציפיים בלבד (ציטוט קצר + הסיבה). אל תתקן — רק תזהה.\n\n"
+                f"---\n{edited[:8000]}\n---"
+            )
+            audit = ask_claude(audit_prompt, system="אתה מבקר עריכה. ענה קצר בעברית.",
+                               max_budget=0.5, timeout=120)
+            if audit and len(audit.strip()) > 20:
+                print(f"  🔍 self-audit:")
+                for ln in audit.strip().splitlines()[:8]:
+                    if ln.strip():
+                        print(f"     {ln.strip()[:120]}")
+                fix_prompt = (
+                    f"זה ה-audit שזיהית — תקן בדיוק את הפריטים האלה ותחזיר את כל המאמר המתוקן:\n\n"
+                    f"{audit.strip()}\n\n"
+                    f"כללי: שמור על אורך וטענות. שנה רק את הפרטים שב-audit. החזר Markdown מלא."
+                )
+                fixed, _ = _edit_text(edited, ARTICLE_EDITOR_SYSTEM, fix_prompt)
+                if fixed and len(fixed) > len(edited) * 0.7:
+                    edited = fixed
+                    print(f"  ✅ self-audit fixes applied")
+        except Exception as e:
+            print(f"  ⚠️  self-audit skipped: {e}")
+    else:
+        print(f"  ⏭  self-audit skipped (opt-in: MOKI_DEEP_HUMANIZE=1)")
 
     words_after = len(edited.split())
     bak = _backup_and_write(md_path, edited)

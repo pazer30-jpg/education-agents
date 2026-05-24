@@ -87,21 +87,31 @@ def check_claude_cli():
 
 
 def check_calendar_dates():
-    """Hebrew calendar dates are not stale."""
+    """Hebrew calendar arrays are populated for current + next year (catches stale data, not legitimately quiet periods)."""
+    current_year = datetime.now().year
     result = subprocess.run(
         [sys.executable, "-c",
-         "from agent0_planner import _get_upcoming_events; "
-         "events = _get_upcoming_events(60); "
-         "print(len(events))"],
+         f"from agent0_planner import HEBREW_CALENDAR; "
+         f"print(len(HEBREW_CALENDAR.get({current_year}, [])), len(HEBREW_CALENDAR.get({current_year + 1}, [])))"],
         capture_output=True, text=True, timeout=10, cwd=str(PROJECT_DIR),
     )
     try:
-        n = int(result.stdout.strip())
+        n_curr, n_next = map(int, result.stdout.strip().split())
     except ValueError:
         return False, f"calendar broken: {result.stderr[:100]}"
-    if n == 0:
-        return False, "no upcoming events in 60 days — calendar may need 2027/8 entries"
-    return True, f"{n} upcoming events in next 60 days"
+    if n_curr == 0 or n_next == 0:
+        return False, f"calendar missing entries: {current_year}={n_curr}, {current_year + 1}={n_next}"
+    # Info-only: how many upcoming events
+    upcoming = subprocess.run(
+        [sys.executable, "-c",
+         "from agent0_planner import _get_upcoming_events; print(len(_get_upcoming_events(60)))"],
+        capture_output=True, text=True, timeout=10, cwd=str(PROJECT_DIR),
+    )
+    try:
+        n_up = int(upcoming.stdout.strip())
+    except ValueError:
+        n_up = 0
+    return True, f"{current_year}={n_curr}, {current_year + 1}={n_next} populated · {n_up} upcoming in 60d"
 
 
 def check_disk_space():

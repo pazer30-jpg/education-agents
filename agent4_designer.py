@@ -246,6 +246,22 @@ Your designs use geometric shapes, organic curves, gradients, and visual metapho
 Minimal text. Maximum visual impact. Clean, professional, editorial style.
 viewBox must be "0 0 {w} {h}". All coordinates within bounds."""
 
+    # ── Inject Paz's voice for tone-aligned visual mood ──
+    try:
+        from obsidian_memory import format_for_prompt as _obs_for_prompt
+        voice_block = _obs_for_prompt(["voice_rules"], max_chars_per_note=900)
+        if voice_block:
+            system = system + (
+                "\n\n--- Brand voice (for mood/color/restraint cues) ---\n"
+                + voice_block +
+                "\n--- end voice ---\n"
+                "Apply this voice as visual restraint: no busy gradients if voice is "
+                "spare; avoid flashy colors if voice is contemplative; favor 2-3 muted "
+                "hues over rainbow palettes."
+            )
+    except Exception:
+        pass
+
     raw = ask_claude(prompt, system=system, max_budget=0.8)
 
     # Extract SVG

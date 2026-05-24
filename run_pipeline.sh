@@ -109,6 +109,9 @@ if [ $STATUS -eq 0 ]; then
     # ── Auto-organize Obsidian vault (move misplaced files to right folders) ──
     /Library/Frameworks/Python.framework/Versions/3.13/bin/python3 obsidian_organizer.py --apply 2>&1 | tail -3 || true
 
+    # ── Regenerate hook_winners memory (top hooks from past runs → Agent 3 prompt) ──
+    /Library/Frameworks/Python.framework/Versions/3.13/bin/python3 hook_log.py 2>&1 | tail -1 || true
+
     # ── Failure analysis + performance learning (free, runs on existing data) ──
     /Library/Frameworks/Python.framework/Versions/3.13/bin/python3 failure_analyzer.py 2>&1 | tail -2 || true
     /Library/Frameworks/Python.framework/Versions/3.13/bin/python3 performance_learner.py 2>&1 | tail -2 || true
