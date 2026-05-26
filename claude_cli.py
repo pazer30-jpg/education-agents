@@ -500,12 +500,15 @@ def check_cli_available() -> bool:
     return CLAUDE_BIN is not None
 
 
-def health_check() -> dict:
+def health_check(timeout: int = 120) -> dict:
     """
     Verify Claude CLI is available and responsive.
     Returns {"ok": True, "bin": path, "response_time": elapsed, "api_fallback": bool} on success,
     or {"ok": False, "error": "descriptive message", "api_fallback": bool} on failure.
     Never raises — catches all exceptions.
+
+    timeout default 120s: cold-start of Claude CLI can take 60-90s under load.
+    Previous 30s caused false-positive failures that blocked the entire pipeline.
     """
     api_fallback_available = has_api_key()
     try:
@@ -515,7 +518,7 @@ def health_check() -> dict:
                     "api_fallback": api_fallback_available}
 
         start = _time.time()
-        response = ask_claude("Say OK", max_budget=0.05, timeout=30)
+        response = ask_claude("Say OK", max_budget=0.05, timeout=timeout)
         elapsed = round(_time.time() - start, 2)
 
         if not response or not response.strip():
@@ -533,12 +536,13 @@ def health_check() -> dict:
 def require_health(retries: int = 3, delay: int = 5) -> None:
     """
     Call at pipeline start to ensure Claude CLI is ready.
-    Retries up to N times — handles transient issues like VSCode extension
-    being mid-update (CLI binary briefly unavailable).
+    Retries up to N times with exponential backoff (2s, 10s, 30s) —
+    handles cold-start, transient rate-limits, and VSCode extension updates.
     Raises RuntimeError with helpful guidance if all retries fail.
     """
     last_error = ""
     silence_warning = os.environ.get("MOKI_SILENCE_NO_API_KEY", "").lower() in ("1", "true", "yes")
+    backoffs = [2, 10, 30]  # exponential: cold-start gets longer cushion each retry
     for attempt in range(1, retries + 1):
         result = health_check()
         if result["ok"]:
@@ -547,8 +551,9 @@ def require_health(retries: int = 3, delay: int = 5) -> None:
             return
         last_error = result.get("error", "unknown")
         if attempt < retries:
-            print(f"  ⏳ Health check attempt {attempt}/{retries} failed — retrying in {delay}s...")
-            _time.sleep(delay)
+            wait = backoffs[min(attempt - 1, len(backoffs) - 1)]
+            print(f"  ⏳ Health check attempt {attempt}/{retries} failed — retrying in {wait}s...")
+            _time.sleep(wait)
 
     raise RuntimeError(
         f"Claude CLI health check failed after {retries} attempts.\n"
