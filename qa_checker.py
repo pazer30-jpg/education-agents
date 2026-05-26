@@ -68,10 +68,15 @@ class LoopDetector:
         })
         self._agent_attempts[agent] = self._agent_attempts.get(agent, 0) + 1
 
-        # Check for repeated identical output
-        prev_hash = self._last_output_hashes.get(agent)
-        current_hash = str(hash(output_summary))
-        self._last_output_hashes[agent] = current_hash
+        # Only track output hashes for SUCCESSFUL runs. Same-error-twice is not a
+        # "stuck output" loop — it's a transient failure repeating, which the
+        # 3-consecutive-failures check below already handles correctly.
+        prev_hash = None
+        current_hash = None
+        if success:
+            prev_hash = self._last_output_hashes.get(agent)
+            current_hash = str(hash(output_summary))
+            self._last_output_hashes[agent] = current_hash
 
         return self._detect(agent, prev_hash, current_hash)
 
