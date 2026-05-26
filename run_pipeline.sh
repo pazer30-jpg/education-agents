@@ -112,6 +112,9 @@ if [ $STATUS -eq 0 ]; then
     # ── Regenerate hook_winners memory (top hooks from past runs → Agent 3 prompt) ──
     /Library/Frameworks/Python.framework/Versions/3.13/bin/python3 hook_log.py 2>&1 | tail -1 || true
 
+    # ── Agent 8 — Publisher: daily digest of top ready posts to Telegram ──
+    /Library/Frameworks/Python.framework/Versions/3.13/bin/python3 agent8_publisher.py 2>&1 | tail -2 || true
+
     # ── Failure analysis + performance learning (free, runs on existing data) ──
     /Library/Frameworks/Python.framework/Versions/3.13/bin/python3 failure_analyzer.py 2>&1 | tail -2 || true
     /Library/Frameworks/Python.framework/Versions/3.13/bin/python3 performance_learner.py 2>&1 | tail -2 || true
