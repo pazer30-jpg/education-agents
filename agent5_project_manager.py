@@ -122,6 +122,21 @@ AGENTS = {
         "desc": "יוצר LinkedIn / בלוג / פודקאסט בקולו של פז",
         "emoji": "✨",
     },
+    "content_linkedin": {
+        "id": "3a", "name": "Agent 3a — LinkedIn",
+        "desc": "פוסט LinkedIn (5 hooks → בחירת חזק) + גרסה B",
+        "emoji": "💼",
+    },
+    "content_blog": {
+        "id": "3b", "name": "Agent 3b — Blog",
+        "desc": "מאמר בלוג (900-1,400 מילים)",
+        "emoji": "📰",
+    },
+    "content_podcast": {
+        "id": "3c", "name": "Agent 3c — Podcast",
+        "desc": "סקריפט פודקאסט (20-30 דקות)",
+        "emoji": "🎙️",
+    },
     "designer": {
         "id": "4", "name": "Agent 4 — Designer",
         "desc": "מעצב ויזואלים: cover / banner / podcast cover / quote card",
@@ -284,24 +299,28 @@ def _build_max_plan(request: str) -> dict:
                 "optional": True,
             },
             {
-                "agent": "content",
-                "action": "יוצר 3 גרסאות תוכן: LinkedIn + בלוג + פודקאסט",
-                "content_types": ["linkedin", "blog", "podcast"],
+                "agent": "content_linkedin",
+                "action": "יוצר פוסט LinkedIn (5 hooks → בחירת חזק) + גרסה B",
                 "use_existing": False,
                 "optional": False,
+            },
+            {
+                "agent": "content_blog",
+                "action": "יוצר מאמר בלוג (900-1,400 מילים) — partial success עדיף על failure מוחלט",
+                "use_existing": False,
+                "optional": True,
+            },
+            {
+                "agent": "content_podcast",
+                "action": "יוצר סקריפט פודקאסט (20-30 דק') — אופציונלי, יקר ב-tokens",
+                "use_existing": False,
+                "optional": True,
             },
             {
                 "agent": "designer",
                 "action": "מעצב 3 ויזואלים: LinkedIn cover + blog banner + podcast cover",
                 "design_types": ["linkedin_cover", "blog_banner", "podcast_cover"],
-                "optional": False,
-            },
-            {
-                "agent": "video",
-                "action": "מייצר וידאו קצר (5s, vertical) לפוסט LinkedIn האחרון",
-                "model": "seedance_lite",
-                "platform": "linkedin",
-                "optional": True,  # video only if FAL_KEY exists
+                "optional": True,
             },
         ],
     }
@@ -783,6 +802,38 @@ def _execute_step(step: dict, execution_state: dict) -> str:
 
             return f"✅ תוכן נוצר: {', '.join(created)}"
 
+        elif agent in ("content_linkedin", "content_blog", "content_podcast"):
+            # Per-platform content step — each platform = 1 Claude call,
+            # so a CLI failure on one doesn't lose the others. Each step
+            # has its own checkpoint, defer-resume, and retry budget.
+            platform = agent.replace("content_", "")  # "linkedin" | "blog" | "podcast"
+            ap = execution_state.get("article_paths")
+            if not ap:
+                return f"❌ אין מאמר — הרץ writer קודם"
+            from agent3_content_creator import run_content_creator
+            ap_paths = {k: Path(v) for k, v in ap.items()}
+            saved = run_content_creator(ap_paths, [platform])
+            execution_state.setdefault("post_paths", {})
+            topic_label = execution_state.get("last_plan", {}).get("topic", "")
+            paths = saved.get(platform, [])
+            if paths:
+                execution_state["post_paths"][platform] = [str(p) for p in paths]
+                for p in paths:
+                    record_content(platform, topic_label, str(p))
+                _ckpt = execution_state.get("_ckpt")
+                if _ckpt:
+                    _ckpt.save(agent, {platform: [str(p) for p in paths]})
+                # Telegram preview for this single platform
+                try:
+                    from notifications import notify_preview, is_configured
+                    if is_configured():
+                        preview_text = Path(paths[0]).read_text(encoding="utf-8", errors="replace")
+                        notify_preview(platform, preview_text)
+                except Exception:
+                    pass
+                return f"✅ {platform}: {Path(paths[0]).name}"
+            return f"⚠️  {platform}: לא נוצר תוכן"
+
         elif agent == "designer":
             try:
                 from agent4_designer import run_designer
@@ -889,12 +940,16 @@ def _execute_step_with_qa(step: dict, execution_state: dict) -> str:
     #   researcher: retries per source internally, returns cached if topic exists
     #   writer: self-review loop
     #   content: rejection learning loop
-    no_external_retry = {"researcher", "writer", "content"}
+    no_external_retry = {"researcher", "writer", "content",
+                         "content_linkedin", "content_blog", "content_podcast"}
 
     qa_stages = {
-        "researcher": ["research"],
-        "writer":     ["article"],
-        "content":    ["linkedin", "blog", "podcast"],
+        "researcher":        ["research"],
+        "writer":            ["article"],
+        "content":           ["linkedin", "blog", "podcast"],
+        "content_linkedin":  ["linkedin"],
+        "content_blog":      ["blog"],
+        "content_podcast":   ["podcast"],
     }
     stages = qa_stages.get(agent, [])
     max_attempts = 1 if agent in no_external_retry else MAX_RETRIES + 1
@@ -1170,7 +1225,7 @@ def run_project_manager(request: str, auto_approve: bool = False) -> dict:
         # Before a heavy step, verify the CLI still responds (it may have hit
         # a rate limit since the run started). If dead — defer NOW, don't burn
         # 20+ min on doomed retries. (Insight from the research journal.)
-        if agent in ("writer", "content"):
+        if agent in ("writer", "content", "content_linkedin", "content_blog", "content_podcast"):
             try:
                 from claude_cli import health_check as _hc
                 hc = _hc()
