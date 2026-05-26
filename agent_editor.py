@@ -135,6 +135,14 @@ def _edit_text(text: str, system_prompt: str,
         ["voice_rules", "editor_corrections", "humanize_rules"],
         max_chars_per_note=1400,
     )
+    # ── Persona prefix (CrewAI pattern) ──
+    try:
+        from obsidian_memory import get_backstory
+        bs = get_backstory("editor")
+        if bs:
+            system_prompt = f"## Your persona\n\n{bs}\n\n---\n\n" + system_prompt
+    except Exception:
+        pass
     if memory_block:
         system_prompt = system_prompt + "\n\n" + memory_block
 

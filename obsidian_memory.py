@@ -191,6 +191,28 @@ def append_to_note(name: str, addition: str, section: str = None):
 # CLI
 # ─────────────────────────────────────────────
 
+def get_backstory(agent_name: str) -> str:
+    """
+    Extract a single agent's backstory section from agent_backstories.md.
+    Returns the markdown body of `## {agent_name}` section, or "" if not found.
+
+    Used by each agent to prepend its persona to the system prompt without
+    leaking the OTHER agents' backstories into context.
+    """
+    body = load_memory_note("agent_backstories")
+    if not body:
+        return ""
+    marker = f"## {agent_name}"
+    if marker not in body:
+        return ""
+    section = body.split(marker, 1)[1]
+    # Stop at next "## " header or end of file
+    next_header = section.find("\n## ")
+    if next_header > 0:
+        section = section[:next_header]
+    return section.strip()
+
+
 def _cli():
     import sys
     if len(sys.argv) < 2:

@@ -124,6 +124,14 @@ def _build_system(content_types: list[str]) -> str:
              "hook_winners"],
             max_chars_per_note=1000,
         )
+        # ── Persona: prepend backstory (CrewAI pattern) ──
+        try:
+            from obsidian_memory import get_backstory
+            bs = get_backstory("content_creator")
+            if bs:
+                obsidian_block = f"## Your persona\n\n{bs}\n\n---\n\n" + obsidian_block
+        except Exception:
+            pass
     except Exception:
         pass
 

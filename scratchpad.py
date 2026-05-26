@@ -124,6 +124,41 @@ def read(agent: str = None, key: str = None):
     return entry.get("value") if entry else None
 
 
+def ask(asker: str, target_agent: str, question_key: str,
+        question: str, handler_fn=None) -> str:
+    """
+    Inter-agent Q&A — minimal AutoGen-style handshake.
+
+    Writer can call ask("writer", "fact_checker", "claim_id_3",
+                       "Is the claim 'X correlates with Y' supported?",
+                       handler_fn=lambda q: check_claim(q, papers))
+
+    handler_fn runs synchronously in the same process (no daemon needed for MVP).
+    Both question and answer are persisted to scratchpad so the next pipeline
+    run sees the conversation history.
+
+    Returns the answer string (or "" if no handler or handler raised).
+    """
+    # Persist the question
+    note(asker, f"q_{target_agent}_{question_key}", {
+        "question": question[:500],
+        "asked_at": datetime.now().isoformat(),
+    })
+    # Get answer
+    answer = ""
+    if handler_fn:
+        try:
+            answer = handler_fn(question) or ""
+        except Exception as e:
+            answer = f"(handler error: {e})"
+    # Persist the answer
+    note(target_agent, f"a_{asker}_{question_key}", {
+        "answer": str(answer)[:500],
+        "answered_at": datetime.now().isoformat(),
+    })
+    return answer
+
+
 def all_warnings() -> list[dict]:
     """Get all warnings/issues across agents (for Agent 3 to consume)."""
     data = _load()

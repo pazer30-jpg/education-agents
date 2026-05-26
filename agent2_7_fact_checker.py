@@ -37,6 +37,13 @@ MAX_SAMPLE = 12
 # Budget for the single verification batch call
 VERIFY_BUDGET = 0.8
 
+# ─── Triangulation (GPT-Researcher pattern) ───
+# For each claim, look at the cited paper PLUS this many corroborator papers
+# from the same corpus. A claim supported by 3/3 abstracts is "strong";
+# only the cited paper supporting → "lone" (flagged as weak evidence).
+TRIANGULATION_CORROBORATORS = 2
+MIN_CLAIM_OVERLAP = 2  # min shared 4+ char words to consider a paper relevant
+
 
 # ─────────────────────────────────────────────
 # Citation extraction
@@ -192,6 +199,31 @@ def _load_papers(papers_files: list[Path]) -> list[dict]:
     return all_papers
 
 
+def _find_corroborators(claim: str, primary_paper: dict,
+                        all_papers: list[dict], n: int = TRIANGULATION_CORROBORATORS) -> list[dict]:
+    """
+    Find up to N additional papers whose abstracts share keywords with the claim.
+    Used for triangulation — even non-cited papers can corroborate (or contradict).
+    Returns papers ordered by keyword-overlap with the claim, excluding the primary.
+    """
+    claim_words = set(re.findall(r"[א-ת\w]{4,}", claim.lower()))
+    if not claim_words:
+        return []
+    scored = []
+    for p in all_papers:
+        if p is primary_paper:
+            continue
+        abstract = (p.get("abstract") or p.get("fulltext") or "").lower()
+        if not abstract:
+            continue
+        ab_words = set(re.findall(r"[א-ת\w]{4,}", abstract))
+        overlap = len(claim_words & ab_words)
+        if overlap >= MIN_CLAIM_OVERLAP:
+            scored.append((overlap, p))
+    scored.sort(key=lambda x: -x[0])
+    return [p for _, p in scored[:n]]
+
+
 def _match_citation(cite: dict, papers: list[dict]) -> dict | None:
     """
     Try to find a paper whose (surname, year) matches the citation.
@@ -222,7 +254,18 @@ def _build_verify_prompt(items: list[dict]) -> tuple[str, str]:
     Build a batched prompt asking Claude to judge each (paper, claim) pair.
     Returns (system, prompt).
     """
+    # ── Persona prefix (CrewAI pattern) ──
+    _persona = ""
+    try:
+        from obsidian_memory import get_backstory
+        bs = get_backstory("fact_checker")
+        if bs:
+            _persona = f"## Your persona\n\n{bs}\n\n---\n\n"
+    except Exception:
+        pass
+
     system = (
+        _persona +
         "You are a meticulous academic fact-checker. For each item, decide "
         "whether the paper's abstract actually supports the claim made in the "
         "article sentence. Be strict: if the abstract does not mention the "
@@ -248,26 +291,43 @@ def _build_verify_prompt(items: list[dict]) -> tuple[str, str]:
 
     lines = []
     for i, it in enumerate(items, start=1):
+        corrob_block = ""
+        for j, c in enumerate(it.get("corroborators", []), start=1):
+            corrob_block += (
+                f"  Corroborator {j}: {c.get('title','?')[:120]} ({c.get('year','?')})\n"
+                f"    Abstract: {(c.get('abstract') or '')[:600]}\n"
+            )
         lines.append(
             f"Item {i}:\n"
             f"  Citation: {it['citation']}\n"
-            f"  Paper title: {it['title']}\n"
-            f"  Paper authors: {it['authors']}\n"
-            f"  Paper year: {it['year']}\n"
-            f"  Paper abstract: {it['abstract']}\n"
+            f"  Primary paper title: {it['title']}\n"
+            f"  Primary authors: {it['authors']}\n"
+            f"  Primary year: {it['year']}\n"
+            f"  Primary abstract: {it['abstract']}\n"
+            f"{corrob_block if corrob_block else '  (no corroborator papers found in corpus)\n'}"
             f"  Claim sentence from article: {it['claim']}\n"
         )
     joined = "\n".join(lines)
 
     prompt = (
         f"{joined}\n"
-        "For each item, decide whether the paper actually supports the claim.\n"
+        "For each item, judge BOTH (a) whether the primary paper supports the claim,\n"
+        "AND (b) how many corroborator papers also support it (triangulation).\n"
         "Return a JSON array with one object per item, in the same order:\n"
-        '  [{"item": 1, "supports": "true"|"false"|"partial", "reason": "<one sentence>"}, ...]\n'
+        '  [{"item": 1, "supports": "true"|"false"|"partial",\n'
+        '    "corroborator_count": 0|1|2,\n'
+        '    "triangulation": "strong"|"supported"|"lone"|"contested"|"unsupported",\n'
+        '    "reason": "<one sentence>"}, ...]\n'
         "Rules:\n"
-        "  - 'true'    = abstract clearly supports the specific claim.\n"
-        "  - 'partial' = abstract is related but does not confirm the specific claim.\n"
-        "  - 'false'   = abstract contradicts the claim or is about something else.\n"
+        "  - supports: judgment on PRIMARY paper only (true/false/partial as before).\n"
+        "  - corroborator_count: how many of the listed corroborator abstracts ALSO\n"
+        "    support the claim (0 to N).\n"
+        "  - triangulation:\n"
+        "    * 'strong'      = primary supports AND ≥2 corroborators agree.\n"
+        "    * 'supported'   = primary supports AND ≥1 corroborator agrees.\n"
+        "    * 'lone'        = primary supports, but no corroborator does → flag as weak.\n"
+        "    * 'contested'   = primary supports but a corroborator CONTRADICTS.\n"
+        "    * 'unsupported' = primary does not support the claim (false/partial).\n"
         "Be concise. Return only the JSON array."
     )
     return system, prompt
@@ -296,6 +356,78 @@ def _verify_batch(items: list[dict]) -> list[dict]:
     if not isinstance(result, list):
         return []
     return result
+
+
+# ─────────────────────────────────────────────
+# Quick-check for Writer↔FactCheck conversation (AutoGen pattern)
+# ─────────────────────────────────────────────
+
+def quick_check(claim: str, papers: list[dict], max_budget: float = 0.15) -> dict:
+    """
+    Fast verdict on a single proposed claim, BEFORE Writer commits to writing it.
+    Looks for ≥1 paper in corpus whose abstract addresses the claim.
+
+    Returns: {"verdict": "supported"|"weak"|"unsupported", "evidence": "..."}
+
+    Used by Writer like:
+        from scratchpad import ask
+        from agent2_7_fact_checker import quick_check
+        verdict = ask("writer", "fact_checker", "claim_3",
+                      "X is correlated with Y in non-formal settings",
+                      handler_fn=lambda q: quick_check(q, papers)["verdict"])
+        if verdict == "unsupported":
+            soften_or_skip()
+
+    Cheap: only sends 1 claim + 3 most-relevant abstracts to Claude (~$0.05).
+    """
+    if not claim or not papers:
+        return {"verdict": "unsupported", "evidence": "no claim/papers"}
+
+    # Find top-3 most relevant papers by keyword overlap (no LLM)
+    claim_words = set(re.findall(r"[א-ת\w]{4,}", claim.lower()))
+    if not claim_words:
+        return {"verdict": "unsupported", "evidence": "claim too short to analyze"}
+    scored = []
+    for p in papers:
+        ab = (p.get("abstract") or p.get("fulltext") or "").lower()
+        if not ab:
+            continue
+        ab_words = set(re.findall(r"[א-ת\w]{4,}", ab))
+        overlap = len(claim_words & ab_words)
+        if overlap >= 2:
+            scored.append((overlap, p))
+    scored.sort(key=lambda x: -x[0])
+    top3 = [p for _, p in scored[:3]]
+    if not top3:
+        return {"verdict": "unsupported", "evidence": "no paper mentions any of the claim's key terms"}
+
+    # Ask Claude for a quick verdict
+    try:
+        from claude_cli import ask_claude_json
+        abstracts_block = "\n\n".join(
+            f"Paper {i+1}: {p.get('title','?')[:100]} ({p.get('year','?')})\n"
+            f"  Abstract: {(p.get('abstract') or '')[:600]}"
+            for i, p in enumerate(top3)
+        )
+        prompt = (
+            f"Claim: {claim[:400]}\n\n"
+            f"{abstracts_block}\n\n"
+            "Does the evidence support this claim?\n"
+            'Return JSON: {"verdict": "supported"|"weak"|"unsupported", "evidence": "<one sentence>"}\n'
+            "  - supported  = at least 2 abstracts back this claim.\n"
+            "  - weak       = 1 abstract is related but not conclusive.\n"
+            "  - unsupported = no abstract addresses the claim, or they contradict it."
+        )
+        result = ask_claude_json(prompt, max_budget=max_budget, timeout=90)
+        if isinstance(result, dict) and result.get("verdict"):
+            return {
+                "verdict":  result["verdict"],
+                "evidence": result.get("evidence", "")[:200],
+            }
+    except Exception as e:
+        return {"verdict": "weak", "evidence": f"check failed: {e}"}
+
+    return {"verdict": "weak", "evidence": "unclear"}
 
 
 # ─────────────────────────────────────────────
@@ -379,13 +511,24 @@ def run_fact_checker(article_path: Path, papers_files: list[Path]) -> dict:
         abstract = (paper.get("abstract") or paper.get("fulltext") or "").strip()
         if len(abstract) > 1500:
             abstract = abstract[:1500] + "..."
+        # Triangulation: find up to 2 corroborator papers from same corpus
+        corrob_papers = _find_corroborators(cite["sentence"], paper, papers)
+        corroborators = [
+            {
+                "title": (p.get("title") or "")[:150],
+                "year":  p.get("year"),
+                "abstract": (p.get("abstract") or "")[:800],
+            }
+            for p in corrob_papers
+        ]
         to_verify.append({
-            "citation": cite["raw"],
-            "claim": cite["sentence"],
-            "title": (paper.get("title") or "")[:200],
-            "authors": str(paper.get("authors") or "")[:200],
-            "year": paper.get("year"),
-            "abstract": abstract or "(no abstract available)",
+            "citation":     cite["raw"],
+            "claim":        cite["sentence"],
+            "title":        (paper.get("title") or "")[:200],
+            "authors":      str(paper.get("authors") or "")[:200],
+            "year":         paper.get("year"),
+            "abstract":     abstract or "(no abstract available)",
+            "corroborators": corroborators,
         })
 
     if orphan_count:
@@ -397,6 +540,9 @@ def run_fact_checker(article_path: Path, papers_files: list[Path]) -> dict:
         print(f"  [FactCheck] Sampling {MAX_SAMPLE} of {len(to_verify)} matched citations for verification")
 
     verified_count = 0
+    triangulation_tally = {"strong": 0, "supported": 0, "lone": 0, "contested": 0, "unsupported": 0}
+    weak_claims: list[dict] = []  # primary supports but no corroborator → flagged
+    contested_claims: list[dict] = []  # primary supports but corroborator contradicts
     results = _verify_batch(sample)
     for i, item in enumerate(sample, start=1):
         # Find corresponding result
@@ -408,15 +554,40 @@ def run_fact_checker(article_path: Path, papers_files: list[Path]) -> dict:
             continue
         verdict = str(r.get("supports", "")).strip().lower()
         reason = str(r.get("reason", "")).strip() or "(no reason given)"
+        triang = str(r.get("triangulation", "")).strip().lower()
+        if triang in triangulation_tally:
+            triangulation_tally[triang] += 1
         if verdict == "true":
             verified_count += 1
+            if triang == "lone":
+                weak_claims.append({
+                    "citation": item["citation"],
+                    "claim":    item["claim"],
+                    "reason":   f"lone source — only the cited paper supports this; no corroborator found",
+                })
+            elif triang == "contested":
+                contested_claims.append({
+                    "citation": item["citation"],
+                    "claim":    item["claim"],
+                    "reason":   f"contested — primary supports, but corroborator contradicts: {reason}",
+                })
         elif verdict in ("false", "partial"):
             suspicious.append({
                 "citation": item["citation"],
-                "claim": item["claim"],
-                "reason": f"{verdict}: {reason}",
+                "claim":    item["claim"],
+                "reason":   f"{verdict}: {reason}",
             })
         # Unknown verdicts count as neither verified nor suspicious
+
+    if any(triangulation_tally.values()):
+        t = triangulation_tally
+        print(f"  [FactCheck] Triangulation: "
+              f"strong={t['strong']} · supported={t['supported']} · "
+              f"lone={t['lone']} · contested={t['contested']}")
+    if weak_claims:
+        print(f"  [FactCheck] {len(weak_claims)} lone-source claim(s) — consider hedging")
+    if contested_claims:
+        print(f"  [FactCheck] ⚠️ {len(contested_claims)} contested claim(s) — review carefully")
 
     # Assume un-sampled matched citations are verified (already corpus-matched)
     implicit_verified = max(0, len(to_verify) - len(sample))
@@ -451,6 +622,9 @@ def run_fact_checker(article_path: Path, papers_files: list[Path]) -> dict:
         "total_citations": total,
         "verified": verified_total,
         "suspicious": suspicious,
+        "triangulation": triangulation_tally,
+        "weak_claims": weak_claims,
+        "contested_claims": contested_claims,
         "corrected_article": None,
     }
 

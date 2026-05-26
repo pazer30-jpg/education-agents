@@ -520,6 +520,14 @@ ANSWERS (use in Discussion):
         print(f"  [Agent2] ⚠️ Outline failed ({e}) — proceeding without")
         outline_block = ""
 
+    # ── Persona: load backstory for this agent (CrewAI pattern) ──
+    try:
+        from obsidian_memory import get_backstory
+        _backstory = get_backstory("writer")
+    except Exception:
+        _backstory = ""
+    persona_block = f"## Your persona\n\n{_backstory}\n\n---\n\n" if _backstory else ""
+
     # ── Obsidian memory injection ──
     memory_block = _obsidian_memory_for_prompt([
         "academic_writing_apa7",
@@ -528,6 +536,7 @@ ANSWERS (use in Discussion):
         "recurring_sources",
         "humanize_rules",
     ], max_chars_per_note=1200)
+    memory_block = persona_block + memory_block
 
     # ── Scratchpad: retry hints + cross-agent warnings ──
     scratchpad_block = ""
