@@ -257,8 +257,12 @@ def run_pdf_reader(papers_file: Path) -> Path:
 
         time.sleep(0.5)  # נימוס לשרתים
 
-    # שמירה
-    enriched_name = papers_file.stem.replace("_papers", "") + "_enriched.json"
+    # שמירה — strip BOTH "_papers" and any trailing "_enriched" suffixes so
+    # rerunning on an already-enriched file doesn't grow "_enriched_enriched_..."
+    base = papers_file.stem.replace("_papers", "")
+    while base.endswith("_enriched"):
+        base = base[:-len("_enriched")]
+    enriched_name = base + "_enriched.json"
     enriched_path = PAPERS_DIR / enriched_name
     output = {
         "topic":       topic,

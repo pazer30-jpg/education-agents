@@ -31,6 +31,12 @@ _HEBREW_STOPWORDS = {
     "של", "את", "על", "עם", "אל", "מן", "כדי", "אם", "כן", "לא", "זה",
     "האם", "מה", "איך", "למה", "מדוע", "מתי", "איפה", "מי",
     "תחת", "אילו", "תנאים", "ההבדל", "בין", "ל", "ה", "ו", "ב", "כ", "מ",
+    # WH-words and adverbs that look like prefixed nouns but aren't
+    "כיצד", "כיוון", "כפי", "כמו", "כך", "באיזו", "באילו", "באיזה",
+    "מהן", "מהם", "מהי", "מהו", "ובמה", "מאילו", "ומה",
+    # binyan-prefixed verbs that get incorrectly lemmatized
+    "מוסברת", "מוסבר", "מוסברים", "מוסברות",
+    "מנוסחת", "מנוסח", "מתרגמים", "מתורגמים",
 }
 _ENGLISH_STOPWORDS = {
     "the", "a", "an", "of", "in", "on", "at", "to", "for", "with",
@@ -74,8 +80,11 @@ _HE_EN_CONCEPT_MAP = {
 
 
 def _to_lemma(token: str) -> str:
-    """Strip common Hebrew prefixes (ב, מ, ל, ה, ו, כ, ש)."""
-    if len(token) > 3 and token[0] in "בלמהוכש":
+    """Strip common Hebrew prefixes (ב, מ, ל, ה, ו, כ, ש).
+    Only for words ≥5 chars — shorter words like 'כיצד', 'מאיר' are usually
+    whole words, not prefixed nouns. Stripping them creates false 'missing
+    concepts' like 'יצד' or 'איר'."""
+    if len(token) >= 5 and token[0] in "בלמהוכש":
         return token[1:]
     return token
 

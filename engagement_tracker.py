@@ -38,6 +38,64 @@ POSTS_DIRS = {
     "blog":     OUTPUT_DIR / "posts" / "blog",
 }
 
+PUBLISH_QUEUE = OUTPUT_DIR / "_state" / "publish_queue.json"
+
+
+def _load_publish_queue() -> dict:
+    if not PUBLISH_QUEUE.exists():
+        return {}
+    try:
+        return json.loads(PUBLISH_QUEUE.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+
+
+def _save_publish_queue(q: dict):
+    PUBLISH_QUEUE.parent.mkdir(parents=True, exist_ok=True)
+    PUBLISH_QUEUE.write_text(json.dumps(q, ensure_ascii=False, indent=2),
+                             encoding="utf-8")
+
+
+def _update_queue_engagement(post_path: Path, likes: int, comments: int,
+                             shares: int = 0) -> bool:
+    """If post is in publish_queue, write engagement back. Returns True if updated."""
+    q = _load_publish_queue()
+    target = str(post_path)
+    for token, entry in q.items():
+        if entry.get("file") == target:
+            entry["engagement"] = {
+                "likes": likes, "comments": comments, "shares": shares,
+                "recorded_at": datetime.now().isoformat(timespec="seconds"),
+            }
+            _save_publish_queue(q)
+            return True
+    return False
+
+
+def _pending_engagement_posts() -> list[dict]:
+    """Posts that were published (in queue) but engagement not yet recorded."""
+    q = _load_publish_queue()
+    out = []
+    for token, entry in q.items():
+        if not entry.get("published_at"):
+            continue
+        if entry.get("engagement"):
+            continue
+        path = Path(entry.get("file", ""))
+        if not path.exists():
+            continue
+        out.append({
+            "platform": entry.get("platform", "?"),
+            "path":     path,
+            "title":    _extract_title(path) if path.exists() else path.stem,
+            "mtime":    path.stat().st_mtime if path.exists() else 0,
+            "token":    token,
+            "published_at": entry.get("published_at"),
+        })
+    # Oldest published first (so 48h-old posts surface first)
+    out.sort(key=lambda x: x["published_at"])
+    return out
+
 
 # ─────────────────────────────────────────────
 # Find recent posts
@@ -130,6 +188,9 @@ def interactive():
                 if data:
                     data[-1].setdefault("metrics", {})["shares"] = int(shares)
                     _save_perf(data)
+            # ── Close the publish-queue loop: write engagement back to publish_queue.json ──
+            if _update_queue_engagement(post["path"], int(likes), int(comments), int(shares)):
+                print(f"   🔄 publish_queue עודכן (loop סגור)")
             updated += 1
             print(f"   ✅ נשמר\n")
         except ValueError:
@@ -268,10 +329,57 @@ def build_engagement_report() -> Path:
 # CLI
 # ─────────────────────────────────────────────
 
+def interactive_from_queue():
+    """Walk only posts already in publish_queue but missing engagement data."""
+    posts = _pending_engagement_posts()
+    if not posts:
+        print("  ℹ️ אין פוסטים מפורסמים עם engagement חסר.")
+        print("  💡 הפעל פעם ראשונה: `python3 mark_published.py <token>` אחרי פרסום ידני.")
+        return
+    print(f"\n📊 Engagement (from publish_queue) — {len(posts)} פוסטים מפורסמים בהמתנה")
+    print("   הזן מספרים אמיתיים מ-LinkedIn. Enter ריק = דלג.\n")
+    updated = 0
+    for i, post in enumerate(posts, 1):
+        pub = post["published_at"][:16].replace("T", " ")
+        print(f"[{i}/{len(posts)}] {post['platform']} · token {post['token']} · פורסם {pub}")
+        print(f"    {post['title'][:60]}")
+        try:
+            likes = input("   👍 לייקים (Enter=דלג): ").strip()
+            if not likes:
+                print("   ⏭  דולג\n")
+                continue
+            comments = input("   💬 תגובות: ").strip() or "0"
+            shares = input("   🔁 שיתופים: ").strip() or "0"
+        except (EOFError, KeyboardInterrupt):
+            print("\n  עצירה.")
+            break
+        try:
+            if add_entry_quick:
+                add_entry_quick(
+                    platform=post["platform"], title=post["title"],
+                    likes=int(likes), comments=int(comments), what_worked="",
+                )
+                data = _load_perf()
+                if data:
+                    data[-1].setdefault("metrics", {})["shares"] = int(shares)
+                    _save_perf(data)
+            _update_queue_engagement(post["path"], int(likes), int(comments), int(shares))
+            updated += 1
+            print(f"   ✅ נשמר + queue עודכן\n")
+        except ValueError:
+            print(f"   ⚠️ מספר לא תקין — דולג\n")
+    print(f"\n✅ {updated} פוסטים עודכנו.")
+    if updated:
+        build_engagement_report()
+
+
 def main():
     if "--report" in sys.argv:
         path = build_engagement_report()
         print(f"✅ {path.relative_to(OUTPUT_DIR.parent)}")
+        return
+    if "--from-queue" in sys.argv:
+        interactive_from_queue()
         return
     if "--batch" in sys.argv:
         idx = sys.argv.index("--batch")

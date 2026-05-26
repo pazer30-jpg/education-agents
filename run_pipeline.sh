@@ -115,6 +115,12 @@ if [ $STATUS -eq 0 ]; then
     # ── Agent 8 — Publisher: daily digest of top ready posts to Telegram ──
     /Library/Frameworks/Python.framework/Versions/3.13/bin/python3 agent8_publisher.py 2>&1 | tail -2 || true
 
+    # ── Agent 10 — Weekly Curator: ranks queue by predicted performance ──
+    /Library/Frameworks/Python.framework/Versions/3.13/bin/python3 agent10_curator.py 2>&1 | tail -2 || true
+
+    # ── Dedup checker: flag duplicate articles / paragraphs / hooks / over-cited refs ──
+    /Library/Frameworks/Python.framework/Versions/3.13/bin/python3 dedup_checker.py 2>&1 | tail -1 || true
+
     # ── Failure analysis + performance learning (free, runs on existing data) ──
     /Library/Frameworks/Python.framework/Versions/3.13/bin/python3 failure_analyzer.py 2>&1 | tail -2 || true
     /Library/Frameworks/Python.framework/Versions/3.13/bin/python3 performance_learner.py 2>&1 | tail -2 || true
