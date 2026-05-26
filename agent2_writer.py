@@ -11,7 +11,7 @@ from docx import Document
 from docx.shared import Pt, Inches, RGBColor
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from config import ARTICLES_DIR
-from claude_cli import ask_claude
+from claude_cli import ask_claude, ask_claude_json
 
 try:
     from obsidian_memory import format_for_prompt as _obsidian_memory_for_prompt
