@@ -1818,6 +1818,20 @@ def _print_usage():
 if __name__ == "__main__":
     args = sys.argv
 
+    # ── Single-instance lock (skip for --chat / --status / --help only) ──
+    _NO_LOCK_FLAGS = {"--chat", "--status", "--help", "-h"}
+    if not any(f in args for f in _NO_LOCK_FLAGS):
+        try:
+            from pipeline_lock import acquire as _lock_acquire, status as _lock_status
+            if not _lock_acquire(blocking=False):
+                st = _lock_status()
+                print(f"  ⏸  pipeline already running — pid={st.get('pid')} "
+                      f"age={st.get('age_min')}min")
+                print(f"     (release if stale: python3 pipeline_lock.py --force-release)")
+                sys.exit(0)
+        except Exception as _e:
+            print(f"  ⚠️ lock check skipped: {_e}")
+
     # ── Interactive / pipeline ──────────────────────
     if "--chat" in args:
         run_chat(auto="--auto" in args)

@@ -821,19 +821,37 @@ def _search_all_sources(queries: list[str]) -> tuple[list[dict], dict]:
         "PubMed": _search_pubmed,
     }
 
-    print(f"  [Agent1] Searching {len(source_funcs)} sources in parallel...")
+    # ── Filter out degraded sources (source_health: <30% success over 7d) ──
+    try:
+        from source_health import should_skip as _sh_should_skip, record as _sh_record
+    except Exception:
+        _sh_should_skip = lambda _s: (False, "no health tracker")
+        _sh_record = lambda *a, **k: None
+
+    active_funcs = {}
+    for name, fn in source_funcs.items():
+        skip, reason = _sh_should_skip(name)
+        if skip:
+            print(f"  [Agent1] ⏭  {name} skipped — {reason}")
+        else:
+            active_funcs[name] = fn
+
+    print(f"  [Agent1] Searching {len(active_funcs)} sources in parallel "
+          f"({len(source_funcs) - len(active_funcs)} skipped)...")
     with ThreadPoolExecutor(max_workers=8) as executor:
         futures = {
             executor.submit(fn): name
-            for name, fn in source_funcs.items()
+            for name, fn in active_funcs.items()
         }
         for future in as_completed(futures):
             source_name = futures[future]
             try:
                 future.result()
                 print(f"  [Agent1] ✅ {source_name} done")
+                _sh_record(source_name, True)
             except Exception as e:
                 print(f"  [Agent1] ⚠️ {source_name} failed: {e}")
+                _sh_record(source_name, False, str(e)[:120])
 
     # ── Unpaywall: find PDFs for papers with DOI (sequential, after all sources) ──
     papers_with_doi = [p for p in all_papers if p.get("url") and "doi.org" in p.get("url", "") and not p.get("pdf_url")]

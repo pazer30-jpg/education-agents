@@ -48,8 +48,26 @@ else
     echo "  venv: not found (using system python)"
 fi
 
-# ── full health gate (7 checks: compile, imports, CLI, calendar, disk, locks, memory) ──
 cd "$SCRIPT_DIR"
+
+# ── Single-instance lock: prevent two pipelines fighting over CLI ──
+LOCK_OK=$(/Library/Frameworks/Python.framework/Versions/3.13/bin/python3 -c "
+from pipeline_lock import is_locked, status
+locked, data = is_locked()
+if locked:
+    s = status()
+    print(f'BLOCKED:pid={s[\"pid\"]} age={s[\"age_min\"]}m')
+else:
+    print('FREE')
+" 2>&1)
+if [[ "$LOCK_OK" == BLOCKED:* ]]; then
+    echo "  ⏸  pipeline already running — $LOCK_OK"
+    echo "     (release manually if stale: python3 pipeline_lock.py --force-release)"
+    exit 0
+fi
+echo "  🔓 lock available"
+
+# ── full health gate (7 checks: compile, imports, CLI, calendar, disk, locks, memory) ──
 /Library/Frameworks/Python.framework/Versions/3.13/bin/python3 test_health_gate.py --quiet
 HEALTH=$?
 if [ $HEALTH -ne 0 ]; then
@@ -120,6 +138,9 @@ if [ $STATUS -eq 0 ]; then
 
     # ── Dedup checker: flag duplicate articles / paragraphs / hooks / over-cited refs ──
     /Library/Frameworks/Python.framework/Versions/3.13/bin/python3 dedup_checker.py 2>&1 | tail -1 || true
+
+    # ── Memory snapshots: daily versioning of _memory/*.md for diff/audit ──
+    /Library/Frameworks/Python.framework/Versions/3.13/bin/python3 memory_snapshots.py 2>&1 | tail -1 || true
 
     # ── Failure analysis + performance learning (free, runs on existing data) ──
     /Library/Frameworks/Python.framework/Versions/3.13/bin/python3 failure_analyzer.py 2>&1 | tail -2 || true
