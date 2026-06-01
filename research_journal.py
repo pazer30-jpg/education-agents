@@ -183,7 +183,10 @@ def synthesize_entry(ctx: dict) -> str:
 
     prompt = _JOURNAL_PROMPT.format(run_data=run_data) + context_section
     try:
-        return ask_claude(prompt, max_budget=0.4, timeout=180).strip()
+        # Journal is post-pipeline + has structured fallback — one attempt only.
+        # 3× 180s retries cost ~10 min for a fully-optional narrative entry.
+        return ask_claude(prompt, max_budget=0.4, timeout=180,
+                          max_retries=1).strip()
     except Exception as e:
         print(f"  [Journal] synthesis failed ({e}) — using structured fallback")
         return _fallback_entry(ctx)

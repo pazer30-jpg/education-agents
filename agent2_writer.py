@@ -704,7 +704,10 @@ Article to review:
             print(f"  [Agent2] ⏭  Self-review skipped — already at {elapsed_so_far/60:.1f} min")
         else:
             try:
-                reviewed = ask_claude(review_prompt, max_budget=1.5, timeout=600)
+                # Self-review is optional polish — same retry-budget logic as HE:
+                # if it fails, we keep the already-saved article. max_retries=1.
+                reviewed = ask_claude(review_prompt, max_budget=1.5,
+                                      timeout=400, max_retries=1)
                 if reviewed and len(reviewed) > len(article_en) * 0.7:
                     title_en, content_en = _split_title(reviewed, title_en)
                     print("  [Agent2] Self-review applied")
@@ -734,13 +737,20 @@ Article to review:
     def _translate_task():
         if not bilingual:
             return None
-        # Skip Hebrew translation if cumulative time critical (>22 min)
+        # Skip Hebrew translation if cumulative time critical (>18 min).
+        # Tightened from 22 to 18: at 22 min we have 8 min left in step_timeout,
+        # but HE translation alone can burn 12+ min on its own retries.
         elapsed_now = _time.time() - _writer_start
-        if elapsed_now > 22 * 60:
+        if elapsed_now > 18 * 60:
             print(f"  [Agent2] ⏭  HE translation skipped — already at {elapsed_now/60:.1f} min")
             return None
         try:
-            return ask_claude(prompt_he, system=system_he, max_budget=2.5, timeout=700)
+            # HE translation is optional & expensive on failure (3× 700s = 35 min).
+            # timeout=400s is plenty for translating an existing article (it's
+            # a smaller task than authoring). max_retries=1 prevents the
+            # CLI-retry-cascade that ate today's pipeline.
+            return ask_claude(prompt_he, system=system_he,
+                              max_budget=2.5, timeout=400, max_retries=1)
         except Exception as e:
             print(f"  [Agent2] HE translation failed: {e}")
             return None
