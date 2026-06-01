@@ -433,19 +433,44 @@ def _repair_truncated_json(raw: str) -> dict | list | None:
 # API fallback
 # ─────────────────────────────────────────────
 
-def _load_dotenv_key() -> str | None:
-    """Search for ANTHROPIC_API_KEY in .env files (project dir, home dir, ~/.claude/)."""
+def _load_dotenv_into_environ() -> None:
+    """
+    Load .env into os.environ (idempotent — won't overwrite already-set vars).
+    Reads: project/.env, ~/.env, ~/.claude/.env in order.
+
+    Without this, MOKI_DAILY_BUDGET=75 in .env was silently ignored — cron
+    shells don't inherit user shell env, so the file values never reached
+    Python. Triggered today's 'Daily budget cap $52.70/50.00' surprise.
+    """
     for env_path in [
         Path(__file__).parent / ".env",
         Path.home() / ".env",
         Path.home() / ".claude" / ".env",
     ]:
-        if env_path.exists():
+        if not env_path.exists():
+            continue
+        try:
             for line in env_path.read_text().splitlines():
                 line = line.strip()
-                if line.startswith("ANTHROPIC_API_KEY="):
-                    return line.split("=", 1)[1].strip().strip('"').strip("'")
-    return None
+                if not line or line.startswith("#") or "=" not in line:
+                    continue
+                key, value = line.split("=", 1)
+                key = key.strip()
+                value = value.strip().strip('"').strip("'")
+                # Don't clobber values already in env (shell-set wins over .env)
+                if key and key not in _os.environ:
+                    _os.environ[key] = value
+        except Exception:
+            pass
+
+
+# Load .env at module import — must run BEFORE _daily_cap_usd is called.
+_load_dotenv_into_environ()
+
+
+def _load_dotenv_key() -> str | None:
+    """Backwards-compat: return ANTHROPIC_API_KEY (now via os.environ after autoload)."""
+    return _os.environ.get("ANTHROPIC_API_KEY") or None
 
 
 def has_api_key() -> bool:
