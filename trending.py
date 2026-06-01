@@ -96,7 +96,7 @@ def _fetch_hn(days: int, limit: int = 5) -> list[dict]:
     )
     raw = _http_get(url, accept="application/json")
     if not raw:
-        return []
+        raise RuntimeError("HackerNews HTTP fetch failed")
     try:
         data = json.loads(raw.decode("utf-8", errors="replace"))
     except (json.JSONDecodeError, UnicodeDecodeError) as e:
@@ -136,7 +136,8 @@ def _fetch_reddit(limit: int = 5) -> list[dict]:
     url = "https://www.reddit.com/r/education/top.json?t=week&limit=10"
     raw = _http_get(url, accept="application/json")
     if not raw:
-        return []
+        # Surface to source_health (caller catches and records)
+        raise RuntimeError("Reddit HTTP fetch failed (blocked / network)")
     try:
         data = json.loads(raw.decode("utf-8", errors="replace"))
     except (json.JSONDecodeError, UnicodeDecodeError) as e:
@@ -182,7 +183,7 @@ def _fetch_arxiv(limit: int = 5) -> list[dict]:
     )
     raw = _http_get(url, accept="application/atom+xml")
     if not raw:
-        return []
+        raise RuntimeError("arXiv HTTP fetch failed")
     try:
         root = ET.fromstring(raw)
     except ET.ParseError as e:
@@ -286,18 +287,32 @@ def fetch_trending_topics(max_topics: int = 10, days: int = 7) -> list[dict]:
 
     all_items: list[dict] = []
 
+    # source_health integration — auto-skip sources that repeatedly fail
+    try:
+        from source_health import should_skip as _sh_should_skip, record as _sh_record
+    except Exception:
+        _sh_should_skip = lambda _s: (False, "no health tracker")
+        _sh_record = lambda *a, **k: None
+
     # Each source isolated — failure in one shouldn't kill the others.
     for fetcher_name, fetcher in (
-        ("hackernews", lambda: _fetch_hn(days=days, limit=5)),
-        ("reddit", lambda: _fetch_reddit(limit=5)),
-        ("arxiv", lambda: _fetch_arxiv(limit=5)),
+        ("trending_hn",     lambda: _fetch_hn(days=days, limit=5)),
+        ("trending_reddit", lambda: _fetch_reddit(limit=5)),
+        ("trending_arxiv",  lambda: _fetch_arxiv(limit=5)),
     ):
+        skip, reason = _sh_should_skip(fetcher_name)
+        if skip:
+            print(f"  [trending] ⏭  {fetcher_name} skipped — {reason}")
+            continue
         try:
             sourced = fetcher()
             all_items.extend(sourced)
             print(f"  [trending] {fetcher_name}: {len(sourced)} items")
+            # Treat "0 items" from an HTTP-OK source as soft success, not failure
+            _sh_record(fetcher_name, True)
         except Exception as e:
             print(f"  [trending] {fetcher_name} failed: {e}")
+            _sh_record(fetcher_name, False, str(e)[:120])
 
     # Sort by score across all sources, return top N.
     all_items.sort(key=lambda x: x.get("score", 0), reverse=True)

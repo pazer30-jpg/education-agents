@@ -7,6 +7,17 @@ venv/
 
 # Environment
 .env
+.env.bak
+.env.*.bak
+
+# OAuth secrets — never commit
+client_secret_*.json
+.blogger_articles_uploaded.json
+
+# Blogger upload — OAuth state + dedup tracking
+credentials.json
+.blogger_token.json
+.blogger_uploaded.json
 
 # Output (generated content — not code)
 output/papers/

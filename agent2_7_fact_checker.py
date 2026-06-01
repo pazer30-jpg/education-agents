@@ -69,6 +69,13 @@ _NARRATIVE_CITE = re.compile(
     r"\b([A-Z][A-Za-z\-']+(?:\s+(?:and|&|et\s+al\.?)\s+[A-Za-z\-']+)?)\s*\((\d{4})[a-z]?\)"
 )
 
+# Matches Obsidian wikilink citations: [[Turner 1969]] or [[Silberman-Keller 2003]]
+# or [[Madjar & Cohen-Malayev 2018]]. Writer switched to this format ~2026-05-26.
+# Capture: author blob (before the year), then 4-digit year.
+_WIKILINK_CITE = re.compile(
+    r"\[\[([^\[\]]{2,80}?)\s+(\d{4})[a-z]?\]\]"
+)
+
 
 def _extract_citations(text: str) -> list[dict]:
     """
@@ -86,6 +93,14 @@ def _extract_citations(text: str) -> list[dict]:
         })
 
     for m in _NARRATIVE_CITE.finditer(text):
+        found.append({
+            "author_blob": m.group(1).strip(),
+            "year": m.group(2).strip(),
+            "span": m.span(),
+            "raw": m.group(0),
+        })
+
+    for m in _WIKILINK_CITE.finditer(text):
         found.append({
             "author_blob": m.group(1).strip(),
             "year": m.group(2).strip(),

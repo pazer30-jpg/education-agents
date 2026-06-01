@@ -515,6 +515,55 @@ def _approve_proposal(proposal: dict, proposal_path: str, plan: dict,
     return {"approved": True, "reason": "User approved", "approver": "user"}
 
 
+def _detect_partial_success(agent: str, execution_state: dict) -> str:
+    """
+    When STEP_TIMEOUT fires but the worker thread may have already produced
+    output (Python can't preempt threads), check disk for evidence.
+    Returns a description of the saved artifact, or "" if nothing found.
+
+    Triggered by writer producing the .md file moments before a downstream
+    call crashes (saw this 2026-06-01: 47KB article saved, then pipeline
+    reported "writer hard timeout").
+    """
+    if agent == "writer":
+        # Look for files in articles/ younger than the step started
+        try:
+            from config import OUTPUT_DIR
+            arts = OUTPUT_DIR / "articles"
+            if not arts.exists():
+                return ""
+            # Anything modified in the last STEP_TIMEOUT seconds (worker may
+            # have finished within window even if outer wrapper gave up)
+            cutoff = time.time() - STEP_TIMEOUT
+            recent = [p for p in arts.glob("*.md")
+                      if p.stat().st_mtime >= cutoff and not p.name.endswith(".bak")]
+            if recent:
+                latest = max(recent, key=lambda p: p.stat().st_mtime)
+                execution_state["article_paths"] = {
+                    "md": str(latest),
+                    "docx": str(latest.with_suffix(".docx")),
+                }
+                return latest.name
+        except Exception:
+            return ""
+    if agent in ("content_linkedin", "content_blog", "content_podcast"):
+        platform = agent.replace("content_", "")
+        try:
+            from config import LINKEDIN_DIR, BLOG_DIR, PODCAST_DIR
+            d = {"linkedin": LINKEDIN_DIR, "blog": BLOG_DIR, "podcast": PODCAST_DIR}[platform]
+            if not d.exists():
+                return ""
+            cutoff = time.time() - STEP_TIMEOUT
+            recent = [p for p in d.glob("*") if p.is_file()
+                      and p.stat().st_mtime >= cutoff
+                      and not p.name.endswith(".bak")]
+            if recent:
+                return max(recent, key=lambda p: p.stat().st_mtime).name
+        except Exception:
+            return ""
+    return ""
+
+
 def _execute_step(step: dict, execution_state: dict) -> str:
     agent = step.get("agent")
     t0    = time.time()
@@ -1281,7 +1330,18 @@ def run_project_manager(request: str, auto_approve: bool = False) -> dict:
                 result = _future.result(timeout=30)
                 _ex.shutdown(wait=False)
             except _cf.TimeoutError:
-                result = f"❌ {agent} hard timeout — exceeded {STEP_TIMEOUT/60:.0f} min"
+                # Partial-success rescue: ThreadPoolExecutor can't actually kill
+                # a running thread, so the inner step may have produced output
+                # before the timeout fired (writer often saves the article in
+                # the last 10s before crashing on a downstream call). Check
+                # disk before declaring failure.
+                _partial = _detect_partial_success(agent, execution_state)
+                if _partial:
+                    result = (f"⚠️  {agent} hard timeout — אבל קובץ נשמר: "
+                              f"{_partial}. ממשיך עם תוצר חלקי.")
+                    print(f"  🟡 partial-success rescue: {agent} → {_partial}")
+                else:
+                    result = f"❌ {agent} hard timeout — exceeded {STEP_TIMEOUT/60:.0f} min"
                 _future.cancel()
                 try:
                     _ex.shutdown(wait=False, cancel_futures=True)
