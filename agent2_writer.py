@@ -350,6 +350,31 @@ Rules:
         slim_papers.append(slim)
     papers_json = json.dumps(slim_papers, ensure_ascii=False, indent=1)
 
+    # ── Citation whitelist: explicit (Surname, Year) pairs from corpus ──
+    # Today's article showed 27/39 orphan citations — Writer invented sources
+    # from LLM memory. Whitelist + strict rule forces grounding in corpus only.
+    citation_whitelist = []
+    seen_cite_keys = set()
+    for p in all_papers:
+        authors_raw = p.get("authors")
+        if isinstance(authors_raw, list) and authors_raw:
+            first_author = str(authors_raw[0])
+        elif isinstance(authors_raw, str):
+            first_author = authors_raw.split(",")[0].split(" and ")[0].split("&")[0]
+        else:
+            continue
+        # Extract surname (last word — works for "John Smith" → "Smith")
+        surname = first_author.strip().split()[-1] if first_author.strip() else ""
+        year = str(p.get("year") or "").strip()
+        if not surname or not year.isdigit():
+            continue
+        key = (surname.lower(), year)
+        if key in seen_cite_keys:
+            continue
+        seen_cite_keys.add(key)
+        citation_whitelist.append(f"({surname}, {year})")
+    whitelist_str = " · ".join(citation_whitelist[:80])  # cap to ~80 to bound tokens
+
     base = "_x_".join(t.replace(" ", "_").lower()[:20] for t in topics)[:60]
 
     # ── Phase 0: Generate outline first (cheap sanity check) ──
@@ -594,6 +619,27 @@ Write a COMPLETE synthesized academic review article — ALL sections, in order:
 
 ## References
 (APA 7 — ONLY papers actually cited in the text, alphabetical)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🛑 CITATION RULES — STRICT (broken on 2026-06-01: 27/39 orphan citations)
+
+1. CITATION FORMAT: Use APA parenthetical "(Surname, Year)" ONLY.
+   Do NOT use Obsidian wikilinks like [[Turner 1969]] — those break our
+   fact-checker. Inside the article body, every citation must be (Author, Year).
+
+2. CITATION WHITELIST — you may ONLY cite from this list:
+{whitelist_str}
+
+3. NEVER invent or recall citations from memory. If a foundational concept
+   (e.g. Turner's liminality, Freire's critical pedagogy) is not on the
+   whitelist, DESCRIBE the concept without attribution rather than fabricate
+   a citation. Example: instead of writing "(Turner, 1969) called this
+   liminality", write "the concept of liminality — a threshold state
+   between defined social positions — frames our analysis."
+
+4. The References section at the end must contain ONLY entries whose
+   (Surname, Year) appears in the body. No phantom references.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 Target: ~3,500 words total. Every paragraph needs at least one (Author, Year) citation.
 The article argues ONE central thesis connecting all {len(topics)} topics.
