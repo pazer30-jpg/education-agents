@@ -50,6 +50,7 @@ output/moki*.log
 output/seminar_*.log
 output/thesis_*.log
 output/launchd_*.log
+output/logs/
 
 # Output: generated data files
 output/dashboard.html

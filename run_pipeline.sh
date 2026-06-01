@@ -142,6 +142,9 @@ if [ $STATUS -eq 0 ]; then
     # ── Memory snapshots: daily versioning of _memory/*.md for diff/audit ──
     /Library/Frameworks/Python.framework/Versions/3.13/bin/python3 memory_snapshots.py 2>&1 | tail -1 || true
 
+    # ── Log router: split cron log into namespaced files (Vercel Workflow pattern) ──
+    /Library/Frameworks/Python.framework/Versions/3.13/bin/python3 log_router.py 2>&1 | tail -2 || true
+
     # ── Failure analysis + performance learning (free, runs on existing data) ──
     /Library/Frameworks/Python.framework/Versions/3.13/bin/python3 failure_analyzer.py 2>&1 | tail -2 || true
     /Library/Frameworks/Python.framework/Versions/3.13/bin/python3 performance_learner.py 2>&1 | tail -2 || true
