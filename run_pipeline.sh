@@ -84,23 +84,61 @@ if [ $PERF -eq 2 ]; then
     exit 1
 fi
 
+# ── External watchdog (macOS has no `timeout` binary) ────────────────
+# Yesterday's run hung 13.7h despite a Python daemon-thread watchdog and
+# STEP_TIMEOUT=30min. The thread-level safeguards proved insufficient
+# (worker threads can't be killed, subprocesses can hold open fds).
+# Last resort: a bash sleep+kill that runs OUTSIDE Python.
+HARD_KILL_MINUTES=120                          # 2h ceiling — generous, but real
+PIPELINE_PID=""
+HARDKILL_PID=""
+
+_start_hardkill() {
+    (
+        sleep $((HARD_KILL_MINUTES * 60))
+        if [ -n "$PIPELINE_PID" ] && kill -0 "$PIPELINE_PID" 2>/dev/null; then
+            echo "" >&2
+            echo "  🛑 HARD KILL: pipeline exceeded ${HARD_KILL_MINUTES}min — killing PID $PIPELINE_PID and children" >&2
+            # Kill the whole process group (Python + any subprocess.run children)
+            kill -TERM -"$PIPELINE_PID" 2>/dev/null || kill -TERM "$PIPELINE_PID" 2>/dev/null
+            sleep 5
+            kill -KILL -"$PIPELINE_PID" 2>/dev/null || kill -KILL "$PIPELINE_PID" 2>/dev/null
+        fi
+    ) &
+    HARDKILL_PID=$!
+}
+
+_cancel_hardkill() {
+    [ -n "$HARDKILL_PID" ] && kill "$HARDKILL_PID" 2>/dev/null
+}
+
 # ── run ───────────────────────────────────────────
 case $MODE in
     research)
-        echo "  📚 Full pipeline: research + LinkedIn + Blog + images"
+        echo "  📚 Full pipeline: research + LinkedIn + Blog + images (hard-kill at ${HARD_KILL_MINUTES}min)"
         /Library/Frameworks/Python.framework/Versions/3.13/bin/python3 agent5_project_manager.py \
             "הרץ הכל — מחקר חדש, פוסט LinkedIn ומאמר בלוג. תוכן: linkedin blog" \
-            --auto
+            --auto &
+        PIPELINE_PID=$!
+        _start_hardkill
+        wait $PIPELINE_PID
+        STATUS=$?
+        _cancel_hardkill
         ;;
     podcast)
-        echo "  🎙️  Podcast from existing material + image"
+        echo "  🎙️  Podcast from existing material + image (hard-kill at ${HARD_KILL_MINUTES}min)"
         /Library/Frameworks/Python.framework/Versions/3.13/bin/python3 agent5_project_manager.py \
             "צור פרק פודקאסט ממאמר קיים. תוכן: podcast" \
-            --auto
+            --auto &
+        PIPELINE_PID=$!
+        _start_hardkill
+        wait $PIPELINE_PID
+        STATUS=$?
+        _cancel_hardkill
         ;;
 esac
 
-STATUS=$?
+# STATUS already set inside the case
 
 if [ $STATUS -eq 0 ]; then
     echo ""
