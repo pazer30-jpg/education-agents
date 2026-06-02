@@ -31,17 +31,32 @@ from claude_cli import ask_claude_json
 _source_health: dict[str, dict] = {}
 
 def _track(source: str, results: list, error: str = ""):
-    _source_health[source] = {"count": len(results), "ok": len(results) > 0, "error": error}
+    """Track per-source outcome. Distinguish:
+       - success (got results)
+       - empty (no matches — normal for off-topic databases like PubMed for humanities)
+       - error (actual HTTP/parse failure — caller passes error="…")"""
+    count = len(results) if results else 0
+    if error:
+        status = "error"
+    elif count > 0:
+        status = "ok"
+    else:
+        status = "empty"
+    _source_health[source] = {"count": count, "status": status, "error": error}
 
 def _health_report() -> str:
     if not _source_health:
         return ""
-    working = [s for s, h in _source_health.items() if h["ok"]]
-    failed  = [s for s, h in _source_health.items() if not h["ok"]]
+    working = [s for s, h in _source_health.items() if h["status"] == "ok"]
+    empty   = [s for s, h in _source_health.items() if h["status"] == "empty"]
+    errored = [s for s, h in _source_health.items() if h["status"] == "error"]
     total   = sum(h["count"] for h in _source_health.values())
-    lines   = [f"  📡 מקורות: {len(working)} עבדו, {len(failed)} נכשלו | {total} תוצאות סה\"כ"]
-    if failed:
-        lines.append(f"  ⚠️  נכשלו: {', '.join(failed)}")
+    lines = [f"  📡 מקורות: {len(working)} עם תוצאות, {len(empty)} ריקים, "
+             f"{len(errored)} שגיאות | {total} תוצאות סה\"כ"]
+    if errored:
+        lines.append(f"  ❌ שגיאות: {', '.join(errored)}")
+    if empty:
+        lines.append(f"  ◯ ריקים (לא בהכרח שבורים): {', '.join(empty)}")
     return "\n".join(lines)
 
 
