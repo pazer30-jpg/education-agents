@@ -497,53 +497,63 @@ def generate_dashboard() -> str:
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>מוקי · Operator</title>
 <style>
-/* ─── Design tokens — slate-based OLED dark (UI/UX Pro Max) ─── */
+/* ─── Design tokens — Notion-Calm (warm light · paper-inspired) ─── */
+@import url('https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
 :root {{
-  --bg:#020617;          /* slate-950 */
-  --surface:#0b1222;     /* deep panel */
-  --card:#0f172a;        /* slate-900 */
-  --card2:#1e293b;       /* slate-800 */
-  --border:#1e293b;      /* slate-800 */
-  --border-lite:#334155; /* slate-700 */
-  --t:#e2e8f0;           /* slate-200 — body */
-  --td:#94a3b8;          /* slate-400 — muted */
-  --tb:#f8fafc;          /* slate-50 — bright */
-  --tdim:#64748b;        /* slate-500 — dim */
-  --purple:#a78bfa;      /* brand accent */
-  --purple-dim:#312a55;
-  --green:#22c55e;       /* positive */
-  --green-dim:#0d2c1a;
-  --yellow:#eab308;
-  --yellow-dim:#352c0a;
-  --red:#ef4444;
-  --red-dim:#3a1418;
-  --blue:#3b82f6;
-  --shadow:0 1px 3px rgba(0,0,0,0.4), 0 8px 24px rgba(0,0,0,0.25);
-  --radius:14px;
-  --mono: 'JetBrains Mono','SF Mono',Menlo,Consolas,monospace;
-  --sans: 'Inter',-apple-system,'Segoe UI',system-ui,sans-serif;
+  /* Surfaces — warm off-whites (Notion's signature) */
+  --bg:#FFFFFF;                   /* primary page background */
+  --surface:#FBFAF7;              /* warm second layer */
+  --card:#F7F6F3;                 /* Notion's gray-50 (warm tint) */
+  --card2:#EFEEEB;                /* hover state */
+  --border:rgba(55,53,47,0.09);   /* Notion's signature hairline */
+  --border-lite:rgba(55,53,47,0.16);
+
+  /* Text — warm neutrals (not pure black) */
+  --t:#37352F;                    /* Notion's body text */
+  --td:#787774;                   /* muted */
+  --tb:#1F1E1B;                   /* near-black for headings */
+  --tdim:#9B9A97;                 /* very muted */
+
+  /* Accents — Notion-like soft tones */
+  --purple:#6940A5;               /* deeper, less neon */
+  --purple-dim:#F4F0FA;
+  --green:#0F7B6C;                /* forest green, calm */
+  --green-dim:#EAF3F1;
+  --yellow:#CB912F;               /* honey, not neon */
+  --yellow-dim:#FBF3E1;
+  --red:#B91C1C;                  /* deeper red, less screaming */
+  --red-dim:#FCEEEC;
+  --blue:#2383E2;                 /* Notion's link blue */
+
+  /* Shadows — minimal, paper-like */
+  --shadow:0 1px 2px rgba(55,53,47,0.04), 0 4px 12px rgba(55,53,47,0.06);
+  --shadow-sm:0 1px 2px rgba(55,53,47,0.05);
+  --radius:6px;                   /* tighter than dark version */
+
+  /* Typography — editorial serif + clean sans */
+  --serif: 'Newsreader','Lyon Display',Georgia,'Times New Roman',serif;
+  --sans:  'Inter',-apple-system,'Segoe UI',system-ui,sans-serif;
+  --mono:  'JetBrains Mono','SF Mono',Menlo,Consolas,monospace;
 }}
 * {{ margin:0; padding:0; box-sizing:border-box; }}
 html {{ scroll-behavior:smooth; }}
 body {{
   font-family: var(--sans);
-  background:
-    radial-gradient(900px 500px at 85% -10%, rgba(167,139,250,0.07), transparent 70%),
-    radial-gradient(700px 400px at 0% 0%, rgba(34,197,94,0.04), transparent 60%),
-    var(--bg);
-  background-attachment: fixed;
+  background: var(--bg);
   color: var(--t);
-  font-size: 14px;
-  line-height: 1.6;
+  font-size: 15px;                /* slightly larger for reading comfort */
+  line-height: 1.65;
   min-height: 100vh;
   padding: 0;
   -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }}
-/* ─── Accessibility polish (UI/UX Pro Max checklist) ─── */
+/* ─── Accessibility polish ─── */
 *:focus-visible {{
-  outline: 2px solid var(--purple);
+  outline: 2px solid var(--blue);
   outline-offset: 2px;
-  border-radius: 4px;
+  border-radius: 3px;
 }}
 button, .tab, .card, [onclick] {{ cursor: pointer; }}
 @media (prefers-reduced-motion: reduce) {{
@@ -559,57 +569,62 @@ button, .tab, .card, [onclick] {{ cursor: pointer; }}
   display: grid;
   grid-template-columns: 1fr auto 1fr;
   align-items: center;
-  padding: 20px 32px;
-  font-family: var(--mono);
+  padding: 16px 32px;
+  font-family: var(--sans);
   font-size: 12px;
   color: var(--td);
+  border-bottom: 1px solid var(--border);
 }}
-.page-header .left {{ direction: ltr; text-align: left; }}
-.page-header .center {{ text-align: center; font-size: 12px; }}
-.page-header .right {{ display: flex; justify-content: flex-end; align-items: center; gap: 8px; }}
+.page-header .left {{ direction: ltr; text-align: left; font-family: var(--mono); font-size: 11px; }}
+.page-header .center {{ text-align: center; font-size: 12px; color: var(--td); }}
+.page-header .right {{ display: flex; justify-content: flex-end; align-items: center; gap: 10px; }}
 .page-header .right .op-tag {{
   background: var(--card);
   border: 1px solid var(--border);
-  padding: 4px 10px;
-  border-radius: 6px;
-  font-size: 11px;
+  padding: 3px 9px;
+  border-radius: 4px;
+  font-size: 10.5px;
   color: var(--td);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }}
 .page-header .right .brand {{
   color: var(--tb);
-  font-family: var(--sans);
-  font-weight: 700;
+  font-family: var(--serif);
+  font-weight: 500;
   font-size: 18px;
-  letter-spacing: -0.3px;
+  letter-spacing: -0.01em;
 }}
-.page-header .right .owl {{ font-size: 24px; }}
+.page-header .right .owl {{ font-size: 20px; }}
 
 /* ─── Tab navigation ─── */
 .tabs {{
   display: flex;
   justify-content: center;
   gap: 0;
-  padding: 0 32px 16px;
+  padding: 4px 32px 0;
   border-bottom: 1px solid var(--border);
-  margin-bottom: 24px;
+  margin-bottom: 0;
 }}
 .tab {{
   background: none;
   border: none;
   color: var(--td);
-  padding: 10px 22px;
+  padding: 11px 18px;
   cursor: pointer;
-  font-family: var(--mono);
-  font-size: 12px;
+  font-family: var(--sans);
+  font-size: 13px;
+  font-weight: 500;
   border-bottom: 2px solid transparent;
-  transition: color 0.2s ease, border-color 0.2s ease, background 0.2s ease;
-  border-radius: 8px 8px 0 0;
+  transition: color 0.15s ease, border-color 0.15s ease;
+  border-radius: 0;
 }}
-.tab:hover {{ color: var(--t); background: var(--card); }}
+.tab:hover {{ color: var(--tb); background: transparent; }}
 .tab.active {{
   color: var(--tb);
-  border-bottom-color: var(--purple);
-  background: var(--card);
+  border-bottom-color: var(--tb);
+  background: transparent;
+  font-weight: 600;
 }}
 
 /* ─── Container ─── */
@@ -623,92 +638,99 @@ button, .tab, .card, [onclick] {{ cursor: pointer; }}
 .page-divider {{ display: flex; align-items: center; gap: 12px; margin: 0 0 20px; color: var(--td); font-size: 11px; text-transform: uppercase; letter-spacing: 1.2px; font-weight: 700; }}
 .page-divider::before, .page-divider::after {{ content: ''; flex: 1; height: 1px; background: var(--border); }}
 .tabs {{ position: sticky; top: 0; z-index: 50; background: var(--bg); backdrop-filter: blur(8px); }}
-.pipe-strip {{ display: flex; align-items: center; justify-content: center; gap: 4px; flex-wrap: wrap; padding: 12px 16px; background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 16px; }}
-.pipe-strip .ps {{ padding: 4px 12px; background: var(--surface); border: 1px solid var(--border); border-radius: 14px; font-size: 11px; color: var(--t); }}
-.pipe-strip .ps-a {{ color: var(--tdim); font-size: 12px; padding: 0 2px; }}
-.last-run-card {{ display: grid; grid-template-columns: repeat(6, 1fr); gap: 1px; background: var(--border); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; margin: 16px 0; position: relative; }}
-.last-run-card.success {{ box-shadow: inset 4px 0 0 var(--green); }}
-.last-run-card.fail {{ box-shadow: inset 4px 0 0 var(--red); }}
-.last-run-card .lr {{ background: var(--card); padding: 14px 16px; }}
-.last-run-card .lr .lbl {{ font-size: 10px; color: var(--td); text-transform: uppercase; letter-spacing: .8px; font-weight: 600; }}
-.last-run-card .lr .vl {{ font-size: 18px; font-weight: 700; color: var(--tb); margin-top: 4px; }}
-.last-run-card .lr .vl.sm {{ font-size: 13px; font-weight: 600; }}
-@media (max-width: 900px) {{ .last-run-card {{ grid-template-columns: repeat(2, 1fr); }} }}
-.cheat-sheet {{ background: linear-gradient(180deg, var(--card) 0%, var(--surface) 100%); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px 24px; margin-top: 16px; }}
-.cheat-sheet h2 {{ font-size: 12px; font-weight: 700; color: var(--td); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 14px; }}
-.cheat-sheet .row {{ display: flex; align-items: center; gap: 12px; padding: 8px 0; border-bottom: 1px dashed var(--border); font-size: 13px; }}
+.pipe-strip {{ display: flex; align-items: center; justify-content: center; gap: 4px; flex-wrap: wrap; padding: 10px 16px; background: var(--card); border: none; border-radius: var(--radius); margin-bottom: 24px; }}
+.pipe-strip .ps {{ padding: 4px 11px; background: var(--bg); border: 1px solid var(--border); border-radius: 12px; font-size: 11.5px; color: var(--t); font-weight: 500; }}
+.pipe-strip .ps-a {{ color: var(--tdim); font-size: 11px; padding: 0 3px; }}
+.last-run-card {{ display: grid; grid-template-columns: repeat(6, 1fr); gap: 0; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; margin: 24px 0; position: relative; }}
+.last-run-card.success {{ box-shadow: inset 3px 0 0 var(--green); }}
+.last-run-card.fail {{ box-shadow: inset 3px 0 0 var(--red); }}
+.last-run-card .lr {{ background: var(--bg); padding: 14px 18px; border-right: 1px solid var(--border); }}
+.last-run-card .lr:last-child {{ border-right: none; }}
+.last-run-card .lr .lbl {{ font-size: 10.5px; color: var(--td); text-transform: uppercase; letter-spacing: 0.6px; font-weight: 500; }}
+.last-run-card .lr .vl {{ font-size: 18px; font-weight: 500; color: var(--tb); margin-top: 4px; font-family: var(--serif); }}
+.last-run-card .lr .vl.sm {{ font-size: 13px; font-weight: 500; font-family: var(--sans); }}
+@media (max-width: 900px) {{ .last-run-card {{ grid-template-columns: repeat(2, 1fr); }} .last-run-card .lr {{ border-right: none; border-bottom: 1px solid var(--border); }} }}
+.cheat-sheet {{ background: var(--card); border: none; border-radius: var(--radius); padding: 24px 28px; margin-top: 32px; }}
+.cheat-sheet h2 {{ font-family: var(--serif); font-size: 18px; font-weight: 500; color: var(--tb); text-transform: none; letter-spacing: -0.01em; margin-bottom: 18px; }}
+.cheat-sheet .row {{ display: flex; align-items: center; gap: 12px; padding: 9px 0; border-bottom: 1px solid var(--border); font-size: 13px; }}
 .cheat-sheet .row:last-child {{ border-bottom: none; }}
-.cheat-sheet .row b {{ color: var(--tb); font-weight: 600; min-width: 160px; }}
-.cheat-sheet .row code {{ background: var(--bg); padding: 4px 10px; border-radius: 6px; font-family: 'SF Mono', Menlo, monospace; font-size: 12px; color: var(--green); border: 1px solid var(--border); }}
+.cheat-sheet .row b {{ color: var(--tb); font-weight: 500; min-width: 160px; }}
+.cheat-sheet .row code {{ background: var(--bg); padding: 3px 8px; border-radius: 4px; font-family: var(--mono); font-size: 12px; color: var(--purple); border: 1px solid var(--border); }}
 
-/* ─── Hero section ─── */
+/* ─── Hero section (Notion-style title block) ─── */
 .hero {{
-  background: linear-gradient(180deg, var(--card) 0%, var(--surface) 100%);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow);
-  padding: 32px;
-  margin-bottom: 24px;
+  background: var(--bg);
+  border: none;
+  border-bottom: 1px solid var(--border);
+  border-radius: 0;
+  box-shadow: none;
+  padding: 40px 0 32px;
+  margin-bottom: 32px;
 }}
 .hero-top {{
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  margin-bottom: 24px;
+  margin-bottom: 28px;
+  gap: 24px;
 }}
 .hero-title h1 {{
-  font-size: 32px;
-  font-weight: 700;
+  font-family: var(--serif);
+  font-size: 38px;
+  font-weight: 500;
   color: var(--tb);
-  letter-spacing: -0.5px;
-  margin-bottom: 8px;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+  margin-bottom: 12px;
   display: flex;
-  align-items: center;
+  align-items: baseline;
   gap: 12px;
 }}
-.hero-title .owl-large {{ font-size: 36px; }}
+.hero-title .owl-large {{ font-size: 32px; }}
 .hero-title .meta {{
-  font-family: var(--mono);
-  font-size: 12px;
+  font-family: var(--sans);
+  font-size: 13px;
   color: var(--td);
   display: flex;
-  gap: 16px;
+  gap: 12px;
   align-items: center;
+  flex-wrap: wrap;
 }}
 .hero-title .meta .status-dot {{
   display: inline-block;
-  width: 8px;
-  height: 8px;
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
   background: var(--green);
   margin-left: 6px;
-  animation: pulse 2s infinite;
+  animation: pulse 2.5s infinite;
 }}
-@keyframes pulse {{ 0%,100%{{opacity:1}} 50%{{opacity:0.4}} }}
+@keyframes pulse {{ 0%,100%{{opacity:0.95}} 50%{{opacity:0.45}} }}
 .hero-actions {{ display: flex; gap: 8px; }}
 .btn {{
   font-family: var(--sans);
   font-size: 13px;
-  font-weight: 600;
-  padding: 10px 18px;
-  border-radius: 8px;
+  font-weight: 500;
+  padding: 7px 14px;
+  border-radius: var(--radius);
   border: 1px solid var(--border);
-  background: var(--card2);
+  background: var(--bg);
   color: var(--t);
   cursor: pointer;
-  transition: all 0.15s;
+  transition: background 0.12s ease, border-color 0.12s ease;
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  box-shadow: var(--shadow-sm);
 }}
-.btn:hover {{ border-color: var(--purple); }}
+.btn:hover {{ background: var(--card); border-color: var(--border-lite); }}
 .btn-primary {{
-  background: var(--purple);
-  color: #020617;
-  border-color: var(--purple);
-  font-weight: 700;
+  background: var(--tb);
+  color: var(--bg);
+  border-color: var(--tb);
+  font-weight: 500;
 }}
-.btn-primary:hover {{ background: #bfa4ff; border-color: #bfa4ff; }}
+.btn-primary:hover {{ background: #000; border-color: #000; }}
 
 /* ─── Ready posts cards ─── */
 .ready-cards {{
@@ -730,17 +752,18 @@ button, .tab, .card, [onclick] {{ cursor: pointer; }}
   box-shadow: var(--shadow);
 }}
 .card-thumb {{
-  height: 140px;
-  background: linear-gradient(135deg, #1a2340 0%, #2d1a40 100%);
+  height: 110px;
+  background: var(--card);
   display: flex;
   align-items: flex-end;
   padding: 16px;
   position: relative;
   overflow: hidden;
+  border-bottom: 1px solid var(--border);
 }}
-.card-thumb.linkedin {{ background: linear-gradient(135deg, #1a3024 0%, #2d3a1a 100%); }}
-.card-thumb.blog {{ background: linear-gradient(135deg, #1a2340 0%, #24304a 100%); }}
-.card-thumb.podcast {{ background: linear-gradient(135deg, #2d1a40 0%, #3a1a4a 100%); }}
+.card-thumb.linkedin {{ background: linear-gradient(180deg, #EAF3F1 0%, var(--card) 100%); }}
+.card-thumb.blog {{ background: linear-gradient(180deg, #F4F0FA 0%, var(--card) 100%); }}
+.card-thumb.podcast {{ background: linear-gradient(180deg, #FBF3E1 0%, var(--card) 100%); }}
 .card-thumb::before {{
   content: '';
   position: absolute;
@@ -749,14 +772,15 @@ button, .tab, .card, [onclick] {{ cursor: pointer; }}
   width: 10px;
   height: 10px;
   border-radius: 50%;
-  background: rgba(255,255,255,0.3);
+  background: rgba(55,53,47,0.3);
 }}
 .card-thumb-title {{
-  font-family: var(--mono);
-  font-size: 11px;
-  color: rgba(255,255,255,0.7);
+  font-family: var(--serif);
+  font-size: 13px;
+  color: var(--t);
   text-align: right;
   width: 100%;
+  font-weight: 500;
 }}
 .card-body {{ padding: 16px; }}
 .card-title {{
@@ -796,15 +820,15 @@ button, .tab, .card, [onclick] {{ cursor: pointer; }}
 
 /* ─── Stat strip ─── */
 .stat-strip {{
-  background: linear-gradient(180deg, var(--card) 0%, var(--surface) 100%);
-  border: 1px solid var(--border);
+  background: var(--card);
+  border: none;
   border-radius: var(--radius);
-  box-shadow: var(--shadow);
-  padding: 24px;
+  box-shadow: none;
+  padding: 24px 28px;
   display: grid;
   grid-template-columns: repeat(5, 1fr);
-  gap: 16px;
-  margin-bottom: 24px;
+  gap: 24px;
+  margin-bottom: 32px;
 }}
 @media (max-width: 900px) {{ .stat-strip {{ grid-template-columns: repeat(2, 1fr); }} }}
 .stat-cell {{
@@ -815,31 +839,34 @@ button, .tab, .card, [onclick] {{ cursor: pointer; }}
 }}
 .stat-cell .letter {{
   font-family: var(--mono);
-  font-size: 12px;
-  color: var(--purple);
-  font-weight: 600;
+  font-size: 10.5px;
+  color: var(--tdim);
+  font-weight: 500;
   position: absolute;
-  top: -4px;
+  top: -2px;
   left: 0;
+  letter-spacing: 0.05em;
 }}
 .stat-cell .val {{
+  font-family: var(--serif);
   font-size: 32px;
-  font-weight: 700;
+  font-weight: 500;
   color: var(--tb);
-  letter-spacing: -1px;
+  letter-spacing: -0.02em;
   line-height: 1;
-  padding-right: 24px;
+  padding-right: 22px;
 }}
 .stat-cell .label {{
-  font-size: 12px;
-  color: var(--td);
-  padding-right: 24px;
+  font-size: 13px;
+  color: var(--t);
+  padding-right: 22px;
+  font-weight: 500;
 }}
 .stat-cell .sub {{
-  font-family: var(--mono);
-  font-size: 10px;
-  color: var(--tdim);
-  padding-right: 24px;
+  font-family: var(--sans);
+  font-size: 11px;
+  color: var(--td);
+  padding-right: 22px;
   margin-top: 2px;
 }}
 .stat-cell .arrow {{
@@ -858,40 +885,44 @@ button, .tab, .card, [onclick] {{ cursor: pointer; }}
 }}
 @media (max-width: 1000px) {{ .grid-3 {{ grid-template-columns: 1fr; }} }}
 .sec {{
-  background: linear-gradient(180deg, var(--card) 0%, var(--surface) 100%);
+  background: var(--bg);
   border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 20px;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  border-radius: var(--radius);
+  padding: 22px 24px;
+  transition: border-color 0.15s ease;
 }}
-.sec:hover {{ border-color: var(--border-lite); box-shadow: var(--shadow); }}
+.sec:hover {{ border-color: var(--border-lite); box-shadow: none; }}
 .sec-header {{
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  margin-bottom: 16px;
+  margin-bottom: 18px;
 }}
 .sec-header h2 {{
+  font-family: var(--serif);
   color: var(--tb);
-  font-size: 15px;
-  font-weight: 700;
+  font-size: 17px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  line-height: 1.3;
 }}
 .sec-header .subtitle {{
-  font-family: var(--mono);
-  font-size: 11px;
+  font-family: var(--sans);
+  font-size: 12.5px;
   color: var(--td);
-  margin-top: 2px;
+  margin-top: 3px;
 }}
 .sec-badge {{
-  background: var(--card2);
-  border: 1px solid var(--border-lite);
-  padding: 4px 10px;
-  border-radius: 6px;
-  font-family: var(--mono);
+  background: var(--card);
+  border: 1px solid var(--border);
+  padding: 3px 9px;
+  border-radius: 4px;
+  font-family: var(--sans);
   font-size: 11px;
-  color: var(--purple);
+  color: var(--td);
+  font-weight: 500;
 }}
-.sec-badge.critical {{ color: var(--red); background: var(--red-dim); border-color: var(--red-dim); }}
+.sec-badge.critical {{ color: var(--red); background: var(--red-dim); border-color: rgba(185,28,28,0.2); }}
 
 /* ─── Agent performance bars ─── */
 .agent-row {{
@@ -913,9 +944,10 @@ button, .tab, .card, [onclick] {{ cursor: pointer; }}
 }}
 .agent-row .bar {{
   height: 100%;
-  background: linear-gradient(90deg, #16a34a 0%, var(--green) 100%);
+  background: var(--green);
   border-radius: 4px;
   transition: width 0.4s ease;
+  opacity: 0.85;
 }}
 .agent-row .num {{ color: var(--tb); text-align: left; font-weight: 600; }}
 .agent-row .fail {{ color: var(--red); text-align: right; }}
@@ -938,18 +970,19 @@ button, .tab, .card, [onclick] {{ cursor: pointer; }}
 .bar-chart .b.blue {{ background: var(--blue); }}
 .bar-chart .b.purple {{ background: var(--purple); }}
 .big-num {{
-  font-size: 36px;
-  font-weight: 700;
+  font-family: var(--serif);
+  font-size: 40px;
+  font-weight: 500;
   color: var(--tb);
-  letter-spacing: -1px;
+  letter-spacing: -0.02em;
   line-height: 1;
 }}
-.big-num.small {{ font-size: 24px; }}
+.big-num.small {{ font-size: 26px; }}
 .trend {{
-  font-family: var(--mono);
-  font-size: 11px;
+  font-family: var(--sans);
+  font-size: 12px;
   color: var(--td);
-  margin-top: 4px;
+  margin-top: 6px;
 }}
 .trend .delta.up {{ color: var(--green); }}
 .trend .delta.down {{ color: var(--red); }}
