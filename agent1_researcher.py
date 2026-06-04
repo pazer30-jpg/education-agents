@@ -30,19 +30,37 @@ from claude_cli import ask_claude_json
 
 _source_health: dict[str, dict] = {}
 
+# Side-channel: source functions stash their last HARD failure reason here
+# (429 rate-limit, 5xx, network). Empty string = no error (the [] return
+# was a legitimate "no matches"). Read by _track() and cleared per-call.
+_LAST_ERROR: dict[str, str] = {}
+
+
+def _mark_error(source: str, reason: str) -> None:
+    """Called by search_* internals when a real failure happens (not 'empty results')."""
+    _LAST_ERROR[source] = (reason or "")[:120]
+
+
+def _consume_error(source: str) -> str:
+    """Pop the last error for this source (read-and-clear)."""
+    return _LAST_ERROR.pop(source, "")
+
+
 def _track(source: str, results: list, error: str = ""):
     """Track per-source outcome. Distinguish:
        - success (got results)
        - empty (no matches — normal for off-topic databases like PubMed for humanities)
-       - error (actual HTTP/parse failure — caller passes error="…")"""
+       - error (actual HTTP/parse failure — explicit `error=` arg or side-channel via _mark_error)"""
     count = len(results) if results else 0
-    if error:
+    # Prefer explicit error arg, fall back to side-channel
+    err = error or _consume_error(source)
+    if err:
         status = "error"
     elif count > 0:
         status = "ok"
     else:
         status = "empty"
-    _source_health[source] = {"count": count, "status": status, "error": error}
+    _source_health[source] = {"count": count, "status": status, "error": err}
 
 def _health_report() -> str:
     if not _source_health:
@@ -92,13 +110,16 @@ def search_semantic_scholar(query: str, limit: int = 10, retry: int = 2) -> list
                     time.sleep(wait)
                 else:
                     print(f"  [SS] Rate limited — giving up, falling back to OpenAlex")
+                    _mark_error("semantic_scholar", "rate-limited (429)")
                     return []
             else:
+                _mark_error("semantic_scholar", f"HTTP {r.status_code}")
                 return []
-        except Exception:
+        except Exception as e:
             if attempt < retry - 1:
                 time.sleep(3)
             else:
+                _mark_error("semantic_scholar", f"network: {str(e)[:80]}")
                 return []
     return []
 
@@ -146,9 +167,11 @@ def search_openalex(query: str, limit: int = 10, language: str = None) -> list[d
         r = requests.get(url, params=params, timeout=15,
                          headers={"User-Agent": "education-agents/1.0"})
         if r.status_code != 200:
+            _mark_error("openalex", f"HTTP {r.status_code}")
             return []
         return r.json().get("results", [])
-    except Exception:
+    except Exception as e:
+        _mark_error("openalex", f"network: {str(e)[:80]}")
         return []
 
 
@@ -169,13 +192,15 @@ def search_doaj(query: str, limit: int = 10, hebrew_only: bool = False) -> list[
         r = requests.get(url, params=params, timeout=15,
                          headers={"User-Agent": "education-agents/1.0"})
         if r.status_code != 200:
+            _mark_error("doaj", f"HTTP {r.status_code}")
             return []
         results = r.json().get("results", [])
         if hebrew_only:
             results = [p for p in results
                        if "he" in (p.get("bibjson", {}).get("language") or [])]
         return results
-    except Exception:
+    except Exception as e:
+        _mark_error("doaj", f"network: {str(e)[:80]}")
         return []
 
 
@@ -318,10 +343,12 @@ def search_core(query: str, limit: int = 10) -> list[dict]:
         r = requests.get(url, params=params, timeout=15)
         if r.status_code != 200:
             print(f"  [CORE] status {r.status_code}")
+            _mark_error("core", f"HTTP {r.status_code}")
             return []
         return r.json().get("results", [])
     except Exception as e:
         print(f"  [CORE] Error: {e}")
+        _mark_error("core", f"network: {str(e)[:80]}")
         return []
 
 
@@ -389,10 +416,12 @@ def search_crossref(query: str, limit: int = 10) -> list[dict]:
                          headers={"User-Agent": "education-agents/1.0 (mailto:pazer30@gmail.com)"})
         if r.status_code != 200:
             print(f"  [Crossref] status {r.status_code}")
+            _mark_error("crossref", f"HTTP {r.status_code}")
             return []
         return r.json().get("message", {}).get("items", [])
     except Exception as e:
         print(f"  [Crossref] Error: {e}")
+        _mark_error("crossref", f"network: {str(e)[:80]}")
         return []
 
 
@@ -403,10 +432,12 @@ def _clean_crossref_papers(raw: list[dict]) -> list[dict]:
         titles = p.get("title", [])
         title = titles[0] if titles else ""
 
-        # Authors
+        # Authors — emit as "Given Family" (standard "First Last").
+        # The previous "Family Given" order broke surname-extraction in
+        # agent2_writer's citation whitelist (split()[-1] returned given name).
         authors_raw = p.get("author", [])
         authors = ", ".join(
-            f"{a.get('family', '')} {a.get('given', '')}".strip()
+            f"{a.get('given', '')} {a.get('family', '')}".strip()
             for a in authors_raw[:4]
         )
 
@@ -464,10 +495,12 @@ def search_eric(query: str, limit: int = 10) -> list[dict]:
         r = requests.get(ERIC_BASE, params=params, timeout=15)
         if r.status_code != 200:
             print(f"  [ERIC] status {r.status_code}")
+            _mark_error("eric", f"HTTP {r.status_code}")
             return []
         return r.json().get("response", {}).get("docs", [])
     except Exception as e:
         print(f"  [ERIC] Error: {e}")
+        _mark_error("eric", f"network: {str(e)[:80]}")
         return []
 
 
@@ -537,6 +570,7 @@ def search_pubmed(query: str, limit: int = 10) -> list[dict]:
             "db": "pubmed", "term": query, "retmax": limit, "retmode": "json",
         }, timeout=15, headers={"User-Agent": "education-agents/1.0"})
         if r.status_code != 200:
+            _mark_error("pubmed", f"HTTP {r.status_code}")
             return []
         ids = r.json().get("esearchresult", {}).get("idlist", []) or []
         if not ids:
@@ -546,6 +580,7 @@ def search_pubmed(query: str, limit: int = 10) -> list[dict]:
             "db": "pubmed", "id": ",".join(ids), "rettype": "abstract", "retmode": "xml",
         }, timeout=20, headers={"User-Agent": "education-agents/1.0"})
         if r2.status_code != 200:
+            _mark_error("pubmed", f"HTTP {r2.status_code} on efetch")
             return []
         import xml.etree.ElementTree as ET
         root = ET.fromstring(r2.content)
@@ -588,6 +623,7 @@ def search_pubmed(query: str, limit: int = 10) -> list[dict]:
         return papers
     except Exception as e:
         print(f"  [PubMed] Error: {e}")
+        _mark_error("pubmed", f"network: {str(e)[:80]}")
         return []
 
 
