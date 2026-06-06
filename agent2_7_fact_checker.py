@@ -627,10 +627,34 @@ def run_fact_checker(article_path: Path, papers_files: list[Path]) -> dict:
 
     score = int(round((verified_total / total) * 100)) if total else 0
 
+    # ── Citation density check: are there ENOUGH citations for the article's length? ──
+    # Healthy academic prose: 1-3 citations per 100 words. Below 0.5/100 the
+    # article looks under-evidenced; above 4/100 it's citation-stuffed and hard
+    # to read. We don't auto-modify — just surface the warning.
+    body_for_count = re.sub(r"\([^)]*?\d{4}[^)]*?\)|\[\[[^\]]+?\d{4}[^\]]*?\]\]", "", body)
+    word_count = len(re.findall(r"\S+", body_for_count))
+    density = (total / word_count * 100) if word_count else 0.0
+    density_status = "ok"
+    density_msg = ""
+    if word_count >= 500:  # only judge density on substantial bodies
+        if density < 0.5:
+            density_status = "thin"
+            density_msg = (f"under-evidenced — {total} citations in {word_count} words "
+                           f"= {density:.2f}/100w (target 1-3/100w)")
+        elif density > 4.0:
+            density_status = "over"
+            density_msg = (f"over-cited — {total} citations in {word_count} words "
+                           f"= {density:.2f}/100w (target 1-3/100w)")
+
     print(
         f"  [FactCheck] Score: {score}/100  "
         f"(verified {verified_total}/{total}, suspicious {len(suspicious)})"
     )
+    print(f"  [FactCheck] Density: {density:.2f} cites/100w "
+          f"({total} cites in {word_count} words)")
+    if density_msg:
+        icon = "⚠️" if density_status == "thin" else "🟡"
+        print(f"  [FactCheck] {icon} {density_msg}")
 
     # ── Reciprocal feedback: tell researcher about orphan citations ──
     # If we found citations that don't match any paper in corpus, the researcher
@@ -657,6 +681,12 @@ def run_fact_checker(article_path: Path, papers_files: list[Path]) -> dict:
         "triangulation": triangulation_tally,
         "weak_claims": weak_claims,
         "contested_claims": contested_claims,
+        "density": {
+            "cites_per_100w": round(density, 2),
+            "word_count":     word_count,
+            "status":         density_status,
+            "message":        density_msg,
+        },
         "corrected_article": None,
     }
 
