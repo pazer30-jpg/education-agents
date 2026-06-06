@@ -1157,23 +1157,34 @@ def run_project_manager(request: str, auto_approve: bool = False) -> dict:
     # Reset budget for new pipeline run
     reset_budget()
 
-    # ── Budget pre-check: refuse to start if we can't afford a full run ──
-    # A full pipeline costs ~$15-20. Checking only mid-step kills runs halfway.
-    EST_FULL_RUN_USD = 18.0
+    # ── Budget pre-check: forecast from history of recent successful runs ──
+    # The previous hardcoded $18 ceiling blocked perfectly viable runs
+    # (actual median = $5.65 in 101 runs). Now we use median + P75 from
+    # the last 10 same-mode successful runs.
     try:
+        from cost_forecaster import forecast, format_for_console
         from claude_cli import daily_budget_status
         bs = daily_budget_status()
-        if bs["remaining_usd"] < EST_FULL_RUN_USD:
-            print(f"\n  ⚠️  Budget pre-check: ${bs['remaining_usd']:.2f} left today, "
-                  f"a full run needs ~${EST_FULL_RUN_USD}.")
+        _mode = "podcast" if "podcast" in request.lower() else "research"
+        fc = forecast(_mode)
+        print()
+        print(f"  {format_for_console(fc)}")
+        if fc["decision"] == "risky":
+            print(f"  ⛔ Refusing to start — ${bs['spent_usd']:.2f}/{bs['cap_usd']} used today.")
+            print(f"     Raise with: export MOKI_DAILY_BUDGET={int(bs['cap_usd'])+30}")
+            return {"status": "blocked_budget", "budget": bs, "forecast": fc}
+        # "tight" proceeds but warned; "go" proceeds silently
+    except Exception as _be:
+        # Fall back to the old hardcoded check if forecaster fails for any reason
+        print(f"  ⚠️ cost forecaster unavailable ({_be}) — using fallback $18 check")
+        try:
+            from claude_cli import daily_budget_status
+            bs = daily_budget_status()
             if bs["remaining_usd"] < 3.0:
-                print(f"  ⛔ Too little budget to start ({bs['spent_usd']:.2f}/{bs['cap_usd']} used).")
-                print(f"     Raise with: export MOKI_DAILY_BUDGET={int(bs['cap_usd'])+30}")
+                print(f"  ⛔ Too little budget ({bs['spent_usd']:.2f}/{bs['cap_usd']} used).")
                 return {"status": "blocked_budget", "budget": bs}
-            print(f"  ⚠️  Starting anyway — run may stop mid-way. "
-                  f"Consider: export MOKI_DAILY_BUDGET={int(bs['cap_usd'])+30}")
-    except Exception:
-        pass
+        except Exception:
+            pass
 
     print(f"\n{'='*60}")
     print(f"📊 Project Manager | {datetime.now().strftime('%d/%m/%Y %H:%M')}")
