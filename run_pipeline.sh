@@ -180,6 +180,9 @@ if [ $STATUS -eq 0 ]; then
     # ── Memory snapshots: daily versioning of _memory/*.md for diff/audit ──
     /Library/Frameworks/Python.framework/Versions/3.13/bin/python3 memory_snapshots.py 2>&1 | tail -1 || true
 
+    # ── Series memory: refresh active_series.md so next-run Planner sees it ──
+    /Library/Frameworks/Python.framework/Versions/3.13/bin/python3 series.py --regen 2>&1 | tail -1 || true
+
     # ── Log router: split cron log into namespaced files (Vercel Workflow pattern) ──
     /Library/Frameworks/Python.framework/Versions/3.13/bin/python3 log_router.py 2>&1 | tail -2 || true
 

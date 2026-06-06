@@ -581,6 +581,7 @@ ANSWERS (use in Discussion):
         "theoretical_anchors",
         "recurring_sources",
         "humanize_rules",
+        "active_series",
     ], max_chars_per_note=1200)
     memory_block = persona_block + memory_block
 

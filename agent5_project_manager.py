@@ -731,6 +731,33 @@ def _execute_step(step: dict, execution_state: dict) -> str:
             _ckpt = execution_state.get("_ckpt")
             if _ckpt:
                 _ckpt.save("writer", {k: str(v) for k, v in article_paths.items()})
+            # Series bookkeeping: register this episode against the active
+            # series (if Planner used one), or auto-detect a new series from
+            # the last 5 article titles. Memory file then regenerates so
+            # next runs see it.
+            try:
+                from series import (
+                    detect_active_series, register_episode,
+                    maybe_create_series_from_recent, regenerate_memory,
+                )
+                _md = article_paths.get("md") or ""
+                _angle = combined_title or ""
+                _active = detect_active_series()
+                if _active and _angle:
+                    register_episode(_active["id"], _active["theme"],
+                                     topic_slug=str(_md)[-100:], angle=_angle,
+                                     article_path=str(_md))
+                else:
+                    # Auto-detect: look at the 3 most recent article titles
+                    _mem = load_memory()
+                    _recent_titles = [a.get("topic", "")
+                                      for a in _mem.get("articles", [])[-5:]]
+                    if _angle:
+                        _recent_titles.append(_angle)
+                    maybe_create_series_from_recent(_recent_titles)
+                regenerate_memory()
+            except Exception as _serr:
+                print(f"    ⚠️ series bookkeeping skipped: {_serr}")
             names = [Path(v).name for v in article_paths.values()]
             return f"✅ מאמר נכתב: {', '.join(names[:2])}"
 

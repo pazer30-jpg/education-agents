@@ -121,6 +121,7 @@ def _build_system(content_types: list[str]) -> str:
         obsidian_block = _obs_for_prompt(
             ["voice_rules", "recurring_sources", "theoretical_anchors",
              "engagement", "performance_patterns", "humanize_rules",
+             "active_series",
              "hook_winners"],
             max_chars_per_note=1000,
         )

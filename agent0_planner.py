@@ -225,7 +225,32 @@ def run_planner(main_field: str, user_hints: list[str] = None) -> dict:
         "recurring_sources",
     ], max_chars_per_note=1000)
 
-    prompt = f"""{memory_block}
+    # Active series detection — if a series is running, propose next episode
+    # instead of a fresh topic. Series continuity beats novelty for brand-building.
+    series_block = ""
+    try:
+        from series import detect_active_series
+        _active = detect_active_series()
+        if _active:
+            already = "\n".join(f"  - {e['angle'][:120]}"
+                                for e in _active.get("episodes", []))
+            next_hint = _active.get("next_angle") or "(no specific angle proposed yet)"
+            series_block = (
+                f"\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+                f"📺 סדרה פעילה — עדיפות על פני נושא חדש\n"
+                f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+                f"נושא הסדרה: {_active['theme']}\n"
+                f"# פרקים עד כה: {len(_active.get('episodes', []))}\n"
+                f"פרקים קיימים:\n{already}\n"
+                f"זווית מוצעת לפרק הבא: {next_hint}\n\n"
+                f"אם זה רלוונטי לבקשת המשתמש — בחר נושא שמשתלב בסדרה הזו.\n"
+                f"אם המשתמש ביקש משהו אחר מפורשות — דלג והצע נושא חדש.\n"
+            )
+            print(f"  [Planner] 📺 סדרה פעילה: {_active['theme']} ({len(_active.get('episodes',[]))} פרקים)")
+    except Exception as _se:
+        pass  # series module optional
+
+    prompt = f"""{memory_block}{series_block}
 
 אתה פלאנר אסטרטגי של מחקר בתחום חינוך — עם דגש על חינוך בלתי-פורמלי.
 
