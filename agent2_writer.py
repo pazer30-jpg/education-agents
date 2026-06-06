@@ -5,6 +5,7 @@ Agent 2 - Writer
 """
 
 import json
+import re
 from pathlib import Path
 from datetime import datetime
 from docx import Document
@@ -353,20 +354,35 @@ Rules:
     # ── Citation whitelist: explicit (Surname, Year) pairs from corpus ──
     # Today's article showed 27/39 orphan citations — Writer invented sources
     # from LLM memory. Whitelist + strict rule forces grounding in corpus only.
+    def _first_author_name(authors_raw) -> str:
+        """Extract a 'Given Family' style string for the first author from any
+        of the shapes our cleaners emit (list[str], list[dict], string)."""
+        if isinstance(authors_raw, list) and authors_raw:
+            a = authors_raw[0]
+            if isinstance(a, dict):
+                # Semantic Scholar dict shape, or our raw Crossref shape
+                if a.get("name"):
+                    return str(a["name"])
+                given  = (a.get("given")  or a.get("firstName") or "").strip()
+                family = (a.get("family") or a.get("lastName")  or a.get("surname") or "").strip()
+                return f"{given} {family}".strip()
+            return str(a)
+        if isinstance(authors_raw, str):
+            return authors_raw.split(",")[0].split(" and ")[0].split("&")[0]
+        return ""
+
     citation_whitelist = []
     seen_cite_keys = set()
     for p in all_papers:
-        authors_raw = p.get("authors")
-        if isinstance(authors_raw, list) and authors_raw:
-            first_author = str(authors_raw[0])
-        elif isinstance(authors_raw, str):
-            first_author = authors_raw.split(",")[0].split(" and ")[0].split("&")[0]
-        else:
-            continue
+        first_author = _first_author_name(p.get("authors"))
         # Extract surname (last word — works for "John Smith" → "Smith")
+        # Guard against junk extractions like "'123'}" from str(dict) — surname
+        # must be alphabetic (allowing apostrophes, hyphens, Hebrew).
         surname = first_author.strip().split()[-1] if first_author.strip() else ""
+        if not re.match(r"^[A-Za-zא-ת][A-Za-zא-ת\-']{1,}$", surname):
+            continue
         year = str(p.get("year") or "").strip()
-        if not surname or not year.isdigit():
+        if not year.isdigit():
             continue
         key = (surname.lower(), year)
         if key in seen_cite_keys:
@@ -374,6 +390,11 @@ Rules:
         seen_cite_keys.add(key)
         citation_whitelist.append(f"({surname}, {year})")
     whitelist_str = " · ".join(citation_whitelist[:80])  # cap to ~80 to bound tokens
+
+    # If we ended up with <5 valid entries, the strict whitelist rule becomes
+    # a contradiction ("cite only from this list" + "every paragraph needs a
+    # citation"). Soften the rule rather than force the model to invent.
+    whitelist_weak = len(citation_whitelist) < 5
 
     base = "_x_".join(t.replace(" ", "_").lower()[:20] for t in topics)[:60]
 
@@ -627,15 +648,15 @@ Write a COMPLETE synthesized academic review article — ALL sections, in order:
    Do NOT use Obsidian wikilinks like [[Turner 1969]] — those break our
    fact-checker. Inside the article body, every citation must be (Author, Year).
 
-2. CITATION WHITELIST — you may ONLY cite from this list:
-{whitelist_str}
+2. CITATION WHITELIST{' (weak — only ' + str(len(citation_whitelist)) + ' entries; treat as suggested, NOT mandatory)' if whitelist_weak else ' — you may ONLY cite from this list'}:
+{whitelist_str if whitelist_str else '(no whitelist could be extracted from corpus)'}
 
-3. NEVER invent or recall citations from memory. If a foundational concept
-   (e.g. Turner's liminality, Freire's critical pedagogy) is not on the
-   whitelist, DESCRIBE the concept without attribution rather than fabricate
-   a citation. Example: instead of writing "(Turner, 1969) called this
-   liminality", write "the concept of liminality — a threshold state
-   between defined social positions — frames our analysis."
+3. NEVER invent citations from LLM memory or training data.{' Prefer whitelist entries when applicable.' if whitelist_weak else ''} If a foundational concept (e.g. Turner's
+   liminality, Freire's critical pedagogy) is not on the whitelist, DESCRIBE
+   the concept without attribution rather than fabricate a citation. Example:
+   instead of writing "(Turner, 1969) called this liminality", write "the
+   concept of liminality — a threshold state between defined social positions
+   — frames our analysis."
 
 4. The References section at the end must contain ONLY entries whose
    (Surname, Year) appears in the body. No phantom references.

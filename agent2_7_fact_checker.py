@@ -70,10 +70,13 @@ _NARRATIVE_CITE = re.compile(
 )
 
 # Matches Obsidian wikilink citations: [[Turner 1969]] or [[Silberman-Keller 2003]]
-# or [[Madjar & Cohen-Malayev 2018]]. Writer switched to this format ~2026-05-26.
-# Capture: author blob (before the year), then 4-digit year.
+# or [[Madjar & Cohen-Malayev 2018]]. Writer's prompt now FORBIDS wikilinks,
+# but historical articles still have them — we keep this for backwards compat.
+#   - [^\[\]\n] excludes newlines (was permitting cross-line matches)
+#   - Year MUST be the LAST token before ]] (no mid-text year capture like
+#     [[Turner 1969 reprinted 1985]] previously grabbed 1985, wrong author span)
 _WIKILINK_CITE = re.compile(
-    r"\[\[([^\[\]]{2,80}?)\s+(\d{4})[a-z]?\]\]"
+    r"\[\[([^\[\]\n]{2,80}?)[ \t]+(\d{4})[a-z]?\]\]"
 )
 
 
@@ -214,6 +217,19 @@ def _load_papers(papers_files: list[Path]) -> list[dict]:
     return all_papers
 
 
+def _keyword_tokens(text: str) -> set[str]:
+    """Extract content-bearing tokens for overlap scoring.
+       English uses 4+ char floor (filters 'the', 'and', 'for'…).
+       Hebrew uses 3+ char floor (most Hebrew roots are 3 letters; 4+ was
+       silently dropping every triangulation signal for Hebrew claims)."""
+    text = text.lower()
+    # English (Latin script) tokens — 4+ chars
+    en = set(re.findall(r"[a-z][a-z0-9'\-]{3,}", text))
+    # Hebrew tokens — 3+ chars (matches שלום, ילדים, מורה, חוסן, etc.)
+    he = set(re.findall(r"[א-ת][א-ת]{2,}", text))
+    return en | he
+
+
 def _find_corroborators(claim: str, primary_paper: dict,
                         all_papers: list[dict], n: int = TRIANGULATION_CORROBORATORS) -> list[dict]:
     """
@@ -221,17 +237,17 @@ def _find_corroborators(claim: str, primary_paper: dict,
     Used for triangulation — even non-cited papers can corroborate (or contradict).
     Returns papers ordered by keyword-overlap with the claim, excluding the primary.
     """
-    claim_words = set(re.findall(r"[א-ת\w]{4,}", claim.lower()))
+    claim_words = _keyword_tokens(claim)
     if not claim_words:
         return []
     scored = []
     for p in all_papers:
         if p is primary_paper:
             continue
-        abstract = (p.get("abstract") or p.get("fulltext") or "").lower()
+        abstract = (p.get("abstract") or p.get("fulltext") or "")
         if not abstract:
             continue
-        ab_words = set(re.findall(r"[א-ת\w]{4,}", abstract))
+        ab_words = _keyword_tokens(abstract)
         overlap = len(claim_words & ab_words)
         if overlap >= MIN_CLAIM_OVERLAP:
             scored.append((overlap, p))
@@ -399,15 +415,16 @@ def quick_check(claim: str, papers: list[dict], max_budget: float = 0.15) -> dic
         return {"verdict": "unsupported", "evidence": "no claim/papers"}
 
     # Find top-3 most relevant papers by keyword overlap (no LLM)
-    claim_words = set(re.findall(r"[א-ת\w]{4,}", claim.lower()))
+    # Uses bilingual tokenizer: English 4+ chars, Hebrew 3+ (matches roots).
+    claim_words = _keyword_tokens(claim)
     if not claim_words:
         return {"verdict": "unsupported", "evidence": "claim too short to analyze"}
     scored = []
     for p in papers:
-        ab = (p.get("abstract") or p.get("fulltext") or "").lower()
+        ab = (p.get("abstract") or p.get("fulltext") or "")
         if not ab:
             continue
-        ab_words = set(re.findall(r"[א-ת\w]{4,}", ab))
+        ab_words = _keyword_tokens(ab)
         overlap = len(claim_words & ab_words)
         if overlap >= 2:
             scored.append((overlap, p))
