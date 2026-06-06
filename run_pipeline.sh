@@ -183,6 +183,12 @@ if [ $STATUS -eq 0 ]; then
     # ── Series memory: refresh active_series.md so next-run Planner sees it ──
     /Library/Frameworks/Python.framework/Versions/3.13/bin/python3 series.py --regen 2>&1 | tail -1 || true
 
+    # ── Weekly digest: Mondays only (date +%u = 1). Sends to Telegram if configured. ──
+    if [ "$(date +%u)" = "1" ]; then
+        echo "  📬 Monday — generating weekly digest..."
+        /Library/Frameworks/Python.framework/Versions/3.13/bin/python3 weekly_digest.py 2>&1 | tail -3 || true
+    fi
+
     # ── Log router: split cron log into namespaced files (Vercel Workflow pattern) ──
     /Library/Frameworks/Python.framework/Versions/3.13/bin/python3 log_router.py 2>&1 | tail -2 || true
 
