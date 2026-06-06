@@ -29,18 +29,24 @@ BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
 CHAT_ID   = os.environ.get("TELEGRAM_CHAT_ID", "")  # Your personal chat ID
 
 
-def _send(text: str, parse_mode: str = "Markdown") -> bool:
-    """Send a message via Telegram Bot API."""
+def _send(text: str, parse_mode: str = "Markdown",
+          inline_keyboard: list | None = None) -> bool:
+    """Send a message via Telegram Bot API.
+    inline_keyboard: optional list-of-rows, each row a list of {text, callback_data} dicts.
+    Used by telegram_approval flow to attach ✅ / ✏️ / ❌ buttons to each post."""
     if not BOT_TOKEN or not CHAT_ID:
         return False
+    payload = {
+        "chat_id": CHAT_ID,
+        "text": text[:4000],
+        "parse_mode": parse_mode,
+    }
+    if inline_keyboard:
+        payload["reply_markup"] = {"inline_keyboard": inline_keyboard}
     try:
         r = requests.post(
             f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage",
-            json={
-                "chat_id": CHAT_ID,
-                "text": text[:4000],
-                "parse_mode": parse_mode,
-            },
+            json=payload,
             timeout=10,
         )
         return r.status_code == 200

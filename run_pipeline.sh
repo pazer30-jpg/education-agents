@@ -171,6 +171,12 @@ if [ $STATUS -eq 0 ]; then
     # ── Agent 8 — Publisher: daily digest of top ready posts to Telegram ──
     /Library/Frameworks/Python.framework/Versions/3.13/bin/python3 agent8_publisher.py 2>&1 | tail -2 || true
 
+    # ── Telegram approval: send NEW ready posts as cards w/ ✅/✏️/❌ buttons ──
+    /Library/Frameworks/Python.framework/Versions/3.13/bin/python3 telegram_approval.py --send-pending 2>&1 | tail -1 || true
+
+    # ── Telegram approval: drain any pending button-clicks since last run ──
+    /Library/Frameworks/Python.framework/Versions/3.13/bin/python3 telegram_approval.py --poll 2>&1 | tail -1 || true
+
     # ── Agent 10 — Weekly Curator: ranks queue by predicted performance ──
     /Library/Frameworks/Python.framework/Versions/3.13/bin/python3 agent10_curator.py 2>&1 | tail -2 || true
 
