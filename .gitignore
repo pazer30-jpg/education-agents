@@ -45,6 +45,7 @@ output/_trash/
 
 # Output: logs
 output/*.log
+output/*.err
 output/cron_*.log
 output/moki*.log
 output/seminar_*.log

@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+                      "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.paz.moki.autonomy</string>
+
+    <!-- Run every hour, on the hour. autonomy.py reads the current hour
+         and dispatches whichever routines are scheduled for it. -->
+    <key>StartCalendarInterval</key>
+    <array>
+      <dict><key>Minute</key><integer>0</integer></dict>
+    </array>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Library/Frameworks/Python.framework/Versions/3.13/bin/python3</string>
+        <string>/Users/ASUS/education-agents/autonomy.py</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>/Users/ASUS/education-agents</string>
+
+    <!-- Pipe stdout / stderr to log files for debugging -->
+    <key>StandardOutPath</key>
+    <string>/Users/ASUS/education-agents/output/autonomy.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/ASUS/education-agents/output/autonomy.err</string>
+
+    <!-- Make sure $PATH includes the Python framework path so subprocess
+         calls to other binaries (claude CLI) work. -->
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/Library/Frameworks/Python.framework/Versions/3.13/bin:/usr/local/bin:/usr/bin:/bin</string>
+    </dict>
+
+    <!-- Don't run if mac is asleep — wait for next wake -->
+    <key>RunAtLoad</key>
+    <false/>
+</dict>
+</plist>
