@@ -321,19 +321,7 @@ def main():
     OUT_MEMORY.parent.mkdir(parents=True, exist_ok=True)
     OUT_MEMORY.write_text(body, encoding="utf-8")
     print(f"📬 {OUT_MEMORY.relative_to(OUTPUT_DIR.parent)}")
-
-    if args.no_send:
-        return
-
-    try:
-        from notifications import _send, is_configured
-        if is_configured():
-            _send(telegram_summary(body), parse_mode="Markdown")
-            print("📨 sent to Telegram")
-        else:
-            print("⚠️ Telegram not configured (TELEGRAM_BOT_TOKEN missing) — skipped send")
-    except Exception as e:
-        print(f"⚠️ Telegram send failed: {e}")
+    print(f"   Open in Obsidian to read the digest.")
 
 
 if __name__ == "__main__":

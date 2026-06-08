@@ -1,13 +1,15 @@
 """
-mark_published.py — Log that a post was actually published to LinkedIn/blog.
+mark_published.py — Log that a post was actually published.
 
-After Telegram digest sends you posts with tokens, run this to mark one as
-published. It updates publish_queue.json with the publish time and (optionally)
-the URL, then schedules an engagement-tracking reminder 48h later.
+For LinkedIn posts: when linkedin_publisher is configured (see
+launchd/LINKEDIN_SETUP.md), this also publishes the post to LinkedIn via
+the API. Otherwise, run it after you've published manually to mark it
+done and schedule the 48h engagement-check reminder.
 
 Usage:
-  python3 mark_published.py <token>                       # mark as published now
-  python3 mark_published.py <token> --url https://...     # also save the URL
+  python3 mark_published.py <token>                       # auto-publish to LinkedIn (if configured) + mark
+  python3 mark_published.py <token> --no-publish          # just mark, don't push
+  python3 mark_published.py <token> --url https://...     # log a manually-pasted URL
   python3 mark_published.py --list                        # show queue status
   python3 mark_published.py --pending                     # show waiting-for-engagement
 """
@@ -38,7 +40,7 @@ def _save(q: dict):
                              encoding="utf-8")
 
 
-def mark(token: str, url: str | None = None) -> bool:
+def mark(token: str, url: str | None = None, auto_publish: bool = True) -> bool:
     q = _load()
     entry = q.get(token)
     if not entry:
@@ -47,9 +49,30 @@ def mark(token: str, url: str | None = None) -> bool:
         return False
     if entry.get("published_at"):
         print(f"⚠️  כבר סומן כפורסם ב-{entry['published_at']}")
+
+    # Auto-publish to LinkedIn if configured + platform matches + no manual URL
+    if auto_publish and not url and entry.get("platform") == "linkedin":
+        try:
+            import linkedin_publisher
+            if linkedin_publisher.is_configured():
+                file_path = Path(entry.get("file", ""))
+                if file_path.exists():
+                    body = file_path.read_text(encoding="utf-8", errors="replace").strip()
+                    print(f"📤 publishing to LinkedIn...")
+                    res = linkedin_publisher.publish(body)
+                    if res.get("ok"):
+                        url = res.get("url", "")
+                        print(f"✅ פורסם: {url}")
+                    else:
+                        print(f"❌ LinkedIn publish failed: {res.get('error','?')[:160]}")
+                        print(f"   ה-token עדיין יסומן כפורסם — אבל ה-URL חסר. השלם ידנית עם --url")
+        except Exception as e:
+            print(f"⚠️  linkedin_publisher error: {e}")
+
     entry["published_at"] = datetime.now().isoformat(timespec="seconds")
     if url:
         entry["url"] = url
+        entry["posted_url"] = url  # alias for linkedin_analytics_import matching
     entry["engagement_check_due"] = (datetime.now() + timedelta(hours=48)).isoformat(timespec="seconds")
     _save(q)
     print(f"✅ {entry['platform']}: סומן כפורסם · {Path(entry['file']).name}")
@@ -103,8 +126,10 @@ def list_pending_engagement():
 
 def main():
     ap = argparse.ArgumentParser(description="Mark a queued post as published")
-    ap.add_argument("token", nargs="?", help="6-char token from Telegram digest")
-    ap.add_argument("--url", help="URL of the published post (optional)")
+    ap.add_argument("token", nargs="?", help="6-char token from publish_queue")
+    ap.add_argument("--url", help="URL of the published post (skip auto-publish)")
+    ap.add_argument("--no-publish", action="store_true",
+                    help="Just mark — skip LinkedIn auto-publish even when configured")
     ap.add_argument("--list", action="store_true", help="Show queue status")
     ap.add_argument("--pending", action="store_true",
                     help="Show posts pending engagement entry")
@@ -119,7 +144,7 @@ def main():
     if not args.token:
         ap.print_help()
         sys.exit(1)
-    ok = mark(args.token, args.url)
+    ok = mark(args.token, args.url, auto_publish=not args.no_publish)
     sys.exit(0 if ok else 1)
 
 

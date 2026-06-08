@@ -1,14 +1,17 @@
 # LinkedIn auto-publish — one-time setup
 
-Once configured, clicking **✅ פרסם** in the Telegram approval card will
-push the post directly to your LinkedIn feed. No copy-paste.
+Once configured, running `python3 mark_published.py <token>` will push
+the post directly to your LinkedIn feed. No copy-paste, no manual URL
+logging — `mark_published.py` calls the LinkedIn API, captures the
+returned URL, writes it to `publish_queue.json`, and schedules the
+48-hour engagement-check reminder.
 
 **Approval timeline:** the "Share on LinkedIn" product is auto-approved
 in most cases, but a manual review can take 1-3 business days.
 
 ## Step 1 — register your app
 
-1. Open https://www.linkedin.com/developers/apps/new
+1. Open [LinkedIn Developers — new app](https://www.linkedin.com/developers/apps/new)
 2. Fields:
    - **App name:** Moki (or whatever you want — only you see it)
    - **LinkedIn Page:** any page you admin, or your personal page
@@ -59,6 +62,7 @@ python3 linkedin_publisher.py --auth
 ```
 
 This will:
+
 1. Open your browser to LinkedIn's login page
 2. After you log in + grant permission, browser redirects to
    `http://localhost:8765/callback` (a tiny local server we spin up
