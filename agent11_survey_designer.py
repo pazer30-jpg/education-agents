@@ -40,8 +40,9 @@ SURVEYS_DIR = OUTPUT_DIR / "surveys"
 
 # Survey design budget — one call (~$1.50). Single shot is fine because the
 # survey is small and the methodology memory carries most of the rules.
+# 480s timeout — JSON with 15-30 nested items takes Claude 3-7 min on cold CLI.
 DESIGN_BUDGET = 1.50
-DESIGN_TIMEOUT = 240  # 4 min
+DESIGN_TIMEOUT = 480  # 8 min
 
 
 def _slug(text: str) -> str:
@@ -146,7 +147,7 @@ Return ONLY the JSON. No prose before or after.
     print(f"  [Agent11] Designing survey for: {topic[:60]}...")
     try:
         result = ask_claude_json(prompt, max_budget=DESIGN_BUDGET,
-                                 timeout=DESIGN_TIMEOUT, max_retries=1)
+                                 timeout=DESIGN_TIMEOUT)
     except Exception as e:
         return {"error": f"Claude call failed: {e}"}
 

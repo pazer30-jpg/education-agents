@@ -241,7 +241,7 @@ def _code_open_responses(question: str, responses: list[str],
     )
     try:
         result = ask_claude_json(prompt, max_budget=CODING_BUDGET,
-                                 timeout=CODING_TIMEOUT, max_retries=1)
+                                 timeout=CODING_TIMEOUT)
     except Exception as e:
         return {"themes": [], "quotes": cleaned[:3], "error": str(e)[:120]}
     return {
