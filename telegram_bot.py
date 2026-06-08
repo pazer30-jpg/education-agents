@@ -131,7 +131,8 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "/summary — סיכום שבועי\n"
         "/bib — ביבליוגרפיה\n"
         "/qa — בדיקת איכות\n"
-        "/dashboard — דאשבורד\n\n"
+        "/dashboard — דאשבורד\n"
+        "/whoami — ה-ID שלך + נעילת הבוט\n\n"
         "או שלח הודעה חופשית ואנסה לעזור 🙂",
         parse_mode="Markdown",
     )
@@ -231,6 +232,23 @@ async def cmd_pipeline_status(update: Update, context: ContextTypes.DEFAULT_TYPE
     await update.message.reply_text(text, parse_mode="Markdown")
 
 
+async def cmd_whoami(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Ungated on purpose — lets the owner discover their numeric ID so they
+    can populate TELEGRAM_ALLOWED_USERS and lock the bot down."""
+    uid = update.effective_user.id
+    locked = bool([u for u in ALLOWED_USERS if u.strip()])
+    status = "🔒 הבוט נעול (whitelist פעיל)" if locked else "🔓 הבוט *פתוח לכולם* — אין whitelist"
+    await update.message.reply_text(
+        f"🪪 ה-ID שלך: `{uid}`\n\n"
+        f"{status}\n\n"
+        "כדי לנעול את הבוט רק אליך:\n"
+        f"1. הוסף ל-.env: `TELEGRAM_ALLOWED_USERS={uid}`\n"
+        "2. הפעל מחדש את הבוט.\n"
+        "מאותו רגע כל מי שאינו ברשימה יקבל ⛔.",
+        parse_mode="Markdown",
+    )
+
+
 async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await cmd_start(update, context)
 
@@ -322,6 +340,10 @@ def main():
 ╚══════════════════════════════════════════════════════════╝
 """)
 
+    if not [u for u in ALLOWED_USERS if u.strip()]:
+        print("⚠️  TELEGRAM_ALLOWED_USERS ריק — הבוט פתוח לכל מי שמוצא אותו.\n"
+              "    שלח /whoami לבוט, הוסף את ה-ID ל-.env, והפעל מחדש כדי לנעול.\n")
+
     app = Application.builder().token(TOKEN).build()
 
     # Register commands
@@ -333,6 +355,7 @@ def main():
     app.add_handler(CommandHandler("qa", cmd_qa))
     app.add_handler(CommandHandler("dashboard", cmd_dashboard))
     app.add_handler(CommandHandler("help", cmd_help))
+    app.add_handler(CommandHandler("whoami", cmd_whoami))
     app.add_handler(CommandHandler("pipeline_status", cmd_pipeline_status))
 
     # Free text
