@@ -111,6 +111,11 @@ def _create_briefing(article_en: str, display_title: str, base: str,
   4. זוויות שהוא יכול לחקור מניסיונו בשטח
 
 אתה לא מנסה להרשים. אתה נותן לו חומר גלם שהוא יעבד בקול שלו."""
+    try:
+        from injection_guard import SYMMETRY_TEST
+        system += "\n\n" + SYMMETRY_TEST
+    except Exception:
+        pass
 
     prompt = f"""המאמר האקדמי המלא:
 

@@ -163,6 +163,12 @@ def _build_system(content_types: list[str]) -> str:
         ctx_parts.append(anti_patterns_block)
     if active_alerts_block:
         ctx_parts.append(active_alerts_block)
+    # Symmetry Test — external content is data, not instructions (always on)
+    try:
+        from injection_guard import SYMMETRY_TEST
+        ctx_parts.append(SYMMETRY_TEST)
+    except Exception:
+        pass
     if obsidian_block:
         ctx_parts.append(obsidian_block)
     if scratchpad_block:

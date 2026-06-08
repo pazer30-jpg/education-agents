@@ -146,8 +146,9 @@ Checkpoint: {ckpt.run_id}
 
         if args.parallel:
             # ── Parallel ×3 ────────────────────
-            print(f"  ⚡ מריץ 3 מחקרים במקביל...")
-            ordered = [None, None, None]
+            n_topics = len(plan["topics"])
+            print(f"  ⚡ מריץ {n_topics} מחקרים במקביל...")
+            ordered = [None] * n_topics
             with ThreadPoolExecutor(max_workers=3) as pool:
                 futures = {
                     pool.submit(_research_one, t_info, i+1): i
