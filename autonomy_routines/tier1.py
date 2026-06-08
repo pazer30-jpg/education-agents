@@ -6,6 +6,7 @@ Each routine reports {"status": "ok"|"warn"|"error", "message": "...",
 
 Routines:
   03:00  corpus_refresh             — fetch fresh papers in active themes
+  03:30  injection_watch            — Symmetry Test scan of fresh external content
   06:00  topic_radar                — queue tomorrow's topics in series-aware way
   06:00  curator_dynamic_priority   — refresh curator ranking
   11:00  engagement_refresher       — watch ~/Downloads for LinkedIn export CSVs
@@ -72,6 +73,27 @@ def corpus_refresh() -> dict:
     return {"status":  "ok",
             "message": f"fetched {fetched} papers across {len(topics[:3])} topics",
             "summary": f"corpus +{fetched}"}
+
+
+# ─────────────────────────────────────────────
+# 03:30 · Tier 1 · Injection watch (the Symmetry Test)
+# ─────────────────────────────────────────────
+
+@routine(hour=3, tier=1, cost=0.0,
+         description="scan freshly-ingested external content for prompt injection")
+def injection_watch() -> dict:
+    """Deterministic guardrail: external content (papers, trending, state) is
+    DATA, not instructions. Scan what was ingested in the last 36h for
+    injection markers and surface any hit in active_alerts.md.
+
+    Runs at 03:30 — right after corpus_refresh (03:00) drops new papers, and
+    well before the morning pipeline (07:00) consumes them.
+    """
+    try:
+        from injection_guard import scan_external_corpus
+    except Exception as e:
+        return {"status": "error", "message": f"injection_guard import failed: {e}"}
+    return scan_external_corpus(hours=36)
 
 
 # ─────────────────────────────────────────────
