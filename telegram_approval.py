@@ -249,20 +249,44 @@ def _move_to(src: Path, dst_dir: Path) -> Path:
 
 
 def _handle_approve(token: str, entry: dict) -> str:
-    """User clicked ✅ — mark as published in queue, move file to published/."""
+    """User clicked ✅ — try LinkedIn auto-publish (if configured), then mark
+    as published in queue and move file to published/."""
     queue = _load_json(PUB_QUEUE, {})
+    platform = entry.get("platform", "misc")
+    src = Path(entry["file"])
+
+    posted_url = ""
+    li_msg = ""
+
+    # If this is a LinkedIn post AND linkedin_publisher is set up, push it
+    if platform == "linkedin":
+        try:
+            import linkedin_publisher
+            if linkedin_publisher.is_configured() and src.exists():
+                body = src.read_text(encoding="utf-8", errors="replace").strip()
+                res = linkedin_publisher.publish(body)
+                if res.get("ok"):
+                    posted_url = res.get("url", "")
+                    li_msg = f"\n🔗 פורסם ל-LinkedIn: {posted_url}"
+                else:
+                    li_msg = f"\n⚠️ LinkedIn publish failed: {res.get('error', '?')[:120]}"
+        except Exception as e:
+            li_msg = f"\n⚠️ LinkedIn publish error: {e}"
+
     if token in queue:
         queue[token]["published_at"] = datetime.now().isoformat(timespec="seconds")
         queue[token]["decision"]     = "approved"
+        if posted_url:
+            queue[token]["posted_url"] = posted_url
         _save_json(PUB_QUEUE, queue)
-    src = Path(entry["file"])
+
     if src.exists():
         try:
-            moved = _move_to(src, PUBLISHED / entry.get("platform", "misc"))
-            return f"✅ אושר ועבר ל-`{moved.relative_to(OUTPUT_DIR)}`"
+            moved = _move_to(src, PUBLISHED / platform)
+            return (f"✅ אושר ועבר ל-`{moved.relative_to(OUTPUT_DIR)}`" + li_msg)
         except Exception as e:
-            return f"✅ אושר (queue עודכן) · ⚠️ כשל בהעברת קובץ: {e}"
-    return "✅ אושר ב-queue (קובץ לא נמצא)"
+            return f"✅ אושר (queue עודכן) · ⚠️ כשל בהעברת קובץ: {e}" + li_msg
+    return "✅ אושר ב-queue (קובץ לא נמצא)" + li_msg
 
 
 def _handle_reject(token: str, entry: dict) -> str:
