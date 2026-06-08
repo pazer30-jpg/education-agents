@@ -3,7 +3,8 @@
 [![Python 3.13+](https://img.shields.io/badge/python-3.13+-blue.svg)](https://www.python.org/)
 [![Claude API](https://img.shields.io/badge/Claude-Opus%204.7-orange.svg)](https://anthropic.com/)
 [![Status](https://img.shields.io/badge/status-active-success.svg)](https://github.com/pazer30-jpg/education-agents)
-[![Agents](https://img.shields.io/badge/agents-13-purple.svg)](https://github.com/pazer30-jpg/education-agents)
+[![Agents](https://img.shields.io/badge/agents-15-purple.svg)](https://github.com/pazer30-jpg/education-agents)
+[![Autonomy](https://img.shields.io/badge/autonomy-12_routines-teal.svg)](https://github.com/pazer30-jpg/education-agents)
 [![APA 7](https://img.shields.io/badge/citations-APA%207-informational.svg)](https://github.com/pazer30-jpg/education-agents)
 [![License](https://img.shields.io/badge/license-personal-lightgrey.svg)](https://github.com/pazer30-jpg/education-agents)
 
@@ -70,7 +71,15 @@ flowchart TD
     A6["🎬 Agent 6 — Video Creator<br/><i>fal.ai: Seedance · Kling · Veo · Hailuo (5-10s, 9:16)</i>"]
     A6 --> A5
 
-    A5["🎯 Agent 5 — Project Manager<br/><i>QA gates · Loop Detector · Orchestration</i>"] --> Output([📚 Hebrew content + EN paper + Video])
+    A5["🎯 Agent 5 — Project Manager<br/><i>QA gates · Loop Detector · Orchestration</i>"] --> A7
+    A7["📓 Agent 7 — Research Journal<br/><i>narrative log of each run</i>"] --> A8
+    A8["📬 Agent 8 — Publisher<br/><i>daily Telegram digest</i>"]
+    A8 --> A10["🏆 Agent 10 — Curator<br/><i>weekly post ranking</i>"]
+    A10 --> Output([📚 Hebrew content + EN paper + Video])
+
+    %% Primary research branch (off-cycle, on-demand)
+    A11["🔬 Agent 11 — Survey Designer<br/><i>RQs → spec.md + items.csv</i>"] -.-> A12
+    A12["📊 Agent 12 — Response Analyzer<br/><i>findings.md + stats</i>"] -.-> A2
 
     %% Reciprocal feedback channels
     A27 -.->|"missing citations"| A1
@@ -81,19 +90,101 @@ flowchart TD
     classDef agent fill:#4a90e2,stroke:#2c5aa0,color:#fff
     classDef sub fill:#7cb9e8,stroke:#4a90e2,color:#000
     classDef io fill:#ffd700,stroke:#cc9900,color:#000
-    class A0,A1,A2,A3,A4,A5 agent
+    classDef research fill:#a78bfa,stroke:#6940a5,color:#fff
+    class A0,A1,A2,A3,A4,A5,A7,A8,A10 agent
     class A15,A17,A25,A27,A35,A36 sub
+    class A11,A12 research
     class Topic,Output io
 ```
 
 > _Solid arrows: data flow.  Dotted arrows: reciprocal feedback (via scratchpad)._
 
 **Supporting layers:**
-- 🧠 **Memory** — `memory.py`, `obsidian_memory.py`, `scratchpad.py`
-- 🛡 **Quality** — `qa_checker.py`, `causal_validator.py`, `conflict_resolver.py`, `fact_checker.py`
-- 📊 **Observability** — `analytics.py`, `observability.py`, `dashboard.py`, `agent_health.py`
-- 🎓 **Academic** — `seminar_writer.py`, `thesis_prep.py`, `thesis_lit_collector.py`, `bibliography.py`
-- 🔁 **Learning** — `performance_learner.py`, `failure_analyzer.py`, `voice_match.py`, `reflective_loop.py`
+
+- 🧠 **Memory** — `memory.py`, `obsidian_memory.py`, `scratchpad.py` · 19 markdown notes in `output/_memory/`
+- 🛡 **Quality** — `qa_checker.py`, `fact_checker.py` (triangulation), `dedup_checker.py`, `injection_guard.py`
+- 📊 **Observability** — `analytics.py`, `observability.py`, `dashboard.py`, `agent_health.py`, `log_router.py`
+- 🎓 **Academic** — `seminar_writer.py`, `thesis_prep.py`, `bibliography.py`
+- 🔁 **Learning** — `hook_log.py`, `performance_learner.py`, `failure_analyzer.py`, `voice_match.py`, `engagement_tracker.py`
+- 🛰 **Distribution** — `agent8_publisher.py`, `linkedin_publisher.py`, `linkedin_analytics_import.py`
+- 🔒 **Reliability** — `pipeline_lock.py`, `cost_forecaster.py`, `source_health.py`, `memory_snapshots.py`
+
+---
+
+## 🤖 Daily Autonomy — 12 routines
+
+Every agent has a small daily routine that keeps the system warm between
+pipeline runs. Dispatched by `autonomy.py` via launchd on the hour.
+
+| Hour  | Routine                    | Tier   | Cost    | What it does                                              |
+| ----- | -------------------------- | ------ | ------- | --------------------------------------------------------- |
+| 02:00 | `retroactive_polishing`    | T3     | ~$1.00  | Re-polish recent article if humanize rules changed        |
+| 02:30 | `citation_watcher`         | T2     | ~$0.30  | Re-verify orphan citations vs fresh corpus                |
+| 03:00 | `corpus_refresh`           | **T1** | $0      | Fetch 3-5 fresh papers per strong topic                   |
+| 03:30 | `injection_watch`          | **T1** | $0      | Symmetry Test scan of fresh external content              |
+| 04:00 | `trend_mapping`            | T2     | ~$0.30  | Synthesize trends from 14-day corpus growth               |
+| 05:00 | `repurposer`               | T3     | ~$1.00  | Repurpose 90+ day old article to fresh LinkedIn           |
+| 06:00 | `topic_radar`              | **T1** | $0      | Queue tomorrow's topics (series-aware)                    |
+| 06:00 | `curator_dynamic_priority` | **T1** | $0      | Refresh weekly post ranking                               |
+| 06:30 | `outline_prewarm`          | T2     | ~$0.50  | Outline tomorrow's #1 queued topic (saves cron 10min)     |
+| 09:30 | `weekly_meta_synthesis`    | T2     | ~$0.40  | Reflective journal entry (Mondays only)                   |
+| 11:00 | `engagement_refresher`     | **T1** | $0      | Auto-import LinkedIn CSV from ~/Downloads                 |
+| 23:00 | `visual_backlog`           | T3     | ~$0.80  | Generate SVG cover for an uncovered article               |
+
+Set `MOKI_AUTONOMY_TIER=1` (default) to run only the $0 routines.
+T2 adds ~$1.50/day, T3 adds ~$2.00/day.
+
+Each routine reports to `output/_state/autonomy_log.json` and surfaces in
+`output/_memory/active_alerts.md` so failures are visible from the next
+pipeline's memory load.
+
+---
+
+## 🛡 Prompt Injection Defense
+
+External content (paper abstracts, trending titles, CSV rows) is **DATA, not
+instructions**. The `injection_guard` module provides three defensive layers:
+
+1. **SYMMETRY_TEST** — a 382-char Hebrew system-prompt fragment injected into
+   every content-generating agent. Asks the model: "Would I write this if
+   the source hadn't told me to?"
+2. **Nightly scan** at 03:30 — regex scanner flags injection markers
+   (`ignore previous instructions`, `act as …`, role-tag mimicry, base64,
+   obfuscation) and surfaces hits in `active_alerts.md`.
+3. **Citation whitelist + triangulation** in `agent2_7_fact_checker.py` —
+   final verification layer at output.
+
+---
+
+## 🔬 Primary Research — Agents 11 + 12
+
+Beyond reviewing existing literature, the system can conduct empirical
+surveys grounded in established theoretical frameworks (Hobfoll, CD-RISC,
+McAdams, Erikson, Hagerty & Patusky Belonging, etc.).
+
+```bash
+# Phase 1: design a survey from research questions
+python3 agent11_survey_designer.py \
+    --topic "loneliness in boarding-school principals" \
+    --rq "What predicts resilience among isolated principals?" \
+    --rq "How do principals describe their support networks?" \
+    --audience "boarding-school principals in Israel" \
+    --frameworks Hobfoll CD-RISC --estimated-n 80
+
+# → output/surveys/<slug>/spec.md   (methodology)
+# → output/surveys/<slug>/items.csv  (upload to Google Forms)
+
+# Phase 2: analyze responses
+python3 agent12_response_analyzer.py \
+    --slug loneliness-in-boarding-school-principals \
+    --responses ~/Downloads/responses.csv
+# → findings.md (descriptives, Cronbach α, correlations, qualitative themes)
+```
+
+Total cost per full survey: ~$2.40 (1 design call + ≤3 coding calls).
+
+Findings feed directly into the Writer — the next article becomes
+"Mixed Methods Findings" instead of "Literature Review" with real n.
 
 ---
 
@@ -127,8 +218,15 @@ cp .env.example .env
 | `SEMANTIC_SCHOLAR_API_KEY` | No | Improved rate limits |
 | `UNPAYWALL_EMAIL` | Yes | Access to open-access PDFs |
 | `MOKI_AUTONOMY_LEVEL` | No (default: 1) | 0=ask all gates, 1=trust me, 2=full |
-| `MOKI_DAILY_BUDGET` | No (default: 30) | Daily Claude budget cap in USD |
+| `MOKI_AUTONOMY_TIER` | No (default: 1) | Daily-routine ceiling: 1=$0/day, 2=+$1.50, 3=+$2.00 |
+| `MOKI_DAILY_BUDGET` | No (default: 75) | Daily Claude budget cap in USD |
+| `MOKI_DEEP_HUMANIZE` | No | `1` enables self-audit loop in Article Editor |
 | `FAL_KEY` | No (skip Agent 6 without it) | fal.ai key for video generation |
+| `LINKEDIN_CLIENT_ID` | No | Enables auto-publish via `mark_published.py` (see `launchd/LINKEDIN_SETUP.md`) |
+| `LINKEDIN_CLIENT_SECRET` | No | OAuth secret paired with above |
+| `LINKEDIN_ACCESS_TOKEN` | Auto | Populated by `python3 linkedin_publisher.py --auth` |
+| `LINKEDIN_REFRESH_TOKEN` | Auto | Populated by `--auth`; auto-refreshed on 401 |
+| `LINKEDIN_USER_URN` | Auto | Populated by `--auth` from `/v2/userinfo` |
 
 > **Claude CLI vs API Key:** The system prefers `claude` CLI (subscription).
 > Falls back to `ANTHROPIC_API_KEY` if CLI is unavailable.
