@@ -1,6 +1,10 @@
 """
 test_perf_regression.py — Performance regression tracker.
-מתריע אם הריצה האחרונה הייתה ארוכה משמעותית מהממוצע של 7 ימים.
+מתריע אם המגמה בסה"כ של 3 הריצות האחרונות מציגה חריגה משמעותית מהממוצע.
+
+נקודה חשובה: ה-gate לא נועד לחסום ריצה חדשה בגלל ריצה רעה היסטורית
+*אחת*. הריצה הרעה כבר טופלה על ידי ה-watchdog ב-120 דק'. החסימה כאן
+אמורה לקרות *רק* אם 3 ריצות רצופות מציגות מגמת התדרדרות.
 
 Usage:
   python3 test_perf_regression.py          # check + alert
@@ -8,14 +12,15 @@ Usage:
 """
 
 import json
+import statistics
 import sys
 from pathlib import Path
 from datetime import datetime, timedelta
 
 PROJECT_DIR = Path(__file__).parent
 ANALYTICS = PROJECT_DIR / "output" / "analytics.json"
-ALERT_THRESHOLD = 1.5    # alert if last run > 1.5x avg
-ABORT_THRESHOLD = 2.5    # abort recommendation if > 2.5x avg
+ALERT_THRESHOLD = 2.0    # alert if median of last 3 > 2.0x avg
+ABORT_THRESHOLD = 4.0    # abort only on sustained 4× regression (3 runs in a row)
 
 
 def load_runs():
@@ -45,12 +50,22 @@ def analyze():
 
     avg = sum(durations) / len(durations)
     last = durations[-1]
+    # Two ratios with different jobs:
+    #   `ratio`       — last run vs avg. What the operator SEES in the report;
+    #                   matches arithmetically with last_min / avg_min.
+    #   `gate_ratio`  — TRUE median of last 3 vs avg. What DECIDES the gate.
+    #                   A single bad run shouldn't block the next attempt — the
+    #                   120-min watchdog already handles single-run runaways.
+    # `statistics.median` handles n=1,2,3 correctly (avg of middle two for n=2).
+    last_3 = durations[-3:]
+    median_last3 = statistics.median(last_3) if last_3 else 0
     ratio = last / avg if avg > 0 else 0
+    gate_ratio = median_last3 / avg if avg > 0 else 0
 
     status = "ok"
-    if ratio >= ABORT_THRESHOLD:
+    if gate_ratio >= ABORT_THRESHOLD:
         status = "critical"
-    elif ratio >= ALERT_THRESHOLD:
+    elif gate_ratio >= ALERT_THRESHOLD:
         status = "warning"
 
     # Cost regression too
@@ -65,17 +80,19 @@ def analyze():
     last_qa = qas[-1] if qas else 0
 
     return {
-        "status": status,
-        "samples": len(recent),
-        "avg_min": round(avg, 1),
-        "last_min": round(last, 1),
-        "ratio": round(ratio, 2),
-        "avg_cost": round(avg_cost, 2),
-        "last_cost": round(last_cost, 2),
-        "cost_ratio": round(cost_ratio, 2),
-        "avg_qa": round(avg_qa, 1) if avg_qa else None,
-        "last_qa": last_qa,
-        "last_run": (recent[-1].get("started_at") or "")[:16].replace("T", " "),
+        "status":           status,
+        "samples":          len(recent),
+        "avg_min":          round(avg, 1),
+        "last_min":         round(last, 1),
+        "median_last3_min": round(median_last3, 1),
+        "ratio":            round(ratio, 2),
+        "gate_ratio":       round(gate_ratio, 2),
+        "avg_cost":         round(avg_cost, 2),
+        "last_cost":        round(last_cost, 2),
+        "cost_ratio":       round(cost_ratio, 2),
+        "avg_qa":           round(avg_qa, 1) if avg_qa else None,
+        "last_qa":          last_qa,
+        "last_run":         (recent[-1].get("started_at") or "")[:16].replace("T", " "),
     }
 
 
@@ -97,11 +114,20 @@ def format_report(result: dict) -> str:
     if result.get("last_qa"):
         lines.append(f"  QA:        {result['last_qa']}/100 (ממוצע: {result['avg_qa']:.0f}/100)")
 
+    # Gate decision is based on the SMOOTHED median of last 3, not last alone.
+    # Show that explicitly so the operator understands why ratio above looks
+    # fine but the gate fired (or vice versa).
+    if result["status"] in ("critical", "warning"):
+        lines.append(
+            f"  Gate:      median(3 אחרונות)={result['median_last3_min']:.0f} דק' → "
+            f"{result['gate_ratio']:.1f}× מהממוצע"
+        )
+
     if result["status"] == "critical":
-        lines.append(f"\n  🚨 חריגה קריטית: ריצה אחרונה הייתה {result['ratio']:.1f}× מהממוצע")
+        lines.append(f"\n  🚨 חריגה קריטית: 3 ריצות אחרונות מציגות חציון {result['gate_ratio']:.1f}× מהממוצע")
         lines.append(f"     המלצה: עצור את הריצה הבאה ובדוק מה קרה")
     elif result["status"] == "warning":
-        lines.append(f"\n  ⚠️  חריגה: ריצה אחרונה {result['ratio']:.1f}× מהממוצע — בדוק לוגים")
+        lines.append(f"\n  ⚠️  חריגה: חציון 3 אחרונות {result['gate_ratio']:.1f}× מהממוצע — בדוק לוגים")
     else:
         lines.append(f"\n  ✅ בסדר — בטווח רגיל")
     return "\n".join(lines)
