@@ -2275,8 +2275,19 @@ setInterval(() => location.reload(), 60000);
 
 def build_dashboard(open_browser: bool = True) -> Path:
     html = generate_dashboard()
-    DASHBOARD_FILE.write_text(html, encoding="utf-8")
-    print(f"  📊 Dashboard: {DASHBOARD_FILE}")
+    # Guard against truncated output: a malformed/partial generate_dashboard()
+    # left a 5.5KB stub on 2026-06-12 (data load raced a mid-write analytics.json).
+    # Refuse to overwrite a good dashboard with a broken one.
+    if not html or len(html) < 20_000 or "</html>" not in html:
+        print(f"  ⚠️ dashboard generation produced {len(html)} bytes — "
+              f"looks truncated, keeping previous file")
+        return DASHBOARD_FILE
+    # Atomic write: tmp file → rename, so a killed process never leaves a
+    # half-written dashboard.html.
+    tmp = DASHBOARD_FILE.with_suffix(".html.tmp")
+    tmp.write_text(html, encoding="utf-8")
+    tmp.replace(DASHBOARD_FILE)
+    print(f"  📊 Dashboard: {DASHBOARD_FILE} ({len(html)//1024}KB)")
     if open_browser:
         webbrowser.open(f"file://{DASHBOARD_FILE}")
     return DASHBOARD_FILE
