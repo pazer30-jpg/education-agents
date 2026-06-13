@@ -42,7 +42,7 @@ def _notify(message: str):
 
 def _progress(step: int, total: int, agent_name: str, started_at: float):
     """Print a progress bar with elapsed time for long pipeline runs."""
-    elapsed = time.time() - started_at
+    elapsed = time.monotonic() - started_at
     elapsed_min = elapsed / 60
     print(f"\n  ━━━ [{step}/{total}] {agent_name} ━━━  ({elapsed_min:.0f} min elapsed)")
 
@@ -566,7 +566,7 @@ def _detect_partial_success(agent: str, execution_state: dict) -> str:
 
 def _execute_step(step: dict, execution_state: dict) -> str:
     agent = step.get("agent")
-    t0    = time.time()
+    t0    = time.monotonic()
     info  = AGENTS.get(agent, {})
     print(f"\n  {info.get('emoji','▶')} מפעיל {info.get('name', agent)}...")
 
@@ -967,12 +967,12 @@ def _execute_step(step: dict, execution_state: dict) -> str:
             return f"❌ Agent לא מוכר: {agent}"
 
     except Exception as e:
-        elapsed = time.time() - t0
+        elapsed = time.monotonic() - t0
         if elapsed > STEP_TIMEOUT:
             return f"❌ {agent} חרג מ-timeout ({elapsed/60:.1f} דק')"
         return f"❌ שגיאה ב-{agent}: {e}"
 
-    elapsed = time.time() - t0
+    elapsed = time.monotonic() - t0
     return f"✅ {agent} הסתיים תוך {elapsed:.1f}s"
 
 
@@ -1272,7 +1272,7 @@ def run_project_manager(request: str, auto_approve: bool = False) -> dict:
     # 4. Execute steps
     completed = []
     errors    = []
-    total_start = time.time()
+    total_start = time.monotonic()
 
     PIPELINE_TIMEOUT = 3600  # 60 minutes max for entire pipeline (was 90 — too lax)
 
@@ -1288,7 +1288,7 @@ def run_project_manager(request: str, auto_approve: bool = False) -> dict:
 
     for i, step in enumerate(steps, 1):
         # Pipeline timeout check
-        if time.time() - total_start > PIPELINE_TIMEOUT:
+        if time.monotonic() - total_start > PIPELINE_TIMEOUT:
             print(f"\n  ⛔ Pipeline timeout — חרג מ-{PIPELINE_TIMEOUT//60} דקות, עוצר.")
             errors.append(f"Pipeline timeout ({PIPELINE_TIMEOUT//60} min)")
             break
@@ -1337,7 +1337,7 @@ def run_project_manager(request: str, auto_approve: bool = False) -> dict:
             except Exception:
                 pass  # health check itself failed — proceed, the step's own retry handles it
 
-        step_start = time.time()
+        step_start = time.monotonic()
         # Hard timeout enforcement: don't wait for thread to finish on timeout
         import concurrent.futures as _cf
         _ex = _cf.ThreadPoolExecutor(max_workers=1)
@@ -1357,7 +1357,7 @@ def run_project_manager(request: str, auto_approve: bool = False) -> dict:
                 try:
                     _ckpt.save(f"{agent}_pre_timeout", {
                         "agent": agent,
-                        "elapsed_s": round(time.time() - step_start, 1),
+                        "elapsed_s": round(time.monotonic() - step_start, 1),
                         "saved_at": datetime.now().isoformat(),
                         "state": "in_progress",
                     })
@@ -1401,7 +1401,7 @@ def run_project_manager(request: str, auto_approve: bool = False) -> dict:
                 errors.append(f"⏸  {agent} deferred (CLI unavailable, checkpoint saved)")
                 break  # Stop pipeline cleanly, don't mark as failure
             result = f"❌ שגיאה ב-{agent}: {_step_exc}"
-        step_dur = time.time() - step_start
+        step_dur = time.monotonic() - step_start
         print(f"    {result}")
 
         qa_entry = next((q for q in reversed(execution_state.get("qa_log",[])) if q.get("stage") in (agent, "research", "article")), None)
@@ -1446,7 +1446,7 @@ def run_project_manager(request: str, auto_approve: bool = False) -> dict:
             _notify(f"✅ [{i}/{len(steps)}] {agent_display} completed")
 
     # 5. Report
-    elapsed = time.time() - total_start
+    elapsed = time.monotonic() - total_start
     total_min = elapsed / 60
     print(f"\n🎉 Pipeline complete — {total_min:.0f} minutes, {len(completed)} steps")
     _notify(f"🎉 Pipeline complete — {total_min:.0f} min")
@@ -1454,7 +1454,7 @@ def run_project_manager(request: str, auto_approve: bool = False) -> dict:
 
     all_errors = errors + execution_state.get("errors", [])
     tracker.end_run(success=not bool(all_errors))
-    log.run_end(success=not bool(all_errors), duration=time.time() - total_start)
+    log.run_end(success=not bool(all_errors), duration=time.monotonic() - total_start)
 
     # 6. Telegram notifications
     try:

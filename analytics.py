@@ -63,7 +63,10 @@ class PipelineTracker:
         self._run_start: float     = 0
 
     def start_run(self, topic: str, content_types: list = None):
-        self._run_start = time.time()
+        # monotonic, not time.time(): a mac that sleeps mid-run would otherwise
+        # report wall-clock duration (incl. sleep), poisoning the cost
+        # forecaster + perf gate with fake "205-min" runs. (2026-06-13)
+        self._run_start = time.monotonic()
         self._current   = {
             "id":            datetime.now().strftime("%Y%m%d_%H%M%S"),
             "started_at":    datetime.now().isoformat(),
@@ -109,7 +112,7 @@ class PipelineTracker:
         if not self._current:
             return
         self._current["success"]    = success
-        self._current["duration_s"] = round(time.time() - self._run_start, 1)
+        self._current["duration_s"] = round(time.monotonic() - self._run_start, 1)
         self._current["ended_at"]   = datetime.now().isoformat()
 
         scores = list(self._current["qa_scores"].values())
