@@ -154,7 +154,15 @@ if [ $STATUS -eq 0 ]; then
     # ── Sync learning to Obsidian memory (strong/weak topics + edit corrections) ──
     echo "  🧠 Syncing learning to memory..."
     /Library/Frameworks/Python.framework/Versions/3.13/bin/python3 analytics.py --sync 2>&1 | tail -1 || true
+    # Edit-learning loop (correct order): detect what the operator changed
+    # since the LAST snapshot → learn from it → take a fresh snapshot of the
+    # new posts for next time. Previously only 'learn' ran with no snapshots,
+    # so detect_edits never had a baseline and learned nothing.
+    /Library/Frameworks/Python.framework/Versions/3.13/bin/python3 edit_tracker.py detect 2>&1 | tail -1 || true
     /Library/Frameworks/Python.framework/Versions/3.13/bin/python3 edit_tracker.py learn 2>&1 | tail -1 || true
+    /Library/Frameworks/Python.framework/Versions/3.13/bin/python3 edit_tracker.py snapshot 2>&1 | tail -1 || true
+    # A/B winner detection — which opening style actually wins on engagement
+    /Library/Frameworks/Python.framework/Versions/3.13/bin/python3 ab_tracker.py 2>&1 | tail -1 || true
 
     # ── Regenerate code index (catches new/removed *.py files) ──
     /Library/Frameworks/Python.framework/Versions/3.13/bin/python3 regenerate_index.py 2>&1 | tail -1 || true

@@ -146,13 +146,35 @@ def topic_radar() -> dict:
         pass
 
     # 3) Trending hints (from trending.py — Reddit/HN/arXiv)
+    #    GATED by domain relevance: raw HN/Reddit score is meaningless here
+    #    (e.g. "Ntsc-rs VHS emulation" scored 524 but is 0% education-relevant).
+    #    Only surface trending items that share vocabulary with Paz's field;
+    #    cap their priority well below series/strong-topic so they never
+    #    crowd out on-mission topics.
+    _EDU_VOCAB = {
+        "education", "learning", "teaching", "teacher", "student", "school",
+        "youth", "pedagog", "curriculum", "classroom", "literacy", "mentor",
+        "adolescent", "identity", "belonging", "resilience", "community",
+        "informal", "non-formal", "wellbeing", "well-being", "trauma",
+        "חינוך", "למידה", "הוראה", "נוער", "מורה", "תלמיד", "פדגוג",
+        "חוסן", "שייכות", "זהות", "קהילה", "מתבגר",
+    }
     try:
         from trending import fetch_trending_topics
-        for t in fetch_trending_topics(max_topics=3)[:3]:
+        for t in fetch_trending_topics(max_topics=8)[:8]:
+            title = (t.get("title", "") or "")[:120]
+            tl = title.lower()
+            hits = sum(1 for kw in _EDU_VOCAB if kw in tl)
+            if hits == 0:
+                continue  # off-domain — skip entirely
+            # Relevance-weighted priority, hard-capped at 45 so trending never
+            # outranks a series (100) or a strong topic (its coverage score).
+            rel_priority = min(45, 15 + hits * 10)
             queue.append({
                 "source":   f"trending:{t.get('source','')}",
-                "title":    t.get("title", "")[:120],
-                "priority": int(t.get("score", 0)),
+                "title":    title,
+                "priority": rel_priority,
+                "relevance_hits": hits,
             })
     except Exception:
         pass

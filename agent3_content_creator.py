@@ -122,7 +122,9 @@ def _build_system(content_types: list[str]) -> str:
             ["voice_rules", "recurring_sources", "theoretical_anchors",
              "engagement", "performance_patterns", "humanize_rules",
              "active_series",
-             "hook_winners"],
+             "hook_winners",
+             "ab_winners",          # which opening style wins on engagement
+             "editor_corrections"], # what Paz consistently edits out/in
             max_chars_per_note=1000,
         )
         # ── Persona: prepend backstory (CrewAI pattern) ──
