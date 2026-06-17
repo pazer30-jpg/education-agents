@@ -257,6 +257,14 @@ def ask_claude(prompt: str, system: str = "", max_budget: float = 2.0,
         "-p",
         "--model", CLAUDE_MODEL,
         "--dangerously-skip-permissions",
+        # Load ONLY project-level settings, not user-level. The user's
+        # ~/.claude/settings.json registers cavemem lifecycle hooks
+        # (SessionStart/SessionEnd) that intermittently exit 1 and kill the
+        # whole headless call with empty stdout — this was deferring Writer +
+        # Content on most runs. Excluding the 'user' source skips those hooks
+        # while OAuth/keychain auth (not a setting source) still works.
+        # Verified: 4/5 fail without this → 0/5 fail with it. (2026-06-16)
+        "--setting-sources", "project",
         f"--max-budget-usd={max_budget}",
     ]
 
@@ -289,8 +297,19 @@ def ask_claude(prompt: str, system: str = "", max_budget: float = 2.0,
                 timeout=timeout,
                 stdin=subprocess.DEVNULL,
             )
-            if result.returncode == 0 and result.stdout.strip():
-                return result.stdout.strip()
+            out = (result.stdout or "").strip()
+            if result.returncode == 0 and out:
+                return out
+            # Tolerate non-zero exit when stdout holds a real response. The
+            # cavemem SessionEnd hook (~/.claude/settings.json) intermittently
+            # returns exit 1 AFTER the model response is already on stdout —
+            # discarding that output throws away a perfectly good generation
+            # and forces a needless defer. A cleanup-hook failure is not a
+            # generation failure. (2026-06-16)
+            if out and len(out) >= 40:
+                print(f"  [CLI] exit {result.returncode} but stdout valid "
+                      f"({len(out)} chars) — accepting (likely post-response hook)")
+                return out
             last_error = (result.stderr or "").strip()[:200] or f"exit {result.returncode}"
         except subprocess.TimeoutExpired:
             last_error = f"timeout after {timeout}s"
