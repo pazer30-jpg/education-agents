@@ -180,6 +180,12 @@ if [ $STATUS -eq 0 ]; then
     # ── Series memory: refresh active_series.md so next-run Planner sees it ──
     /Library/Frameworks/Python.framework/Versions/3.13/bin/python3 series.py --regen 2>&1 | tail -1 || true
 
+    # ── Email finished articles to the operator (no-op if EMAIL_* not in .env) ──
+    /Library/Frameworks/Python.framework/Versions/3.13/bin/python3 email_sender.py --latest 3 2>&1 | tail -2 || true
+
+    # ── Rebuild inter-agent chat timeline (visual scratchpad/handoff view) ──
+    /Library/Frameworks/Python.framework/Versions/3.13/bin/python3 agent_chat_view.py --no-open 2>&1 | tail -1 || true
+
     # ── Weekly digest: Mondays only (date +%u = 1). Sends to Telegram if configured. ──
     if [ "$(date +%u)" = "1" ]; then
         echo "  📬 Monday — generating weekly digest..."

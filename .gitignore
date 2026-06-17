@@ -103,3 +103,7 @@ output/videos/
 output/images/
 output/_publish/
 output/podcasts_audio/
+
+# Visual + email runtime artifacts
+output/agent_chat.html
+output/_state/emailed_articles.json
