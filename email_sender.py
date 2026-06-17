@@ -26,7 +26,9 @@ import argparse
 import os
 import smtplib
 import ssl
+import subprocess
 import sys
+import tempfile
 from email.message import EmailMessage
 from email.utils import formatdate
 from pathlib import Path
@@ -36,6 +38,10 @@ from config import OUTPUT_DIR
 SMTP_HOST = "smtp.gmail.com"
 SMTP_PORT = 465  # SSL
 
+# macOS Mail.app fallback — used when SMTP isn't configured. Sends through
+# whatever account is already signed into Mail.app (no App Password needed).
+MAIL_APP_TO = os.environ.get("EMAIL_TO", "") or "pazer30@gmail.com"
+
 EMAIL_TO   = os.environ.get("EMAIL_TO", "")
 EMAIL_FROM = os.environ.get("EMAIL_FROM", "")
 EMAIL_PW   = os.environ.get("EMAIL_APP_PASSWORD", "")
@@ -43,6 +49,50 @@ EMAIL_PW   = os.environ.get("EMAIL_APP_PASSWORD", "")
 
 def is_configured() -> bool:
     return bool(EMAIL_TO and EMAIL_FROM and EMAIL_PW)
+
+
+# ─────────────────────────────────────────────
+# macOS Mail.app sender (no App Password needed)
+# ─────────────────────────────────────────────
+
+def _applescript_escape(s: str) -> str:
+    """Escape a Python string for embedding in an AppleScript double-quoted literal."""
+    return s.replace("\\", "\\\\").replace('"', '\\"')
+
+
+def send_via_mailapp(to: str, subject: str, body: str,
+                     attachments: list[Path] | None = None) -> dict:
+    """Send through Mail.app using the signed-in account. Plain-text body.
+    Returns {ok, error?}. macOS only."""
+    if sys.platform != "darwin":
+        return {"ok": False, "error": "Mail.app sender only works on macOS"}
+
+    att_lines = ""
+    for p in (attachments or []):
+        if p and Path(p).exists():
+            ap = _applescript_escape(str(Path(p).resolve()))
+            att_lines += (
+                f'        make new attachment with properties '
+                f'{{file name:POSIX file "{ap}"}} at after the last paragraph\n'
+            )
+
+    script = f'''
+tell application "Mail"
+    set newMsg to make new outgoing message with properties {{subject:"{_applescript_escape(subject)}", content:"{_applescript_escape(body)}", visible:false}}
+    tell newMsg
+        make new to recipient at end of to recipients with properties {{address:"{_applescript_escape(to)}"}}
+{att_lines}    end tell
+    send newMsg
+end tell
+'''
+    try:
+        r = subprocess.run(["osascript", "-e", script],
+                           capture_output=True, text=True, timeout=60)
+        if r.returncode == 0:
+            return {"ok": True, "to": to, "via": "mailapp"}
+        return {"ok": False, "error": (r.stderr or "osascript failed")[:200]}
+    except Exception as e:
+        return {"ok": False, "error": str(e)[:200]}
 
 
 def _md_to_html(md_text: str) -> str:
@@ -93,9 +143,7 @@ def _inline(text: str) -> str:
 
 
 def send_article(md_path: Path, docx_path: Path | None = None) -> dict:
-    """Email one article. Returns {ok, error?}."""
-    if not is_configured():
-        return {"ok": False, "error": "email not configured (set EMAIL_TO/FROM/APP_PASSWORD in .env)"}
+    """Email one article. Uses SMTP if configured, else falls back to Mail.app."""
     md_path = Path(md_path)
     if not md_path.exists():
         return {"ok": False, "error": f"article not found: {md_path}"}
@@ -109,6 +157,21 @@ def send_article(md_path: Path, docx_path: Path | None = None) -> dict:
             break
         if line.startswith("title:"):
             title = line.split(":", 1)[1].strip().strip('"').strip("'")
+
+    # ── Fallback path: Mail.app (no SMTP config needed) ──
+    if not is_configured():
+        word_count = len(md_text.split())
+        # Strip frontmatter for a clean plain-text body
+        body_txt = md_text
+        if body_txt.startswith("---"):
+            parts = body_txt.split("---", 2)
+            if len(parts) >= 3:
+                body_txt = parts[2]
+        body = (f"מאמר חדש ממוקי\n\n{title}\n"
+                f"{word_count} מילים · {md_path.name}\n"
+                f"{'─'*40}\n\n{body_txt.strip()}")
+        atts = [p for p in (docx_path, md_path) if p and Path(p).exists()]
+        return send_via_mailapp(MAIL_APP_TO, f"📄 מוקי — {title[:120]}", body, atts)
 
     msg = EmailMessage()
     msg["Subject"] = f"📄 מוקי — {title[:120]}"
@@ -197,28 +260,33 @@ def main():
     ap.add_argument("--latest", type=int, metavar="N", help="email N most recent un-sent articles")
     args = ap.parse_args()
 
-    if not is_configured():
-        print("⚠️  Email not configured. Add to .env:")
-        print("   EMAIL_TO=pazer30@gmail.com")
-        print("   EMAIL_FROM=your_gmail@gmail.com")
-        print("   EMAIL_APP_PASSWORD=xxxx xxxx xxxx xxxx")
-        print("   (create an App Password at myaccount.google.com/apppasswords)")
+    via = "SMTP" if is_configured() else "Mail.app"
+    if not is_configured() and sys.platform != "darwin":
+        print("⚠️  Email not configured and not on macOS. Add to .env:")
+        print("   EMAIL_TO / EMAIL_FROM / EMAIL_APP_PASSWORD")
         sys.exit(1)
 
     if args.test:
-        msg = EmailMessage()
-        msg["Subject"] = "🦊 מוקי — מבחן מייל"
-        msg["From"] = EMAIL_FROM
-        msg["To"] = EMAIL_TO
-        msg.set_content("אם קיבלת את זה — חיבור המייל של מוקי עובד.")
-        try:
-            ctx = ssl.create_default_context()
-            with smtplib.SMTP_SSL(SMTP_HOST, SMTP_PORT, context=ctx, timeout=30) as s:
-                s.login(EMAIL_FROM, EMAIL_PW)
-                s.send_message(msg)
-            print(f"✅ test email sent to {EMAIL_TO}")
-        except Exception as e:
-            print(f"❌ {e}")
+        if is_configured():
+            msg = EmailMessage()
+            msg["Subject"] = "🦊 מוקי — מבחן מייל"
+            msg["From"] = EMAIL_FROM
+            msg["To"] = EMAIL_TO
+            msg.set_content("אם קיבלת את זה — חיבור המייל של מוקי עובד (SMTP).")
+            try:
+                ctx = ssl.create_default_context()
+                with smtplib.SMTP_SSL(SMTP_HOST, SMTP_PORT, context=ctx, timeout=30) as s:
+                    s.login(EMAIL_FROM, EMAIL_PW)
+                    s.send_message(msg)
+                print(f"✅ test email sent to {EMAIL_TO} (SMTP)")
+            except Exception as e:
+                print(f"❌ {e}")
+        else:
+            res = send_via_mailapp(
+                MAIL_APP_TO, "🦊 מוקי — מבחן מייל",
+                "אם קיבלת את זה — חיבור המייל של מוקי דרך Mail.app עובד.")
+            print(f"✅ test email sent to {MAIL_APP_TO} (Mail.app)"
+                  if res.get("ok") else f"❌ {res.get('error')}")
         return
 
     if args.article:
