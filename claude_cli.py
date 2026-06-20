@@ -399,9 +399,12 @@ def ask_claude_json(prompt: str, system: str = "", max_budget: float = 2.0,
             stripped = stripped.rstrip()[:-3].rstrip()
         raw = stripped
 
-    # Try direct parse
+    # Try direct parse. strict=False tolerates literal newlines/tabs inside
+    # string values — the #1 cause of JSON parse failures for long-form blog
+    # bodies, where the model puts raw markdown (with newlines + quotes) into
+    # a "content" field instead of escaping them. (content_blog failure 2026-06-19)
     try:
-        return json.loads(raw)
+        return json.loads(raw, strict=False)
     except json.JSONDecodeError:
         pass
 
@@ -409,7 +412,7 @@ def ask_claude_json(prompt: str, system: str = "", max_budget: float = 2.0,
     match = re.search(r'(\[[\s\S]+\]|\{[\s\S]+\})', raw)
     if match:
         try:
-            return json.loads(match.group(1))
+            return json.loads(match.group(1), strict=False)
         except json.JSONDecodeError:
             pass
 
@@ -479,7 +482,7 @@ def _repair_truncated_json(raw: str) -> dict | list | None:
 
     for attempt in attempts:
         try:
-            result = json.loads(attempt)
+            result = json.loads(attempt, strict=False)
             print("  [JSON] ⚠️  Repaired truncated JSON — some data may be incomplete")
             return result
         except json.JSONDecodeError:
