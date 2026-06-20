@@ -587,6 +587,35 @@ def check_cli_available() -> bool:
     return CLAUDE_BIN is not None
 
 
+def warm_up_cli(max_attempts: int = 8) -> dict:
+    """
+    Ride through the cold-start cavemem burst BEFORE real pipeline steps run.
+
+    Every pipeline run, the FIRST CLI call fails with exit 1 / "unavailable"
+    — the cavemem hooks flake for a ~30-60s burst on cold start, and a normal
+    step's 3-retry budget (≈50s) gets exhausted right at the gate, deferring
+    the first agent every single time. By the time the SECOND step runs the
+    burst has passed and everything works.
+
+    This does up to N cheap "Say OK" probes with patient backoff until one
+    succeeds, so the burst is absorbed here instead of killing the first
+    real step. Returns {"ok": bool, "attempts": int, "elapsed_s": float}.
+    """
+    start = _time.time()
+    for attempt in range(1, max_attempts + 1):
+        try:
+            r = ask_claude("Say OK", max_budget=0.05, timeout=90, max_retries=1)
+            if r and r.strip():
+                return {"ok": True, "attempts": attempt,
+                        "elapsed_s": round(_time.time() - start, 1)}
+        except Exception:
+            pass
+        if attempt < max_attempts:
+            _time.sleep(min(10 + attempt * 5, 40))  # 15,20,25,30,35,40,40...
+    return {"ok": False, "attempts": max_attempts,
+            "elapsed_s": round(_time.time() - start, 1)}
+
+
 def health_check(timeout: int = 120) -> dict:
     """
     Verify Claude CLI is available and responsive.

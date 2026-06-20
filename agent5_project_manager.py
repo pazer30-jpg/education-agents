@@ -1151,8 +1151,18 @@ def run_project_manager(request: str, auto_approve: bool = False) -> dict:
     auto_approve: אם True — לא שואל אישור לפני הרצה
     """
     # Pre-flight: verify Claude CLI is available before wasting time
-    from claude_cli import require_health, reset_budget
+    from claude_cli import require_health, reset_budget, warm_up_cli
     require_health()
+
+    # Warm up the CLI to absorb the cold-start cavemem burst. Without this the
+    # FIRST real step (often a deferred content resume) exhausts its retries
+    # on the cold-start flakiness and defers — every single run. (2026-06-20)
+    _wu = warm_up_cli()
+    if _wu["ok"]:
+        print(f"  🔥 CLI warmed up ({_wu['attempts']} attempt(s), {_wu['elapsed_s']}s)")
+    else:
+        print(f"  ⚠️ CLI warmup did not stabilize after {_wu['attempts']} attempts "
+              f"({_wu['elapsed_s']}s) — proceeding anyway")
 
     # Reset budget for new pipeline run
     reset_budget()
