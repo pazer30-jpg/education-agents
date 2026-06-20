@@ -240,6 +240,23 @@ def edit_article(article_paths: dict[str, Path],
         print("  ⚠️  עריכה ריקה — שומר מקור")
         return {"paths": article_paths, "changes": [], "backup": None}
 
+    # ── Anti-destruction guard ──
+    # An editor must NEVER replace a long article with a much shorter one.
+    # On 2026-06-20 an "API Error: Connection closed" string came back as the
+    # "edit" and overwrote a 3000-word article (final body: 25 words). Refuse
+    # any edit that shrinks the article below 60% of the original word count,
+    # or that looks like a transport/API error payload.
+    _err_markers = ("api error", "connection closed", "connection error",
+                    "overloaded", "rate_limit", "try again.")
+    edited_words = len(edited.split())
+    if edited_words < words_before * 0.6:
+        print(f"  ⚠️  עריכה מקצרת מדי ({words_before}→{edited_words} מילים, "
+              f"<60%) — שומר מקור, לא דורס")
+        return {"paths": article_paths, "changes": [], "backup": None}
+    if any(m in edited.lower() for m in _err_markers) and edited_words < 150:
+        print(f"  ⚠️  עריכה נראית כשגיאת API — שומר מקור, לא דורס")
+        return {"paths": article_paths, "changes": [], "backup": None}
+
     # ── Self-audit loop (anti-AI-tells, opt-in via MOKI_DEEP_HUMANIZE=1) ──
     # Pattern: Wikipedia "Signs of AI writing" — pass 1 audits, pass 2 fixes.
     # Adds 2 Claude calls but produces noticeably less AI-tells output.

@@ -234,6 +234,33 @@ def _wait_for_cli(max_wait: int = 60) -> str | None:
     return None
 
 
+_ERROR_PAYLOAD_MARKERS = (
+    "api error:",
+    "connection closed while thinking",
+    "connection error",
+    "overloaded_error",
+    "rate_limit_error",
+    "internal server error",
+    "service unavailable",
+    "请稍后再试",  # generic "try again later"
+    "try again.",
+)
+
+
+def _is_error_payload(text: str) -> bool:
+    """True if stdout looks like a transport/API error rather than a real
+    response. Such strings were being written into articles as content.
+    Only flag SHORT outputs — a long article that happens to mention
+    'connection error' in prose is fine."""
+    if not text:
+        return False
+    low = text.lower().strip()
+    # A genuine response is long; an error payload is short + matches a marker.
+    if len(text) > 600:
+        return False
+    return any(m in low for m in _ERROR_PAYLOAD_MARKERS)
+
+
 def ask_claude(prompt: str, system: str = "", max_budget: float = 2.0,
                timeout: int = 900, max_retries: int = 3) -> str:
     """
@@ -298,6 +325,18 @@ def ask_claude(prompt: str, system: str = "", max_budget: float = 2.0,
                 stdin=subprocess.DEVNULL,
             )
             out = (result.stdout or "").strip()
+            # CRITICAL: the CLI sometimes prints an API error AS stdout text
+            # with exit 0 (e.g. "API Error: Connection closed while thinking").
+            # On 2026-06-20 such a string was written into an article as its
+            # body, destroying 3000 words. Reject these even on exit 0.
+            if _is_error_payload(out):
+                last_error = f"API error in stdout: {out[:80]}"
+                if attempt < max_retries:
+                    wait = backoffs[min(attempt - 1, len(backoffs) - 1)]
+                    print(f"  [CLI] attempt {attempt}/{max_retries}: {last_error} — retry in {wait}s")
+                    _time.sleep(wait)
+                    continue
+                break
             if result.returncode == 0 and out:
                 return out
             # Tolerate non-zero exit when stdout holds a real response. The
@@ -305,7 +344,8 @@ def ask_claude(prompt: str, system: str = "", max_budget: float = 2.0,
             # returns exit 1 AFTER the model response is already on stdout —
             # discarding that output throws away a perfectly good generation
             # and forces a needless defer. A cleanup-hook failure is not a
-            # generation failure. (2026-06-16)
+            # generation failure. (2026-06-16) — but only if it's NOT an error
+            # payload (checked above).
             if out and len(out) >= 40:
                 print(f"  [CLI] exit {result.returncode} but stdout valid "
                       f"({len(out)} chars) — accepting (likely post-response hook)")
